@@ -20,3 +20,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0012](0012-local-object-storage.md) | SeaweedFS instead of MinIO for local S3 | Accepted |
 | [0013](0013-object-lock-provider.md) | Spike S1-a: Object Lock at Hetzner | Accepted |
 | [0014](0014-contract-first-tooling.md) | Contract-first tooling | Accepted |
+| [0015](0015-invoice-core-integration.md) | How ERIKA uses invoice-core | Accepted |

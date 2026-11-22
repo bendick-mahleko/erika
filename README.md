@@ -17,7 +17,7 @@ Requirements and design live outside this repository (*ERIKA – Requirements Sp
 | `validation-packs/` | Versioned KoSIT/XRechnung/ZUGFeRD validation artefacts (from Stage 4) |
 | `docs/` | Build plan, ADRs, developer docs |
 
-`invoice-core` (parsing and generating e-invoices) lives in its own repository and is consumed as a Maven artefact from Stage 2.
+`invoice-core` (parsing, detecting and checking e-invoices; generating them from Stage 8) lives in its own repository, next to this one (`../invoice-core`), and is consumed as a versioned Maven artefact (ADR 0015).
 
 ## Quick start
 
