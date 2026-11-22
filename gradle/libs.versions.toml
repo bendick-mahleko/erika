@@ -1,0 +1,19 @@
+[versions]
+kotlin = "2.4.21"
+pdfbox = "3.0.8"
+junit = "5.13.4"
+mustang = "2.26.0"
+spotless = "8.12.0"
+ktlint = "1.8.0"
+kover = "0.9.11"
+
+[libraries]
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+mustang-library = { module = "org.mustangproject:library", version.ref = "mustang" }
+mustang-validator = { module = "org.mustangproject:validator", version.ref = "mustang" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
