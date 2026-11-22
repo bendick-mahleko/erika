@@ -1,0 +1,79 @@
+# Common configuration. Secrets and environment-specific values come from
+# environment variables (12-factor); see .env.example and docs/dev-setup.md.
+spring:
+  application:
+    name: erika
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    # The app connects as erika_app: no superuser, no BYPASSRLS, no DDL (Software Design §7).
+    url: ${ERIKA_DB_URL:jdbc:postgresql://localhost:5432/erika?currentSchema=erika}
+    username: ${ERIKA_DB_APP_USER:erika_app}
+    password: ${ERIKA_DB_APP_PASSWORD}
+    hikari:
+      maximum-pool-size: ${ERIKA_DB_POOL_SIZE:10}
+  flyway:
+    # Migrations run as the schema owner, never as the app role.
+    user: ${ERIKA_DB_OWNER_USER:erika_owner}
+    password: ${ERIKA_DB_OWNER_PASSWORD:}
+    default-schema: erika
+    schemas: erika
+    create-schemas: false
+  # Jackson 3 (Boot 4) writes java.time values as ISO 8601 strings by default.
+  # Omit nulls: optional fields in the OpenAPI contract are absent, not null.
+  jackson:
+    default-property-inclusion: non_null
+  task:
+    scheduling:
+      pool:
+        size: 2
+
+server:
+  port: ${ERIKA_HTTP_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+
+management:
+  # Actuator on a separate port that the reverse proxy doesn't route.
+  server:
+    port: ${ERIKA_MANAGEMENT_PORT:8081}
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: false
+
+logging:
+  structured:
+    format:
+      console: ${ERIKA_LOG_FORMAT:ecs}
+
+sentry:
+  # GlitchTip (Sentry-compatible). Empty DSN disables error reporting.
+  dsn: ${ERIKA_SENTRY_DSN:}
+  environment: ${ERIKA_ENVIRONMENT:local}
+  send-default-pii: false
+
+erika:
+  version: ${ERIKA_VERSION:dev}
+  storage:
+    endpoint: ${ERIKA_S3_ENDPOINT:}
+    region: ${ERIKA_S3_REGION:eu-central-1}
+    bucket: ${ERIKA_S3_BUCKET:erika-originals}
+    access-key: ${ERIKA_S3_ACCESS_KEY}
+    secret-key: ${ERIKA_S3_SECRET_KEY}
+    path-style: ${ERIKA_S3_PATH_STYLE:true}
+  jobs:
+    batch-size: 10
+    lease: 5m
+    poll-interval: 1s
+  worker:
+    heartbeat-interval: 30s
+    stale-after: 2m

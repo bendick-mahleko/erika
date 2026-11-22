@@ -1,0 +1,80 @@
+# Staging: one small server (Software Design §8), anonymised test data only.
+# Deployed by .github/workflows/ci.yml on tags (v*) via deploy.sh.
+# Values come from /opt/erika/.env (see .env.example; secrets encrypted with SOPS in the repo).
+name: erika
+
+x-backend: &backend
+  image: ghcr.io/${ERIKA_IMAGE_REPO}/backend:${ERIKA_IMAGE_TAG:?set by deploy.sh}
+  restart: unless-stopped
+  environment: &backend-env
+    ERIKA_ENVIRONMENT: staging
+    ERIKA_DB_URL: jdbc:postgresql://postgres:5432/erika?currentSchema=erika
+    ERIKA_DB_APP_PASSWORD: ${ERIKA_DB_APP_PASSWORD:?}
+    ERIKA_DB_OWNER_PASSWORD: ${ERIKA_DB_OWNER_PASSWORD:?}
+    ERIKA_S3_ENDPOINT: ${ERIKA_S3_ENDPOINT:?}
+    ERIKA_S3_REGION: ${ERIKA_S3_REGION:-eu-central}
+    ERIKA_S3_BUCKET: ${ERIKA_S3_BUCKET:?}
+    ERIKA_S3_ACCESS_KEY: ${ERIKA_S3_ACCESS_KEY:?}
+    ERIKA_S3_SECRET_KEY: ${ERIKA_S3_SECRET_KEY:?}
+    ERIKA_S3_PATH_STYLE: ${ERIKA_S3_PATH_STYLE:-false}
+    ERIKA_SENTRY_DSN: ${ERIKA_SENTRY_DSN:-}
+  depends_on:
+    postgres: { condition: service_healthy }
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      ERIKA_DOMAIN: ${ERIKA_DOMAIN:?}
+      STAGING_USER: ${STAGING_USER:?}
+      STAGING_PASSWORD_HASH: ${STAGING_PASSWORD_HASH:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  postgres:
+    image: postgres:16.15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: erika
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?}
+      ERIKA_DB_APP_PASSWORD: ${ERIKA_DB_APP_PASSWORD:?}
+      ERIKA_DB_OWNER_PASSWORD: ${ERIKA_DB_OWNER_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erika"]
+      interval: 5s
+      retries: 20
+
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      SPRING_PROFILES_ACTIVE: api
+    # Management port only on the host loopback, for deploy.sh health checks.
+    ports: ["127.0.0.1:8081:8081"]
+
+  worker:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      SPRING_PROFILES_ACTIVE: worker
+    depends_on:
+      api: { condition: service_started }
+
+  web:
+    image: ghcr.io/${ERIKA_IMAGE_REPO}/frontend:${ERIKA_IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    environment:
+      ERIKA_API_INTERNAL_URL: http://api:8080
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

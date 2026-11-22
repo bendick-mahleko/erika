@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: ERIKA API
+  version: 0.1.0
+  summary: E-Rechnung Inbox & Creator
+  description: |
+    Contract for the ERIKA back end. This file is the source of truth:
+    the Kotlin server interfaces and the TypeScript client are generated from it.
+
+    Conventions (Software Design §6):
+    - Base path `/api/v1`, JSON, UTF-8, ISO 8601 dates.
+    - Money as decimal strings ("1234.50") plus a currency code.
+    - The workspace comes from the session, never from the URL.
+    - Errors are RFC 9457 problem details with a stable `code`.
+    - `Idempotency-Key` header on POST requests that create or send something.
+servers:
+  - url: /api/v1
+tags:
+  - name: system
+    description: Operational endpoints
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Service health
+      description: |
+        Reports whether the API can reach its database and object storage and
+        whether the background worker is alive. Returns 503 when the service
+        can't serve requests.
+      security: []
+      responses:
+        "200":
+          description: The service is up (possibly degraded).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: The service is down.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  responses:
+    Problem:
+      description: Error as RFC 9457 problem details.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    HealthStatus:
+      type: string
+      enum: [UP, DEGRADED, DOWN]
+    ComponentHealth:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+        detail:
+          type: string
+          description: Short, non-sensitive explanation when the component isn't UP.
+    HealthComponents:
+      type: object
+      required: [database, objectStorage, worker]
+      properties:
+        database:
+          $ref: "#/components/schemas/ComponentHealth"
+        objectStorage:
+          $ref: "#/components/schemas/ComponentHealth"
+        worker:
+          $ref: "#/components/schemas/ComponentHealth"
+    Health:
+      type: object
+      required: [status, version, checkedAt, components]
+      properties:
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+        version:
+          type: string
+          examples: ["0.1.0"]
+        checkedAt:
+          type: string
+          format: date-time
+        components:
+          $ref: "#/components/schemas/HealthComponents"
+    Problem:
+      type: object
+      description: RFC 9457 problem details, extended with a stable machine-readable code.
+      required: [title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          description: Stable error code, e.g. VALIDATION_FAILED, NUMBER_CONFLICT.
+          examples: ["VALIDATION_FAILED"]

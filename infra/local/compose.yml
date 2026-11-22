@@ -1,0 +1,102 @@
+# Local development stack.
+#
+#   docker compose -f infra/local/compose.yml up -d                          # infrastructure only
+#   docker compose -f infra/local/compose.yml --profile app up -d --build    # + api, worker, web
+#
+# Ports (localhost only): Postgres 5432, S3 (SeaweedFS) 9000, Mailpit SMTP 1025 / UI 8025,
+# API 8080, web 3000. Override any host port with ERIKA_*_PORT (see below) if it clashes
+# with another project. All credentials in this file are DEV-ONLY.
+#
+# Object storage: the design names MinIO for local development, but MinIO no longer
+# publishes community images on Docker Hub. SeaweedFS provides the same S3 API,
+# including Object Lock (see docs/adr/0012-local-object-storage.md).
+name: erika
+
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_DB: erika
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev
+    ports: ["127.0.0.1:${ERIKA_PG_PORT:-5432}:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/01-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erika"]
+      interval: 5s
+      retries: 20
+
+  s3:
+    image: chrislusf/seaweedfs:4.50
+    command: mini -dir=/data -s3.config=/etc/seaweedfs/s3.json
+    ports: ["127.0.0.1:${ERIKA_S3_PORT:-9000}:8333"]
+    volumes:
+      - s3data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1"]
+      interval: 5s
+      retries: 30
+
+  # Creates the originals bucket with Object Lock, then exits.
+  s3-init:
+    image: amazon/aws-cli:2.27.0
+    depends_on:
+      s3: { condition: service_healthy }
+    environment:
+      AWS_ACCESS_KEY_ID: seaweed_admin
+      AWS_SECRET_ACCESS_KEY: seaweed_admin_dev
+      AWS_DEFAULT_REGION: eu-central-1
+      S3_ENDPOINT: http://s3:8333
+      BUCKET: erika-originals
+    volumes: [./seaweedfs/init.sh:/init.sh:ro]
+    entrypoint: ["/bin/sh", "/init.sh"]
+
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports: ["127.0.0.1:${ERIKA_SMTP_PORT:-1025}:1025", "127.0.0.1:${ERIKA_MAILPIT_UI_PORT:-8025}:8025"]
+
+  api:
+    profiles: [app]
+    build: { context: ../.., dockerfile: infra/docker/backend.Dockerfile }
+    image: erika-backend:local
+    environment: &backend-env
+      SPRING_PROFILES_ACTIVE: api,local
+      ERIKA_DB_URL: jdbc:postgresql://postgres:5432/erika?currentSchema=erika
+      ERIKA_S3_ENDPOINT: http://s3:8333
+      ERIKA_LOG_FORMAT: ecs
+    ports: ["127.0.0.1:${ERIKA_API_PORT:-8080}:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      s3-init: { condition: service_completed_successfully }
+    healthcheck:
+      # The JRE image has no curl; bash's /dev/tcp is enough for a readiness probe.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081 && printf \"GET /actuator/health/readiness HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q UP <&3'"]
+      interval: 5s
+      retries: 30
+      start_period: 20s
+
+  worker:
+    profiles: [app]
+    image: erika-backend:local
+    environment:
+      <<: *backend-env
+      SPRING_PROFILES_ACTIVE: worker,local
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    profiles: [app]
+    build: { context: ../.., dockerfile: infra/docker/frontend.Dockerfile }
+    image: erika-frontend:local
+    environment:
+      ERIKA_API_INTERNAL_URL: http://api:8080
+    ports: ["127.0.0.1:${ERIKA_WEB_PORT:-3000}:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  s3data:

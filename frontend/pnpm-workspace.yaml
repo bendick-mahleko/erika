@@ -1,0 +1,6 @@
+# pnpm settings for the front end (not a multi-package workspace).
+# Install scripts are opt-in. These two only build optional native fallbacks;
+# prebuilt binaries ship as optional dependencies, so the scripts stay off.
+allowBuilds:
+  "@parcel/watcher": false
+  "@swc/core": false

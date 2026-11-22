@@ -1,0 +1,37 @@
+{
+	# Automatic HTTPS via Let's Encrypt.
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$ERIKA_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# Staging is not public: everything except the health endpoint needs basic auth.
+	@protected not path /api/v1/health
+	basic_auth @protected {
+		{$STAGING_USER} {$STAGING_PASSWORD_HASH}
+	}
+
+	handle /api/* {
+		reverse_proxy api:8080 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

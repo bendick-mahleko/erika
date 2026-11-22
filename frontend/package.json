@@ -1,0 +1,43 @@
+{
+  "name": "erika-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "gen:api": "openapi-typescript ../api/openapi.yaml -o src/lib/api/schema.d.ts",
+    "dev": "pnpm gen:api && next dev",
+    "build": "pnpm gen:api && next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "pnpm gen:api && tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^16.4.6",
+    "next-intl": "^4.15.3",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.15.0",
+    "eslint-config-next": "^16.4.6",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.10.1",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^5.9.3"
+  }
+}

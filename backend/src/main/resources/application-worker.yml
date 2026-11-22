@@ -1,0 +1,6 @@
+# Runtime role: background worker. No HTTP server; the API runs migrations.
+spring:
+  main:
+    web-application-type: none
+  flyway:
+    enabled: false

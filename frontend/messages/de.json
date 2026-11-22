@@ -1,0 +1,27 @@
+{
+  "Layout": {
+    "skipToContent": "Zum Inhalt springen",
+    "productName": "ERIKA",
+    "productTagline": "E-Rechnungen empfangen, lesen, prüfen, archivieren und erstellen"
+  },
+  "Home": {
+    "title": "Willkommen bei ERIKA",
+    "intro": "ERIKA wird gerade aufgebaut. Diese Seite zeigt, ob alle Systemteile erreichbar sind."
+  },
+  "Health": {
+    "heading": "Systemstatus",
+    "version": "Version {version}",
+    "checkedAt": "Geprüft am {checkedAt}",
+    "unreachable": "Die Programmierschnittstelle (API) ist nicht erreichbar.",
+    "status": {
+      "UP": "Betriebsbereit",
+      "DEGRADED": "Eingeschränkt",
+      "DOWN": "Gestört"
+    },
+    "component": {
+      "database": "Datenbank",
+      "objectStorage": "Dateiablage",
+      "worker": "Hintergrundverarbeitung"
+    }
+  }
+}

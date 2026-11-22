@@ -1,0 +1,17 @@
+# Build context is the repo root; send only what the Dockerfiles copy.
+**/.git
+**/node_modules
+**/.next
+**/build
+**/.gradle
+**/.kotlin
+**/playwright-report
+**/test-results
+**/*.tsbuildinfo
+frontend/next-env.d.ts
+frontend/src/lib/api/schema.d.ts
+docs
+.github
+infra/staging
+**/.env
+**/.env.*

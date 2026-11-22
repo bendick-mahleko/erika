@@ -1,0 +1,7 @@
+logging:
+  structured:
+    format:
+      console: ""
+  level:
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN

@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "admin",
+      "credentials": [{ "accessKey": "seaweed_admin", "secretKey": "seaweed_admin_dev" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    },
+    {
+      "name": "erika-app",
+      "credentials": [{ "accessKey": "erika-dev", "secretKey": "erika-dev-secret" }],
+      "actions": ["Read:erika-originals", "Write:erika-originals", "List:erika-originals", "Tagging:erika-originals"]
+    }
+  ]
+}

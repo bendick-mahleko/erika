@@ -1,0 +1,4 @@
+# Runtime role: REST API. Owns database migrations.
+spring:
+  flyway:
+    enabled: true

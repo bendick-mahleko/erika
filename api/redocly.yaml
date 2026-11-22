@@ -1,0 +1,7 @@
+extends:
+  - recommended
+rules:
+  # Private API until release 2; licence info isn't meaningful yet.
+  info-license: off
+  # Health is reachable without a session on purpose.
+  security-defined: off

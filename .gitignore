@@ -1,0 +1,39 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# Back end
+backend/.gradle/
+backend/build/
+backend/.kotlin/
+backend/bin/
+.settings/
+.project
+.classpath
+backend/.settings/
+backend/.project
+backend/.classpath
+
+# Front end
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+frontend/src/lib/api/schema.d.ts
+frontend/playwright-report/
+frontend/test-results/
+frontend/*.tsbuildinfo
+
+# Secrets: only SOPS-encrypted files (*.sops) may be committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Claude Code local settings
+.claude/settings.local.json

@@ -1,0 +1,27 @@
+{
+  "Layout": {
+    "skipToContent": "Skip to content",
+    "productName": "ERIKA",
+    "productTagline": "Receive, read, check, archive and create e-invoices"
+  },
+  "Home": {
+    "title": "Welcome to ERIKA",
+    "intro": "ERIKA is under construction. This page shows whether all parts of the system can be reached."
+  },
+  "Health": {
+    "heading": "System status",
+    "version": "Version {version}",
+    "checkedAt": "Checked at {checkedAt}",
+    "unreachable": "The API can't be reached.",
+    "status": {
+      "UP": "Operational",
+      "DEGRADED": "Degraded",
+      "DOWN": "Down"
+    },
+    "component": {
+      "database": "Database",
+      "objectStorage": "File storage",
+      "worker": "Background processing"
+    }
+  }
+}
