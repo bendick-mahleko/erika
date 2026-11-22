@@ -2,7 +2,7 @@
 # ERIKA back end (API and worker share this image; the Spring profile selects the role).
 # Build context: repository root (the build needs api/openapi.yaml).
 
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:24-jdk AS build
 WORKDIR /src
 COPY api/ api/
 COPY backend/gradlew backend/settings.gradle.kts backend/build.gradle.kts backend/
@@ -15,7 +15,7 @@ ENV ERIKA_VERSION=${ERIKA_VERSION}
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon bootJar -x test \
  && java -Djarmode=tools -jar build/libs/*.jar extract --layers --launcher --destination /extracted
 
-FROM eclipse-temurin:21-jre AS runtime
+FROM eclipse-temurin:24-jre AS runtime
 RUN groupadd --system erika && useradd --system --gid erika --home /app erika
 WORKDIR /app
 COPY --from=build /extracted/dependencies/ ./
