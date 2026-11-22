@@ -14,10 +14,11 @@ Requirements and design live outside this repository (*ERIKA – Requirements Sp
 | `infra/local/` | Docker Compose for development: PostgreSQL 16, S3 (SeaweedFS), Mailpit |
 | `infra/staging/` | Staging deployment: Compose, Caddy, deploy script with rollback |
 | `infra/docker/` | Dockerfiles (build context: repo root) |
+| `invoice-core/` | E-invoice library (Kotlin, independent Gradle build and releases) |
 | `validation-packs/` | Versioned KoSIT/XRechnung/ZUGFeRD validation artefacts (from Stage 4) |
 | `docs/` | Build plan, ADRs, developer docs |
 
-`invoice-core` (parsing, detecting and checking e-invoices; generating them from Stage 8) lives in its own repository, next to this one (`../invoice-core`), and is consumed as a versioned Maven artefact (ADR 0015).
+`invoice-core` (parsing, detecting and checking e-invoices; generating them from Stage 8) is a separate Gradle build in `invoice-core/`, released on its own and consumed by the back end as a versioned Maven artefact (ADR 0015, 0016). See [invoice-core/README.md](invoice-core/README.md).
 
 ## Quick start
 

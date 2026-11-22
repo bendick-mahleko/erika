@@ -1,6 +1,6 @@
 # invoice-core – notes for Claude Code
 
-Plain Kotlin library (no Spring, no DB) used by ERIKA and later the trades/Nebenkosten apps. Decisions: `docs/adr/`.
+Plain Kotlin library (no Spring, no DB), in the `invoice-core/` folder of the ERIKA repository but built on its own (run Gradle from this folder), used by ERIKA and later the trades/Nebenkosten apps. Decisions: `docs/adr/`.
 
 ## Commands
 - `./gradlew check` – ktlint + tests + 90 % coverage gate (first run downloads the pinned test suites).

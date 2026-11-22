@@ -1,10 +1,12 @@
-name: CI
+name: invoice-core
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["invoice-core-v*"]
+    paths: ["invoice-core/**", ".github/workflows/invoice-core.yml"]
   pull_request:
+    paths: ["invoice-core/**", ".github/workflows/invoice-core.yml"]
   workflow_dispatch:
     inputs:
       spike:
@@ -14,6 +16,9 @@ on:
 
 permissions:
   contents: read
+
+defaults:
+  run: { working-directory: invoice-core }
 
 jobs:
   check:
@@ -27,11 +32,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.gradle/caches/erika-test-suites
-          key: test-suites-${{ hashFiles('build.gradle.kts') }}
+          key: test-suites-${{ hashFiles('invoice-core/build.gradle.kts') }}
       - run: ./gradlew check --no-daemon
       - if: failure()
         uses: actions/upload-artifact@v4
-        with: { name: test-reports, path: build/reports }
+        with: { name: invoice-core-test-reports, path: invoice-core/build/reports }
 
   spike:
     if: github.event_name == 'workflow_dispatch' && inputs.spike
@@ -44,11 +49,11 @@ jobs:
       - run: ./gradlew spikeTest --no-daemon
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: spike-output, path: build/spike }
+        with: { name: spike-output, path: invoice-core/build/spike }
 
   publish:
     needs: check
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/invoice-core-v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -59,7 +64,7 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@v4
       - name: Check tag matches version
-        run: test "v$(grep '^version=' gradle.properties | cut -d= -f2)" = "${GITHUB_REF_NAME}"
+        run: test "invoice-core-v$(grep '^version=' gradle.properties | cut -d= -f2)" = "${GITHUB_REF_NAME}"
       - run: ./gradlew publish --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

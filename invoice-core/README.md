@@ -1,6 +1,6 @@
 # invoice-core
 
-The e-invoice engine shared by ERIKA, the Nebenkosten app and the trades app. A plain Kotlin/JVM library: no Spring, no database.
+The e-invoice engine shared by ERIKA, the Nebenkosten app and the trades app. A plain Kotlin/JVM library: no Spring, no database. It lives in the ERIKA repository (`invoice-core/`) but is built, versioned and published on its own; run the commands below from this folder.
 
 | Capability | Requirement | Status |
 |---|---|---|
@@ -55,4 +55,4 @@ The first `test` run downloads the official test suites (about 40 MB), pinned by
 
 ## Versioning and publishing
 
-Semantic versioning (`version` in `gradle.properties`); 0.x until the API settles. Tag `v0.1.0` → CI publishes `de.erika:invoice-core` to GitHub Packages. Decisions: [docs/adr](docs/adr).
+Semantic versioning (`version` in `gradle.properties`); 0.x until the API settles. Tag `invoice-core-v0.1.0` → the `invoice-core` workflow publishes `de.erika:invoice-core` to GitHub Packages. Decisions: [docs/adr](docs/adr).

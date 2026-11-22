@@ -5,6 +5,7 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 ## Commands
 - Back end (from `backend/`): `./gradlew check` (format + all tests; needs Docker), `./gradlew spotlessApply`, `./gradlew test --tests '*JobWorkerIT'`.
 - Front end (from `frontend/`): `pnpm lint`, `pnpm typecheck`, `pnpm format`, `pnpm build`, `pnpm test:e2e`.
+- invoice-core (from `invoice-core/`): `./gradlew check`, `./gradlew publishToMavenLocal`; own rules in `invoice-core/CLAUDE.md`.
 - Local stack: `docker compose -f infra/local/compose.yml [--profile app] up -d [--build]`.
 
 ## Rules

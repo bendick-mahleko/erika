@@ -1,10 +1,10 @@
 # 0015. How ERIKA uses invoice-core
 
-- Status: Accepted
+- Status: Accepted (location amended by 0016)
 - Date: 2026-11-22
 
 ## Context
-`invoice-core` (separate repository, Stage 2) parses and checks e-invoices. Its own decisions are in `invoice-core/docs/adr`. This ADR records what follows for the ERIKA app.
+`invoice-core` (Stage 2, now in the folder `invoice-core/`, see ADR 0016) parses and checks e-invoices. Its own decisions are in `invoice-core/docs/adr`. This ADR records what follows for the ERIKA app.
 
 ## Decision
 - The back end depends on a **fixed released version** (`de.erika:invoice-core:0.1.x`) from GitHub Packages; locally via `publishToMavenLocal`. The dependency is added in Stage 4/5, when `validation` and `intake` first use it, not before.
