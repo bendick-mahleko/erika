@@ -18,7 +18,7 @@ jobs:
     name: API contract lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/openapi.yaml
@@ -29,7 +29,7 @@ jobs:
     defaults:
       run: { working-directory: backend }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@v4
@@ -54,7 +54,7 @@ jobs:
     defaults:
       run: { working-directory: frontend }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with: { package_json_file: frontend/package.json }
       - uses: actions/setup-node@v4
@@ -75,7 +75,7 @@ jobs:
     needs: [backend, frontend]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start stack
         run: docker compose -f infra/local/compose.yml --profile app up -d --build --wait --wait-timeout 300
       - uses: pnpm/action-setup@v4
@@ -122,7 +122,7 @@ jobs:
       matrix:
         image: [backend, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -156,7 +156,7 @@ jobs:
     environment: staging
     concurrency: deploy-staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure SSH
         env:
           SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
