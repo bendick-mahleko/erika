@@ -1,5 +1,6 @@
 package de.erika
 
+import com.tngtech.archunit.core.domain.JavaClass
 import org.junit.jupiter.api.Test
 import org.springframework.modulith.core.ApplicationModules
 import org.springframework.modulith.docs.Documenter
@@ -9,7 +10,10 @@ import org.springframework.modulith.docs.Documenter
  * to another module's internals, only declared dependencies (ADR 0001).
  */
 class ModularityTest {
-    private val modules = ApplicationModules.of(ErikaApplication::class.java)
+    // invoice-core (de.erika.invoicecore) is an external library, not an application module,
+    // although its package sits below de.erika (ADR 0020).
+    private val modules =
+        ApplicationModules.of(ErikaApplication::class.java, JavaClass.Predicates.resideInAPackage("de.erika.invoicecore.."))
 
     @Test
     fun `module boundaries are respected`() {

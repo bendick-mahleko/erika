@@ -1,6 +1,6 @@
 # 0015. How ERIKA uses invoice-core
 
-- Status: Accepted (location amended by 0016)
+- Status: Accepted (location amended by 0016; dependency by 0020: built from source, not a released version)
 - Date: 2026-11-22
 
 ## Context

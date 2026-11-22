@@ -11,7 +11,6 @@
 frontend/next-env.d.ts
 frontend/src/lib/api/schema.d.ts
 docs
-invoice-core
 .github
 infra/staging
 **/.env

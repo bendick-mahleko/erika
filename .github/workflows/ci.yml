@@ -33,7 +33,13 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@v4
-      # `check` = spotlessCheck + all tests (Testcontainers: PostgreSQL, SeaweedFS S3).
+      - name: Cache pinned downloads (validation packs, test suites)
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches/erika-downloads
+          key: erika-downloads-${{ hashFiles('validation-packs/*/pack.json', 'backend/build.gradle.kts') }}
+      # `check` = spotlessCheck + all tests (Testcontainers: PostgreSQL, SeaweedFS S3, Mailpit).
+      # invoice-core is built from source as part of it (composite build, ADR 0020).
       - run: ./gradlew check --no-daemon
       - name: Upload test reports
         if: failure()

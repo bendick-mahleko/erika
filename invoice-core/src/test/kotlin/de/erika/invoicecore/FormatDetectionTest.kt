@@ -58,6 +58,14 @@ class FormatDetectionTest {
     }
 
     @Test
+    fun `invoiceXml returns the XML to validate - the file itself or the embedded XML`() {
+        kotlin.test.assertContentEquals(cii, InvoiceParser.invoiceXml(cii))
+        kotlin.test.assertContentEquals(cii, InvoiceParser.invoiceXml(pdf(attachments = mapOf("factur-x.xml" to cii))))
+        kotlin.test.assertNull(InvoiceParser.invoiceXml(pdf(attachments = emptyMap())))
+        kotlin.test.assertFailsWith<de.erika.invoicecore.InvoiceParseException> { InvoiceParser.invoiceXml("hello".toByteArray()) }
+    }
+
+    @Test
     fun `standard file names win over other attachments, any XML is the fallback`() {
         val other = "<note/>".toByteArray()
         val preferred = InvoiceParser.parse(pdf(attachments = mapOf("aaa.xml" to other, "zugferd-invoice.xml" to cii)))

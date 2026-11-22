@@ -1,6 +1,6 @@
 # 0016. invoice-core lives in this repository
 
-- Status: Accepted (amends 0015)
+- Status: Accepted (amends 0015; amended by 0020)
 - Date: 2026-11-22
 
 ## Context

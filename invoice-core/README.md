@@ -1,12 +1,13 @@
 # invoice-core
 
-The e-invoice engine shared by ERIKA, the Nebenkosten app and the trades app. A plain Kotlin/JVM library: no Spring, no database. It lives in the ERIKA repository (`invoice-core/`) but is built, versioned and published on its own; run the commands below from this folder.
+The e-invoice engine shared by ERIKA, the Nebenkosten app and the trades app. A plain Kotlin/JVM library: no Spring, no database. It lives in the ERIKA repository (`invoice-core/`) but is built, versioned and published on its own; run the commands below from this folder. The ERIKA back end builds it from source (ERIKA ADR 0020).
 
 | Capability | Requirement | Status |
 |---|---|---|
 | Read XRechnung (UBL, CII), EN 16931 UBL/CII, ZUGFeRD 2.x / Factur-X PDFs into one neutral model | IN-03, VW-01 | 0.1 |
 | Detect format and profile; label plain PDFs, MINIMUM/BASIC-WL and ZUGFeRD 1.0 | IN-03, IN-04 | 0.1 |
 | Arithmetic checks and § 14 UStG mandatory-content checks with German/English texts | VW-05, VW-04 | 0.1 |
+| `InvoiceParser.invoiceXml`: the invoice XML to validate (the file, or the XML embedded in a ZUGFeRD PDF) | VW-03 | 0.2 |
 | Write XRechnung / ZUGFeRD | CR-02 | Stage 8 |
 | Render the PDF view copy | VW-02 | Stage 6 |
 

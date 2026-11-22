@@ -10,6 +10,7 @@
       "credentials": [{ "accessKey": "erika-dev", "secretKey": "erika-dev-secret" }],
       "actions": [
         "Read:erika-originals", "Write:erika-originals", "List:erika-originals", "Tagging:erika-originals",
+        "PutObjectRetention:erika-originals", "GetObjectRetention:erika-originals",
         "Read:erika-backups", "Write:erika-backups", "List:erika-backups"
       ]
     }

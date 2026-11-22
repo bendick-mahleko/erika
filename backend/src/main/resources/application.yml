@@ -109,6 +109,13 @@ erika:
     web-base-url: ${ERIKA_WEB_BASE_URL:http://localhost:3000}
   audit:
     head-bucket: ${ERIKA_BACKUP_BUCKET:erika-backups}
+  archive:
+    # COMPLIANCE: S3 Object Lock until the retention date (ADR 0013, 0022). NONE only for
+    # a provider without Object Lock (documented fallback).
+    object-lock: ${ERIKA_ARCHIVE_OBJECT_LOCK:COMPLIANCE}
+  validation:
+    # Assembled validation packs (./gradlew prepareValidationPacks; /app/validation-packs in the image).
+    packs-dir: ${ERIKA_VALIDATION_PACKS_DIR:build/validation-packs}
   worker:
     heartbeat-interval: 30s
     stale-after: 2m

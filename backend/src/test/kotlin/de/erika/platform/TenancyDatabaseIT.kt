@@ -56,7 +56,15 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
 
     @Test
     fun `as the app role without app_workspace_id, tenant tables return no rows`() {
-        accounts.enrolled("rls") // makes sure every tenant table has rows
+        val user = accounts.enrolled("rls") // makes sure the identity and audit tables have rows
+        TestDatabase.update(
+            """
+            INSERT INTO stored_object (workspace_id, sha256, size_bytes, media_type, storage_key, retention_until, object_lock)
+            VALUES (?, repeat('a', 64), 0, 'application/xml', 'ws/rls/aaa', '2034-12-31', 'NONE')
+            ON CONFLICT DO NOTHING
+            """.trimIndent(),
+            user.workspaceId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

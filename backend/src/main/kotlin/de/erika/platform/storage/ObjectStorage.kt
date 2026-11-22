@@ -15,9 +15,16 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
+import software.amazon.awssdk.services.s3.model.ObjectLockMode
+import software.amazon.awssdk.services.s3.model.ObjectLockRetention
+import software.amazon.awssdk.services.s3.model.ObjectLockRetentionMode
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import software.amazon.awssdk.services.s3.model.PutObjectRetentionRequest
 import java.net.URI
+import java.security.MessageDigest
 import java.time.Duration
+import java.time.Instant
+import java.util.Base64
 
 /**
  * S3-compatible object storage (MinIO locally, an EU provider in production).
@@ -55,8 +62,39 @@ class StorageConfiguration {
             .build()
 }
 
-/** Low-level access to the bucket. The `archive` module builds write-once storage on top (Stage 4). */
+/** Result of a write to the originals bucket. */
+data class StoredVersion(
+    val key: String,
+    /** S3 version ID; null if the bucket has no versioning. */
+    val versionId: String?,
+)
+
+/** Low-level access to the buckets. The `archive` module builds write-once storage on top. */
 interface ObjectStorage {
+    /**
+     * Writes to the originals bucket. With [retainUntil], the version is locked in
+     * COMPLIANCE mode until then: nobody, not even the bucket owner, can delete or change it.
+     */
+    fun putOriginal(
+        key: String,
+        bytes: ByteArray,
+        contentType: String,
+        retainUntil: Instant?,
+    ): StoredVersion
+
+    /** Reads one version (or the current one if [versionId] is null) from the originals bucket; null if missing. */
+    fun getOriginal(
+        key: String,
+        versionId: String?,
+    ): ByteArray?
+
+    /** Extends the COMPLIANCE lock of a version (S3 only allows extending it). */
+    fun extendRetention(
+        key: String,
+        versionId: String?,
+        retainUntil: Instant,
+    )
+
     /** Throws if the bucket can't be reached with the configured credentials. */
     fun checkAccess()
 
@@ -88,6 +126,69 @@ class S3ObjectStorage(
 ) : ObjectStorage {
     override fun checkAccess() {
         s3.headBucket(HeadBucketRequest.builder().bucket(props.bucket).build())
+    }
+
+    override fun putOriginal(
+        key: String,
+        bytes: ByteArray,
+        contentType: String,
+        retainUntil: Instant?,
+    ): StoredVersion {
+        val request =
+            PutObjectRequest
+                .builder()
+                .bucket(props.bucket)
+                .key(key)
+                .contentType(contentType)
+                // Content-MD5 is required by S3 for writes with Object Lock parameters.
+                .contentMD5(Base64.getEncoder().encodeToString(MessageDigest.getInstance("MD5").digest(bytes)))
+                .apply {
+                    if (retainUntil != null) {
+                        objectLockMode(ObjectLockMode.COMPLIANCE)
+                        objectLockRetainUntilDate(retainUntil)
+                    }
+                }.build()
+        val response = s3.putObject(request, RequestBody.fromBytes(bytes))
+        return StoredVersion(key, response.versionId())
+    }
+
+    override fun getOriginal(
+        key: String,
+        versionId: String?,
+    ): ByteArray? =
+        try {
+            s3
+                .getObjectAsBytes(
+                    GetObjectRequest
+                        .builder()
+                        .bucket(props.bucket)
+                        .key(key)
+                        .apply { versionId?.let { versionId(it) } }
+                        .build(),
+                ).asByteArray()
+        } catch (e: NoSuchKeyException) {
+            null
+        }
+
+    override fun extendRetention(
+        key: String,
+        versionId: String?,
+        retainUntil: Instant,
+    ) {
+        s3.putObjectRetention(
+            PutObjectRetentionRequest
+                .builder()
+                .bucket(props.bucket)
+                .key(key)
+                .apply { versionId?.let { versionId(it) } }
+                .retention(
+                    ObjectLockRetention
+                        .builder()
+                        .mode(ObjectLockRetentionMode.COMPLIANCE)
+                        .retainUntilDate(retainUntil)
+                        .build(),
+                ).build(),
+        )
     }
 
     override fun put(

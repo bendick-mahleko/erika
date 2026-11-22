@@ -41,6 +41,22 @@ public object InvoiceParser {
         }
     }
 
+    /**
+     * The invoice XML to validate: the file itself for XML, the embedded invoice XML
+     * (ZUGFeRD/Factur-X) for a PDF, or null for a PDF without one. The bytes are not
+     * checked to be an invoice; use [parse] for that.
+     */
+    public fun invoiceXml(bytes: ByteArray): ByteArray? {
+        if (bytes.size > MAX_FILE_BYTES) {
+            throw InvoiceParseException(ParseErrorCode.TOO_LARGE, "File is larger than $MAX_FILE_BYTES bytes")
+        }
+        return when {
+            PdfInvoiceExtractor.isPdf(bytes) -> PdfInvoiceExtractor.extract(bytes)?.bytes
+            SafeXml.looksLikeXml(bytes) -> bytes
+            else -> throw InvoiceParseException(ParseErrorCode.UNKNOWN_FILE_TYPE, "File is neither XML nor PDF")
+        }
+    }
+
     /** Detects the format without keeping the model (same cost as [parse]). */
     public fun detect(bytes: ByteArray): DetectedFormat = parse(bytes).format
 

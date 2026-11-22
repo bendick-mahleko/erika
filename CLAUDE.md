@@ -16,6 +16,9 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - New endpoints: request bodies need an `example`, and new path parameters need a tenant-B fixture in `TenantIsolationIT` (NF-03 harness, generated from the OpenAPI file).
 - Auditable changes publish an event implementing `platform.audit.AuditableEvent` inside the changing transaction (hash-chained `audit_log`, ADR 0019).
 - Role checks: `@PreAuthorize` per endpoint; tax advisors (ADVISOR) never change data.
+- Originals only through `archive.Archive` (write-once, Object Lock, hash check on open). Validation only through `validation.InvoiceValidator` (worker only).
+- Validation packs are data (`validation-packs/`, ADR 0021): never commit third-party artefacts, pin them by SHA-256 in `pack.json`; every rule ID needs a German text (`RuleTextCatalogueTest`).
+- invoice-core is built from source (composite build, ADR 0020); keep `invoice-core/gradle.properties` and the version in `backend/gradle/libs.versions.toml` equal.
 - Jobs: `JobHandler` implementations must be idempotent; enqueue inside the creating transaction.
 - Errors: RFC 9457 problem details with a stable `code` (`ErikaException`).
 - No invoice content in logs or exception messages.

@@ -19,7 +19,7 @@ docker compose -f infra/local/compose.yml down -v      # reset everything (delet
 | Service | Address | Credentials (dev only) |
 |---|---|---|
 | PostgreSQL 16 | `localhost:5432/erika` | app `erika_app` / `erika_app_dev`; owner `erika_owner` / `erika_owner_dev`; superuser `postgres` / `postgres_dev` |
-| S3 (SeaweedFS) | `http://localhost:9000`, buckets `erika-originals` and `erika-backups` (Object Lock on) | app key `erika-dev` / `erika-dev-secret`; admin `seaweed_admin` / `seaweed_admin_dev` |
+| S3 (SeaweedFS) | `http://localhost:9000`, buckets `erika-originals` and `erika-backups` (Object Lock on; the app key may set retention but not delete) | app key `erika-dev` / `erika-dev-secret`; admin `seaweed_admin` / `seaweed_admin_dev` |
 | Mailpit | SMTP `localhost:1025`, UI http://localhost:8025 | – (all mail sent by the worker lands here) |
 
 Database roles: the app runs as `erika_app` (no DDL, no BYPASSRLS); Flyway migrates as `erika_owner` (ADR 0011).
@@ -62,6 +62,14 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - A new tenant table needs `workspace_id NOT NULL`, an index, `ENABLE ROW LEVEL SECURITY` and a policy using `current_workspace_id()`. `TenancyDatabaseIT` fails otherwise.
 - A new endpoint is picked up by `TenantIsolationIT` from the OpenAPI file. It needs an `example` for its request body and, for new path parameters, a tenant-B fixture.
 - Record auditable changes by publishing an `AuditableEvent` in the changing transaction.
+
+### Archive and validation
+
+- `./gradlew prepareValidationPacks` assembles the validation packs into `build/validation-packs` (run automatically by `test` and `bootRun`). Downloads are cached in `~/.gradle/caches/erika-downloads`.
+- Validation runs in the worker only (`InvoiceValidator`); start-up compiles the active pack (a few seconds).
+- New German rule texts: see `validation-packs/README.md`. `RuleTextCatalogueTest` fails if a rule ID has no text.
+- Originals go through `Archive.store/open` inside a workspace-scoped transaction; never write to the originals bucket directly. The app key has no delete permission, and versions are locked (Object Lock, COMPLIANCE).
+- invoice-core is built from source as part of the back-end build (composite build, ADR 0020). Change its API in `invoice-core/` and the back end sees it immediately.
 
 ## Front end
 

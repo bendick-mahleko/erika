@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ERIKA's additional scenarios, evaluated after the official KoSIT XRechnung configuration
+  (which stays unchanged). They cover EN 16931 invoices that are neither XRechnung nor plain
+  EN 16931: ZUGFeRD/Factur-X BASIC and EXTENDED, Peppol BIS Billing 3.0 and other CIUS.
+  They use the XML Schemas and the CEN EN 16931 Schematron from the KoSIT configuration
+  (repository = kosit-configuration/). See docs/adr/0021-validation-packs-and-engine.md.
+-->
+<scenarios xmlns="http://www.xoev.de/de/validator/framework/1/scenarios" frameworkVersion="1.0.0">
+  <name>ERIKA EN 16931 scenarios (CIUS and extensions)</name>
+  <author>ERIKA</author>
+  <date>2026-11-22</date>
+  <description>
+    <p>EN 16931 core rules (CEN Schematron) for invoices with other specification identifiers.</p>
+  </description>
+
+  <scenario>
+    <name>EN16931 CIUS/Extension (UBL Invoice)</name>
+    <description><p>UBL 2.1 Invoice XML Schema and CEN EN 16931 Schematron (UBL).</p></description>
+    <namespace prefix="cbc">urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2</namespace>
+    <namespace prefix="invoice">urn:oasis:names:specification:ubl:schema:xsd:Invoice-2</namespace>
+    <namespace prefix="rep">http://www.xoev.de/de/validator/varl/1</namespace>
+    <match>exists(/invoice:Invoice[starts-with(normalize-space(cbc:CustomizationID), 'urn:cen.eu:en16931:2017#') and not(contains(cbc:CustomizationID, 'xrechnung'))])</match>
+    <validateWithXmlSchema>
+      <resource>
+        <name>XML Schema for UBL 2.1 Invoice</name>
+        <location>resources/ubl/2.1/xsd/maindoc/UBL-Invoice-2.1.xsd</location>
+      </resource>
+    </validateWithXmlSchema>
+    <validateWithSchematron>
+      <resource>
+        <name>Schematron rules for EN16931 (UBL)</name>
+        <location>resources/ubl/2.1/xsl/EN16931-UBL-validation.xsl</location>
+      </resource>
+    </validateWithSchematron>
+    <createReport>
+      <resource>
+        <name>Validation report for EN16931 (UBL)</name>
+        <location>resources/xrechnung-report.xsl</location>
+      </resource>
+    </createReport>
+    <acceptMatch>/rep:report/rep:assessment[1]/rep:accept[1]</acceptMatch>
+  </scenario>
+
+  <scenario>
+    <name>EN16931 CIUS/Extension (UBL CreditNote)</name>
+    <description><p>UBL 2.1 CreditNote XML Schema and CEN EN 16931 Schematron (UBL).</p></description>
+    <namespace prefix="cbc">urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2</namespace>
+    <namespace prefix="creditnote">urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2</namespace>
+    <namespace prefix="rep">http://www.xoev.de/de/validator/varl/1</namespace>
+    <match>exists(/creditnote:CreditNote[starts-with(normalize-space(cbc:CustomizationID), 'urn:cen.eu:en16931:2017#') and not(contains(cbc:CustomizationID, 'xrechnung'))])</match>
+    <validateWithXmlSchema>
+      <resource>
+        <name>XML Schema for UBL 2.1 CreditNote</name>
+        <location>resources/ubl/2.1/xsd/maindoc/UBL-CreditNote-2.1.xsd</location>
+      </resource>
+    </validateWithXmlSchema>
+    <validateWithSchematron>
+      <resource>
+        <name>Schematron rules for EN16931 (UBL)</name>
+        <location>resources/ubl/2.1/xsl/EN16931-UBL-validation.xsl</location>
+      </resource>
+    </validateWithSchematron>
+    <createReport>
+      <resource>
+        <name>Validation report for EN16931 (UBL)</name>
+        <location>resources/xrechnung-report.xsl</location>
+      </resource>
+    </createReport>
+    <acceptMatch>/rep:report/rep:assessment[1]/rep:accept[1]</acceptMatch>
+  </scenario>
+
+  <scenario>
+    <name>EN16931 CIUS/Extension (CII, incl. ZUGFeRD/Factur-X BASIC and EXTENDED)</name>
+    <description><p>UN/CEFACT CII D16B XML Schema and CEN EN 16931 Schematron (CII).</p></description>
+    <namespace prefix="rsm">urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100</namespace>
+    <namespace prefix="ram">urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100</namespace>
+    <namespace prefix="rep">http://www.xoev.de/de/validator/varl/1</namespace>
+    <match>exists(/rsm:CrossIndustryInvoice[starts-with(normalize-space(rsm:ExchangedDocumentContext/ram:GuidelineSpecifiedDocumentContextParameter/ram:ID), 'urn:cen.eu:en16931:2017#') and not(contains(rsm:ExchangedDocumentContext/ram:GuidelineSpecifiedDocumentContextParameter/ram:ID, 'xrechnung'))])</match>
+    <validateWithXmlSchema>
+      <resource>
+        <name>XML Schema for UN/CEFACT XML (SCRDM - CII uncoupled)</name>
+        <location>resources/cii/16b/xsd/CrossIndustryInvoice_100pD16B.xsd</location>
+      </resource>
+    </validateWithXmlSchema>
+    <validateWithSchematron>
+      <resource>
+        <name>Schematron rules for EN16931 (CII)</name>
+        <location>resources/cii/16b/xsl/EN16931-CII-validation.xsl</location>
+      </resource>
+    </validateWithSchematron>
+    <createReport>
+      <resource>
+        <name>Validation report for EN16931 (CII)</name>
+        <location>resources/xrechnung-report.xsl</location>
+      </resource>
+    </createReport>
+    <acceptMatch>/rep:report/rep:assessment[1]/rep:accept[1]</acceptMatch>
+  </scenario>
+
+  <noScenarioReport>
+    <resource>
+      <name>Default Report</name>
+      <location>resources/default-report.xsl</location>
+    </resource>
+  </noScenarioReport>
+</scenarios>

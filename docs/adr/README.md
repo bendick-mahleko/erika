@@ -20,8 +20,11 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0012](0012-local-object-storage.md) | SeaweedFS instead of MinIO for local S3 | Accepted |
 | [0013](0013-object-lock-provider.md) | Spike S1-a: Object Lock at Hetzner | Accepted |
 | [0014](0014-contract-first-tooling.md) | Contract-first tooling | Accepted |
-| [0015](0015-invoice-core-integration.md) | How ERIKA uses invoice-core | Accepted (amended by 0016) |
-| [0016](0016-invoice-core-in-this-repository.md) | invoice-core lives in this repository | Accepted |
+| [0015](0015-invoice-core-integration.md) | How ERIKA uses invoice-core | Accepted (amended by 0016, 0020) |
+| [0016](0016-invoice-core-in-this-repository.md) | invoice-core lives in this repository | Accepted (amended by 0020) |
 | [0017](0017-sign-in-and-second-factor.md) | Sign-in, second factor and sessions | Accepted |
 | [0018](0018-tenant-scope-per-request.md) | Tenant scope per request and the isolation checks | Accepted |
 | [0019](0019-audit-hash-chain.md) | Audit log as a hash chain per workspace | Accepted |
+| [0020](0020-invoice-core-from-source.md) | The back end builds invoice-core from source | Accepted |
+| [0021](0021-validation-packs-and-engine.md) | Validation packs and the validation engine | Accepted |
+| [0022](0022-archive-write-once-originals.md) | Archive: write-once originals, retention, integrity | Accepted |
