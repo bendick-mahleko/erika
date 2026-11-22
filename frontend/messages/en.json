@@ -23,5 +23,93 @@
       "objectStorage": "File storage",
       "worker": "Background processing"
     }
+  },
+  "Nav": {
+    "label": "Main navigation",
+    "home": "Home",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "signOut": "Sign out",
+    "settings": "Settings",
+    "signedInAs": "Signed in as {name}"
+  },
+  "Auth": {
+    "email": "Email address",
+    "password": "Password",
+    "passwordHint": "At least 12 characters. A sentence of several words is secure and easy to remember.",
+    "displayName": "Your name",
+    "workspaceName": "Your company name",
+    "signup": {
+      "title": "Create an account",
+      "intro": "ERIKA receives, checks and archives your e-invoices. Sign-in is protected by a second factor.",
+      "submit": "Create account",
+      "doneTitle": "Please check your inbox",
+      "done": "We sent an email to {email}. Click the link in it to confirm your address.",
+      "haveAccount": "Already have an account?"
+    },
+    "verify": {
+      "title": "Confirm email address",
+      "working": "Confirming your email address …",
+      "done": "Thank you! Your email address is confirmed. You can sign in now.",
+      "missingToken": "The link is incomplete. Please open the link from the email again."
+    },
+    "login": {
+      "title": "Sign in",
+      "submit": "Continue",
+      "noAccount": "No account yet?"
+    },
+    "totp": {
+      "title": "Verification code",
+      "intro": "Enter the 6-digit code from your authenticator app.",
+      "code": "Code from the app",
+      "submit": "Sign in",
+      "useRecovery": "No access to the app? Use a recovery code",
+      "useApp": "Use a code from the app",
+      "recoveryCode": "Recovery code"
+    },
+    "setup": {
+      "title": "Set up two-factor sign-in",
+      "intro": "A second factor is required to protect your invoices. Scan the QR code with an authenticator app (e.g. Google Authenticator, Microsoft Authenticator or 2FAS).",
+      "qrAlt": "QR code for your authenticator app",
+      "manual": "Or enter this key by hand:",
+      "code": "Code from the app",
+      "submit": "Finish setup",
+      "codesTitle": "Your recovery codes",
+      "codesIntro": "Keep these codes safe, e.g. printed. Each code works once if you can't use your app. They are shown only now.",
+      "continue": "I have saved the codes – continue"
+    }
+  },
+  "Workspace": {
+    "title": "Company details",
+    "intro": "These details will appear on your invoices.",
+    "name": "Company name",
+    "street": "Street and number",
+    "postalCode": "Postcode",
+    "city": "City",
+    "countryCode": "Country (ISO code, e.g. DE)",
+    "vatId": "VAT ID (USt-IdNr.)",
+    "vatIdHint": "e.g. DE123456789",
+    "taxNumber": "Tax number (Steuernummer)",
+    "taxNumberHint": "e.g. 30/123/45678",
+    "save": "Save",
+    "saved": "Saved.",
+    "readOnly": "Only the owner can change these details."
+  },
+  "Errors": {
+    "INVALID_CREDENTIALS": "Email address or password is wrong.",
+    "INVALID_CODE": "The code is wrong or has expired.",
+    "EMAIL_NOT_VERIFIED": "Please confirm your email address first, using the link in our email.",
+    "LOGIN_REQUIRED": "Please sign in with your password first.",
+    "WRONG_LOGIN_STEP": "This step doesn't match your sign-in state. Please sign in again.",
+    "RATE_LIMITED": "Too many attempts. Please wait a few minutes.",
+    "INVALID_TOKEN": "The link is invalid or has expired.",
+    "WEAK_PASSWORD": "The password must not contain your email address or company name.",
+    "VALIDATION_FAILED": "Please check your input.",
+    "VERSION_CONFLICT": "Someone else changed the details in the meantime. Please reload the page.",
+    "PRECONDITION_REQUIRED": "Please reload the page and try again.",
+    "FORBIDDEN": "Your role doesn't allow this action.",
+    "CSRF_TOKEN_INVALID": "Your session has expired. Please reload the page.",
+    "UNAUTHORIZED": "Please sign in.",
+    "generic": "Something went wrong. Please try again."
   }
 }

@@ -1,0 +1,45 @@
+import createClient, { type Middleware } from "openapi-fetch";
+import type { components, paths } from "./schema";
+
+/**
+ * Typed client for calls from the browser (client components). Same origin: /api/v1 is
+ * forwarded to the back end (src/proxy.ts locally, Caddy in staging/production), so the
+ * session cookie stays first-party.
+ *
+ * State-changing requests carry the CSRF token: the back end sets the `XSRF-TOKEN`
+ * cookie, we echo it in the `X-XSRF-TOKEN` header.
+ */
+export type Problem = components["schemas"]["Problem"];
+export type Session = components["schemas"]["Session"];
+export type Workspace = components["schemas"]["Workspace"];
+export type WorkspaceUpdate = components["schemas"]["WorkspaceUpdate"];
+
+function readCookie(name: string): string | undefined {
+  return document.cookie
+    .split("; ")
+    .find((c) => c.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+}
+
+const csrf: Middleware = {
+  async onRequest({ request }) {
+    if (request.method === "GET") return request;
+    let token = readCookie("XSRF-TOKEN");
+    if (!token) {
+      // GET /auth/session sets the cookie.
+      await fetch("/api/v1/auth/session", { credentials: "same-origin" });
+      token = readCookie("XSRF-TOKEN");
+    }
+    if (token) request.headers.set("X-XSRF-TOKEN", decodeURIComponent(token));
+    return request;
+  },
+};
+
+export const browserApi = createClient<paths>({ baseUrl: "/api/v1", credentials: "same-origin" });
+browserApi.use(csrf);
+
+/** Stable error code from a problem response, or "network" if the request didn't get through. */
+export function problemCode(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
+  return "generic";
+}

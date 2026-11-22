@@ -19,8 +19,8 @@ docker compose -f infra/local/compose.yml down -v      # reset everything (delet
 | Service | Address | Credentials (dev only) |
 |---|---|---|
 | PostgreSQL 16 | `localhost:5432/erika` | app `erika_app` / `erika_app_dev`; owner `erika_owner` / `erika_owner_dev`; superuser `postgres` / `postgres_dev` |
-| S3 (SeaweedFS) | `http://localhost:9000`, bucket `erika-originals` (Object Lock on) | app key `erika-dev` / `erika-dev-secret`; admin `seaweed_admin` / `seaweed_admin_dev` |
-| Mailpit | SMTP `localhost:1025`, UI http://localhost:8025 | – |
+| S3 (SeaweedFS) | `http://localhost:9000`, buckets `erika-originals` and `erika-backups` (Object Lock on) | app key `erika-dev` / `erika-dev-secret`; admin `seaweed_admin` / `seaweed_admin_dev` |
+| Mailpit | SMTP `localhost:1025`, UI http://localhost:8025 | – (all mail sent by the worker lands here) |
 
 Database roles: the app runs as `erika_app` (no DDL, no BYPASSRLS); Flyway migrates as `erika_owner` (ADR 0011).
 
@@ -46,6 +46,23 @@ cd backend
 2. Enqueue with `JobQueue.enqueue(type, payload, workspaceId)` inside the transaction that creates the data the job needs.
 3. Test it with `WorkerIntegrationTest` and `JobWorker.runOnce()` (see `JobWorkerIT`).
 
+### Signing in locally
+
+1. Start the API **and** the worker (the worker sends mail), then open http://localhost:3000/signup.
+2. The verification email arrives in Mailpit (http://localhost:8025); open its link.
+3. Sign in. Set up an authenticator app by scanning the QR code (2FA is mandatory for every role, ADR 0017).
+4. Locked yourself out with 5 wrong attempts? Wait 15 minutes, or
+   `UPDATE erika.app_user SET locked_until = NULL WHERE email = '…';` as `erika_owner`.
+
+The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_KEY`) and non-secure cookies, because it runs over http.
+
+### Tenancy, roles and audit in new code
+
+- Signed-in requests already run in a tenant transaction (ADR 0018). Code outside a request (jobs, sign-in) calls `TenantContext.enterWorkspace(id)` inside its transaction.
+- A new tenant table needs `workspace_id NOT NULL`, an index, `ENABLE ROW LEVEL SECURITY` and a policy using `current_workspace_id()`. `TenancyDatabaseIT` fails otherwise.
+- A new endpoint is picked up by `TenantIsolationIT` from the OpenAPI file. It needs an `example` for its request body and, for new path parameters, a tenant-B fixture.
+- Record auditable changes by publishing an `AuditableEvent` in the changing transaction.
+
 ## Front end
 
 ```bash
@@ -56,7 +73,9 @@ pnpm lint && pnpm typecheck && pnpm format:check
 pnpm build && pnpm test:e2e      # Playwright (first time: pnpm exec playwright install chromium)
 ```
 
-`ERIKA_API_INTERNAL_URL` (default `http://localhost:8080`) tells server components where the API is.
+`ERIKA_API_INTERNAL_URL` (default `http://localhost:8080`) tells server components where the API is. Browser calls go to `/api/v1/*` on the web app's own origin; `src/proxy.ts` forwards them to that URL, so the session cookie stays first-party (Caddy does this in staging).
+
+Full-stack E2E tests (`E2E_EXPECT_API=true`) read the verification mail from Mailpit: set `E2E_MAILPIT_URL` if its UI isn't on `http://localhost:8025`.
 
 Texts: every UI string goes into `messages/de.json` and `messages/en.json` (NF-13).
 

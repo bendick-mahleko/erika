@@ -11,7 +11,11 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 ## Rules
 - Contract first: change `api/openapi.yaml` before code; never edit generated code (`backend/build/generated`, `frontend/src/lib/api/schema.d.ts`).
 - Module boundaries (Spring Modulith) are enforced by `ModularityTest`; feature modules talk via published interfaces or events, never another module's tables.
-- Every tenant table: `workspace_id NOT NULL`, index, RLS policy. The app role is `erika_app` (no DDL); migrations run as `erika_owner`. Flyway migrations are expand-then-contract only.
+- Every tenant table: `workspace_id NOT NULL`, index, RLS policy using `current_workspace_id()` (checked by `TenancyDatabaseIT`; system tables are listed there with a reason). The app role is `erika_app` (no DDL); migrations run as `erika_owner`. Flyway migrations are expand-then-contract only.
+- Signed-in requests run in one transaction scoped by `TenantTransactionFilter`; elsewhere use `TenantContext.enterWorkspace` inside a transaction. Never take a workspace ID from the request.
+- New endpoints: request bodies need an `example`, and new path parameters need a tenant-B fixture in `TenantIsolationIT` (NF-03 harness, generated from the OpenAPI file).
+- Auditable changes publish an event implementing `platform.audit.AuditableEvent` inside the changing transaction (hash-chained `audit_log`, ADR 0019).
+- Role checks: `@PreAuthorize` per endpoint; tax advisors (ADVISOR) never change data.
 - Jobs: `JobHandler` implementations must be idempotent; enqueue inside the creating transaction.
 - Errors: RFC 9457 problem details with a stable `code` (`ErikaException`).
 - No invoice content in logs or exception messages.

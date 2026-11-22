@@ -23,5 +23,93 @@
       "objectStorage": "Dateiablage",
       "worker": "Hintergrundverarbeitung"
     }
+  },
+  "Nav": {
+    "label": "Hauptnavigation",
+    "home": "Start",
+    "signIn": "Anmelden",
+    "signUp": "Registrieren",
+    "signOut": "Abmelden",
+    "settings": "Einstellungen",
+    "signedInAs": "Angemeldet als {name}"
+  },
+  "Auth": {
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "passwordHint": "Mindestens 12 Zeichen. Ein Satz aus mehreren Wörtern ist sicher und leicht zu merken.",
+    "displayName": "Ihr Name",
+    "workspaceName": "Name Ihres Unternehmens",
+    "signup": {
+      "title": "Konto anlegen",
+      "intro": "Mit ERIKA empfangen, prüfen und archivieren Sie E-Rechnungen. Die Anmeldung ist durch einen zweiten Faktor geschützt.",
+      "submit": "Konto anlegen",
+      "doneTitle": "Bitte prüfen Sie Ihr Postfach",
+      "done": "Wir haben eine E-Mail an {email} geschickt. Klicken Sie auf den Link darin, um Ihre Adresse zu bestätigen.",
+      "haveAccount": "Sie haben schon ein Konto?"
+    },
+    "verify": {
+      "title": "E-Mail-Adresse bestätigen",
+      "working": "Ihre E-Mail-Adresse wird bestätigt …",
+      "done": "Danke! Ihre E-Mail-Adresse ist bestätigt. Sie können sich jetzt anmelden.",
+      "missingToken": "Der Link ist unvollständig. Bitte öffnen Sie den Link aus der E-Mail erneut."
+    },
+    "login": {
+      "title": "Anmelden",
+      "submit": "Weiter",
+      "noAccount": "Noch kein Konto?"
+    },
+    "totp": {
+      "title": "Bestätigungscode",
+      "intro": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
+      "code": "Code aus der App",
+      "submit": "Anmelden",
+      "useRecovery": "Kein Zugriff auf die App? Wiederherstellungscode verwenden",
+      "useApp": "Code aus der App verwenden",
+      "recoveryCode": "Wiederherstellungscode"
+    },
+    "setup": {
+      "title": "Zwei-Faktor-Anmeldung einrichten",
+      "intro": "Zum Schutz Ihrer Rechnungen ist ein zweiter Faktor Pflicht. Scannen Sie den QR-Code mit einer Authenticator-App (z. B. Google Authenticator, Microsoft Authenticator oder 2FAS).",
+      "qrAlt": "QR-Code für Ihre Authenticator-App",
+      "manual": "Oder geben Sie diesen Schlüssel von Hand ein:",
+      "code": "Code aus der App",
+      "submit": "Einrichtung abschließen",
+      "codesTitle": "Ihre Wiederherstellungscodes",
+      "codesIntro": "Bewahren Sie diese Codes sicher auf, z. B. ausgedruckt. Jeder Code funktioniert einmal, falls Sie keinen Zugriff auf Ihre App haben. Sie werden nur jetzt angezeigt.",
+      "continue": "Ich habe die Codes gesichert – weiter"
+    }
+  },
+  "Workspace": {
+    "title": "Unternehmensdaten",
+    "intro": "Diese Angaben erscheinen später auf Ihren Rechnungen.",
+    "name": "Name des Unternehmens",
+    "street": "Straße und Hausnummer",
+    "postalCode": "PLZ",
+    "city": "Ort",
+    "countryCode": "Land (ISO-Code, z. B. DE)",
+    "vatId": "USt-IdNr.",
+    "vatIdHint": "z. B. DE123456789",
+    "taxNumber": "Steuernummer",
+    "taxNumberHint": "z. B. 30/123/45678",
+    "save": "Speichern",
+    "saved": "Gespeichert.",
+    "readOnly": "Nur der Inhaber oder die Inhaberin kann diese Angaben ändern."
+  },
+  "Errors": {
+    "INVALID_CREDENTIALS": "E-Mail-Adresse oder Passwort ist falsch.",
+    "INVALID_CODE": "Der Code ist falsch oder abgelaufen.",
+    "EMAIL_NOT_VERIFIED": "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den Link in unserer E-Mail.",
+    "LOGIN_REQUIRED": "Bitte melden Sie sich zuerst mit Ihrem Passwort an.",
+    "WRONG_LOGIN_STEP": "Dieser Schritt passt nicht zum Anmeldestand. Bitte melden Sie sich neu an.",
+    "RATE_LIMITED": "Zu viele Versuche. Bitte warten Sie einige Minuten.",
+    "INVALID_TOKEN": "Der Link ist ungültig oder abgelaufen.",
+    "WEAK_PASSWORD": "Das Passwort darf Ihre E-Mail-Adresse oder den Unternehmensnamen nicht enthalten.",
+    "VALIDATION_FAILED": "Bitte prüfen Sie Ihre Eingaben.",
+    "VERSION_CONFLICT": "Jemand anderes hat die Daten inzwischen geändert. Bitte laden Sie die Seite neu.",
+    "PRECONDITION_REQUIRED": "Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
+    "FORBIDDEN": "Ihre Rolle erlaubt diese Aktion nicht.",
+    "CSRF_TOKEN_INVALID": "Ihre Sitzung ist abgelaufen. Bitte laden Sie die Seite neu.",
+    "UNAUTHORIZED": "Bitte melden Sie sich an.",
+    "generic": "Etwas ist schiefgegangen. Bitte versuchen Sie es erneut."
   }
 }

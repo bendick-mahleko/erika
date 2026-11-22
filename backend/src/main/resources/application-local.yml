@@ -4,13 +4,27 @@ spring:
     password: ${ERIKA_DB_APP_PASSWORD:erika_app_dev}
   flyway:
     password: ${ERIKA_DB_OWNER_PASSWORD:erika_owner_dev}
+  mail:
+    properties:
+      "[mail.smtp.starttls.enable]": false
 
 logging:
   structured:
     format:
       console: ${ERIKA_LOG_FORMAT:}
 
+server:
+  servlet:
+    session:
+      cookie:
+        # Plain http on localhost.
+        secure: false
+
 erika:
+  identity:
+    # DEV-ONLY key. Production: generate with `openssl rand -base64 32`, keep in SOPS.
+    totp-encryption-key: ${ERIKA_TOTP_ENCRYPTION_KEY:ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE=}
+    secure-cookies: false
   storage:
     endpoint: ${ERIKA_S3_ENDPOINT:http://localhost:9000}
     access-key: ${ERIKA_S3_ACCESS_KEY:erika-dev}

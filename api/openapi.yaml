@@ -13,11 +13,24 @@ info:
     - The workspace comes from the session, never from the URL.
     - Errors are RFC 9457 problem details with a stable `code`.
     - `Idempotency-Key` header on POST requests that create or send something.
+
+    Authentication (Software Design §7): server-side session cookie `ERIKA_SESSION`
+    after password **and** second factor (TOTP). State-changing requests need the
+    CSRF token: read the `XSRF-TOKEN` cookie (set by `GET /auth/session`) and send it
+    in the `X-XSRF-TOKEN` header.
 servers:
   - url: /api/v1
+security:
+  - session: []
 tags:
   - name: system
     description: Operational endpoints
+  - name: auth
+    description: Sign-up, sign-in with 2FA, sign-out (EX-02, NF-02)
+  - name: workspace
+    description: The signed-in user's workspace (from the session, never from the URL)
+  - name: members
+    description: Users of the workspace and their roles
 paths:
   /health:
     get:
@@ -44,7 +57,225 @@ paths:
                 $ref: "#/components/schemas/Health"
         default:
           $ref: "#/components/responses/Problem"
+  /auth/session:
+    get:
+      tags: [auth]
+      operationId: getSession
+      summary: Current sign-in state
+      description: Also sets the `XSRF-TOKEN` cookie needed for state-changing requests.
+      security: []
+      responses:
+        "200":
+          description: Sign-in state of this browser session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/signup:
+    post:
+      tags: [auth]
+      operationId: signUp
+      summary: Create an account and its workspace
+      description: |
+        Creates the user (role OWNER) and the workspace and sends a verification email.
+        Always answers 202, also when the email address is already registered (that
+        address gets a notice instead), so the endpoint doesn't reveal accounts.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignupRequest" }
+            example: { email: "erika@example.de", password: "correct horse battery staple", displayName: "Erika Mustermann", workspaceName: "Mustermann Malerbetrieb", locale: "de" }
+      responses:
+        "202": { description: Accepted; check your email. }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/verify-email:
+    post:
+      tags: [auth]
+      operationId: verifyEmail
+      summary: Confirm the email address with the token from the email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyEmailRequest" }
+            example: { token: "q3J1cHRvZ3JhcGhpY2FsbHktcmFuZG9tLXRva2Vu" }
+      responses:
+        "204": { description: Email address verified. }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: logIn
+      summary: First step of sign-in (email and password)
+      description: |
+        On success the session waits for the second factor: state `TOTP_REQUIRED`, or
+        `TOTP_ENROLMENT_REQUIRED` if the user has not set up an authenticator app yet.
+        Wrong credentials, unknown users and locked accounts all answer 401
+        `INVALID_CREDENTIALS`. Five failures lock the account for 15 minutes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+            example: { email: "erika@example.de", password: "correct horse battery staple" }
+      responses:
+        "200":
+          description: Password accepted; second factor needed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/totp:
+    post:
+      tags: [auth]
+      operationId: verifyTotp
+      summary: Second step of sign-in (authenticator code or recovery code)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpRequest" }
+            example: { code: "123456" }
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/totp/enrolment:
+    post:
+      tags: [auth]
+      operationId: startTotpEnrolment
+      summary: Start setting up the authenticator app
+      description: Only after the password step, while the state is `TOTP_ENROLMENT_REQUIRED`.
+      security: []
+      responses:
+        "200":
+          description: Secret to scan as a QR code (otpauth URI) or type in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TotpEnrolment" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/totp/enrolment/confirm:
+    post:
+      tags: [auth]
+      operationId: confirmTotpEnrolment
+      summary: Finish setting up the authenticator app
+      description: |
+        Checks the first code from the app, turns 2FA on, signs the user in and returns
+        ten single-use recovery codes. They are shown only this once.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpConfirmRequest" }
+            example: { code: "123456" }
+      responses:
+        "200":
+          description: 2FA enabled and signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logOut
+      summary: Sign out (ends the server-side session)
+      security: []
+      responses:
+        "204": { description: Signed out. }
+        default: { $ref: "#/components/responses/Problem" }
+  /workspace:
+    get:
+      tags: [workspace]
+      operationId: getWorkspace
+      summary: Workspace settings
+      responses:
+        "200":
+          description: The workspace of the session.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [workspace]
+      operationId: updateWorkspace
+      summary: Change workspace settings (owner only)
+      description: Needs `If-Match` with the ETag from `GET /workspace` (optimistic locking).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceUpdate" }
+            example: { name: "Mustermann Malerbetrieb", street: "Musterstraße 1", postalCode: "10115", city: "Berlin", countryCode: "DE", vatId: "DE123456789", taxNumber: "30/123/45678" }
+      responses:
+        "200":
+          description: Updated.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Problem" }
+  /members:
+    get:
+      tags: [members]
+      operationId: listMembers
+      summary: Users of the workspace
+      responses:
+        "200":
+          description: All members.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /members/{memberId}:
+    get:
+      tags: [members]
+      operationId: getMember
+      summary: One member of the workspace
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: ERIKA_SESSION
+      description: Server-side session after password and second factor.
+  headers:
+    ETag:
+      description: Version of the resource, for `If-Match`.
+      schema: { type: string }
+  parameters:
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: ETag of the version being changed. Missing → 428, outdated → 412.
+      schema: { type: string }
   responses:
     Problem:
       description: Error as RFC 9457 problem details.
@@ -53,6 +284,135 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    Locale:
+      type: string
+      enum: [de, en]
+    Role:
+      type: string
+      enum: [OWNER, MEMBER, ADVISOR]
+    SignupRequest:
+      type: object
+      required: [email, password, displayName, workspaceName]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          description: At least 12 characters; long passphrases are welcome.
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+        workspaceName: { type: string, minLength: 1, maxLength: 200 }
+        locale: { $ref: "#/components/schemas/Locale" }
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 20, maxLength: 200 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, maxLength: 254 }
+        password: { type: string, maxLength: 128 }
+    TotpRequest:
+      type: object
+      description: Exactly one of `code` (from the app) or `recoveryCode`.
+      properties:
+        code: { type: string, pattern: "^[0-9]{6}$" }
+        recoveryCode: { type: string, maxLength: 20 }
+    TotpConfirmRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: "^[0-9]{6}$" }
+    TotpEnrolment:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret:
+          type: string
+          description: Base32 secret for manual entry.
+        otpauthUri:
+          type: string
+          description: "`otpauth://totp/...` URI for the QR code."
+    RecoveryCodes:
+      type: object
+      required: [codes]
+      properties:
+        codes:
+          type: array
+          items: { type: string }
+    SessionState:
+      type: string
+      enum: [ANONYMOUS, TOTP_REQUIRED, TOTP_ENROLMENT_REQUIRED, AUTHENTICATED]
+    SessionUser:
+      type: object
+      required: [id, email, displayName, locale]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        locale: { $ref: "#/components/schemas/Locale" }
+    SessionWorkspace:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    Session:
+      type: object
+      required: [state]
+      properties:
+        state: { $ref: "#/components/schemas/SessionState" }
+        user: { $ref: "#/components/schemas/SessionUser" }
+        workspace: { $ref: "#/components/schemas/SessionWorkspace" }
+        role: { $ref: "#/components/schemas/Role" }
+    Workspace:
+      type: object
+      required: [id, name, countryCode, plan, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        street: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
+        countryCode: { type: string, examples: ["DE"] }
+        vatId:
+          type: string
+          description: USt-IdNr. (BT-31)
+        taxNumber:
+          type: string
+          description: Steuernummer (BT-32)
+        plan: { type: string }
+        updatedAt: { type: string, format: date-time }
+    WorkspaceUpdate:
+      type: object
+      required: [name, countryCode]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        street: { type: string, maxLength: 200 }
+        postalCode: { type: string, maxLength: 20 }
+        city: { type: string, maxLength: 100 }
+        countryCode: { type: string, pattern: "^[A-Z]{2}$" }
+        vatId: { type: string, pattern: "^[A-Za-z]{2}[0-9A-Za-z+*.]{2,12}$" }
+        taxNumber: { type: string, pattern: "^[0-9][0-9 /]{8,18}[0-9]$" }
+    Member:
+      type: object
+      required: [id, userId, displayName, email, role, totpEnabled]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        totpEnabled: { type: boolean }
+    MemberList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Member" }
     HealthStatus:
       type: string
       enum: [UP, DEGRADED, DOWN]

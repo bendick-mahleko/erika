@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import Link from "next/link";
+import { UserMenu } from "@/components/UserMenu";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,9 +24,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {t("skipToContent")}
         </a>
         <header className="border-b border-slate-200 bg-brand-900 text-white">
-          <div className="mx-auto flex max-w-5xl items-baseline gap-4 px-4 py-4">
-            <span className="text-xl font-semibold tracking-wide">{t("productName")}</span>
-            <span className="hidden text-sm text-slate-200 sm:inline">{t("productTagline")}</span>
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-4 py-4">
+            <Link href="/" className="text-xl font-semibold tracking-wide text-white">
+              {t("productName")}
+            </Link>
+            <span className="hidden text-sm text-slate-200 lg:inline">{t("productTagline")}</span>
+            <UserMenu />
           </div>
         </header>
         <NextIntlClientProvider>

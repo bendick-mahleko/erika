@@ -14,12 +14,13 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest
 import java.net.URI
 
 /**
- * PostgreSQL and S3 (SeaweedFS) containers shared by all integration tests in a JVM.
+ * PostgreSQL, S3 (SeaweedFS) and SMTP (Mailpit) containers shared by all integration tests in a JVM.
  * They use the same bootstrap files as the local Docker Compose stack, so tests
  * exercise the real role set-up (erika_owner / erika_app) and bucket policy.
  */
 object TestInfrastructure {
     const val BUCKET = "erika-originals"
+    const val BACKUP_BUCKET = "erika-backups"
 
     private val postgres =
         PostgreSQLContainer("postgres:16.15-alpine")
@@ -40,8 +41,13 @@ object TestInfrastructure {
             ).withExposedPorts(S3_PORT)
             .waitingFor(Wait.forHttp("/healthz").forPort(S3_PORT))
 
+    private val mailpit: GenericContainer<*> =
+        GenericContainer("axllent/mailpit:v1.34.0")
+            .withExposedPorts(SMTP_PORT, MAILPIT_API_PORT)
+            .waitingFor(Wait.forHttp("/livez").forPort(MAILPIT_API_PORT))
+
     init {
-        Startables.deepStart(postgres, s3).join()
+        Startables.deepStart(postgres, s3, mailpit).join()
         createBucket()
     }
 
@@ -50,6 +56,10 @@ object TestInfrastructure {
 
     val s3Endpoint: String
         get() = "http://${s3.host}:${s3.getMappedPort(S3_PORT)}"
+
+    /** Mailpit's HTTP API (messages received over SMTP). */
+    val mailpitApi: String
+        get() = "http://${mailpit.host}:${mailpit.getMappedPort(MAILPIT_API_PORT)}"
 
     /** Spring properties pointing the application at the containers. */
     fun properties(): Map<String, String> =
@@ -63,6 +73,9 @@ object TestInfrastructure {
             "erika.storage.access-key" to "erika-dev",
             "erika.storage.secret-key" to "erika-dev-secret",
             "erika.storage.bucket" to BUCKET,
+            "erika.audit.head-bucket" to BACKUP_BUCKET,
+            "spring.mail.host" to mailpit.host,
+            "spring.mail.port" to mailpit.getMappedPort(SMTP_PORT).toString(),
         )
 
     fun register(registry: DynamicPropertyRegistry) {
@@ -78,16 +91,20 @@ object TestInfrastructure {
             .forcePathStyle(true)
             .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("seaweed_admin", "seaweed_admin_dev")))
             .build()
-            .use {
-                it.createBucket(
-                    CreateBucketRequest
-                        .builder()
-                        .bucket(BUCKET)
-                        .objectLockEnabledForBucket(true)
-                        .build(),
-                )
+            .use { s3 ->
+                listOf(BUCKET, BACKUP_BUCKET).forEach {
+                    s3.createBucket(
+                        CreateBucketRequest
+                            .builder()
+                            .bucket(it)
+                            .objectLockEnabledForBucket(true)
+                            .build(),
+                    )
+                }
             }
     }
 
     private const val S3_PORT = 8333
+    private const val SMTP_PORT = 1025
+    private const val MAILPIT_API_PORT = 8025
 }

@@ -7,11 +7,14 @@ spotless = "8.12.0"
 ktlint = "1.8.0"
 awssdk = "2.59.7"
 sentry = "8.65.0"
+bouncycastle = "1.83"
 
 [libraries]
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 awssdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "awssdk" }
 sentry-spring-boot = { module = "io.sentry:sentry-spring-boot-4-starter", version.ref = "sentry" }
+
+bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

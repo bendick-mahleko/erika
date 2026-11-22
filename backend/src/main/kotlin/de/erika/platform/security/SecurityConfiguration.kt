@@ -1,0 +1,99 @@
+package de.erika.platform.security
+
+import de.erika.platform.runtime.RuntimeInstance
+import jakarta.servlet.http.HttpServletResponse
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.security.authorization.AuthorityAuthorizationManager
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
+import org.springframework.security.config.annotation.web.builders.HttpSecurity
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository
+import org.springframework.security.web.context.SecurityContextRepository
+import org.springframework.security.web.csrf.CsrfException
+import tools.jackson.databind.json.JsonMapper
+
+/**
+ * HTTP security for the API (Software Design §7):
+ * - server-side sessions (Spring Session JDBC); the SecurityContext lives in the session,
+ * - CSRF tokens for every state-changing request (cookie `XSRF-TOKEN`, header `X-XSRF-TOKEN`),
+ * - everything requires a fully signed-in user except health and the sign-in flow,
+ * - role checks per endpoint with `@PreAuthorize`; tax advisors can never change data (EX-02),
+ * - errors as RFC 9457 problem details with a stable code.
+ */
+@Configuration(proxyBeanMethods = false)
+@Profile(RuntimeInstance.PROFILE_API)
+@EnableWebSecurity
+@EnableMethodSecurity
+class SecurityConfiguration {
+    @Bean
+    fun securityContextRepository(): SecurityContextRepository = HttpSessionSecurityContextRepository()
+
+    @Bean
+    fun securityFilterChain(
+        http: HttpSecurity,
+        contextRepository: SecurityContextRepository,
+        json: JsonMapper,
+    ): SecurityFilterChain {
+        http
+            .csrf { it.spa() }
+            .securityContext { it.securityContextRepository(contextRepository) }
+            .sessionManagement { it.sessionFixation { fixation -> fixation.changeSessionId() } }
+            .formLogin { it.disable() }
+            .httpBasic { it.disable() }
+            .logout { it.disable() }
+            .requestCache { it.disable() }
+            .anonymous { it.disable() }
+            .authorizeHttpRequests {
+                it
+                    .requestMatchers(HttpMethod.GET, "/api/v1/health")
+                    .permitAll()
+                    .requestMatchers("/api/v1/auth/**", "/error")
+                    .permitAll()
+                    // Actuator runs on the separate management port, which the reverse proxy
+                    // doesn't route (container health checks, Prometheus scraping).
+                    .requestMatchers(HttpMethod.GET, "/actuator/health/**", "/actuator/health", "/actuator/info", "/actuator/prometheus")
+                    .permitAll()
+                    // Read-only for tax advisors: every state-changing request needs OWNER or MEMBER.
+                    // Later stages add explicit exceptions (e.g. POST /exports for advisors).
+                    .requestMatchers(HttpMethod.GET, "/api/v1/**")
+                    .authenticated()
+                    .requestMatchers("/api/v1/**")
+                    .access(AuthorityAuthorizationManager.hasAnyRole("OWNER", "MEMBER"))
+                    .anyRequest()
+                    .denyAll()
+            }.exceptionHandling {
+                it
+                    .authenticationEntryPoint { _, response, _ ->
+                        problem(json, response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Sign-in required.")
+                    }.accessDeniedHandler { _, response, ex ->
+                        if (ex is CsrfException) {
+                            problem(json, response, HttpStatus.FORBIDDEN, "CSRF_TOKEN_INVALID", "Missing or invalid CSRF token.")
+                        } else {
+                            problem(json, response, HttpStatus.FORBIDDEN, "FORBIDDEN", "Your role does not allow this action.")
+                        }
+                    }
+            }
+        return http.build()
+    }
+
+    private fun problem(
+        json: JsonMapper,
+        response: HttpServletResponse,
+        status: HttpStatus,
+        code: String,
+        detail: String,
+    ) {
+        response.status = status.value()
+        response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
+        json.writeValue(
+            response.outputStream,
+            mapOf("type" to "about:blank", "title" to status.reasonPhrase, "status" to status.value(), "detail" to detail, "code" to code),
+        )
+    }
+}

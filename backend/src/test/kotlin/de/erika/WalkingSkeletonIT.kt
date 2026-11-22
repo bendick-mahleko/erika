@@ -83,10 +83,11 @@ class WalkingSkeletonIT {
     }
 
     @Test
-    fun `unknown paths return problem details with a stable code`() {
+    fun `requests without a session get problem details with a stable code`() {
+        // Since Stage 3 everything except health and sign-in needs a session, unknown paths too.
         val response = get("/api/v1/does-not-exist")
 
-        assertEquals(404, response.statusCode())
+        assertEquals(401, response.statusCode())
         assertTrue(
             response
                 .headers()
@@ -95,7 +96,25 @@ class WalkingSkeletonIT {
                 .startsWith("application/problem+json"),
         )
         val tree = api.getBean(JsonMapper::class.java).readTree(response.body())
-        assertEquals("NOT_FOUND", tree.path("code").asString())
+        assertEquals("UNAUTHORIZED", tree.path("code").asString())
+    }
+
+    @Test
+    fun `the worker process stays alive without a web server`() {
+        // Virtual threads are daemon threads: without keep-alive the worker JVM exits after start-up.
+        assertEquals("true", worker.environment.getProperty("spring.main.keep-alive"))
+    }
+
+    @Test
+    fun `readiness probe on the management port answers without a session`() {
+        val port = api.environment.getRequiredProperty("local.management.port")
+        val response =
+            http.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:$port/actuator/health/readiness")).GET().build(),
+                HttpResponse.BodyHandlers.ofString(),
+            )
+        assertEquals(200, response.statusCode(), response.body())
+        assertTrue(response.body().contains("UP"))
     }
 
     @Test

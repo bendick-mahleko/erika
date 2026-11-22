@@ -22,3 +22,6 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0014](0014-contract-first-tooling.md) | Contract-first tooling | Accepted |
 | [0015](0015-invoice-core-integration.md) | How ERIKA uses invoice-core | Accepted (amended by 0016) |
 | [0016](0016-invoice-core-in-this-repository.md) | invoice-core lives in this repository | Accepted |
+| [0017](0017-sign-in-and-second-factor.md) | Sign-in, second factor and sessions | Accepted |
+| [0018](0018-tenant-scope-per-request.md) | Tenant scope per request and the isolation checks | Accepted |
+| [0019](0019-audit-hash-chain.md) | Audit log as a hash chain per workspace | Accepted |

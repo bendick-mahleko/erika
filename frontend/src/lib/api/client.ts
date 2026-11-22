@@ -31,3 +31,37 @@ export async function fetchHealth(): Promise<Health | null> {
     return null;
   }
 }
+
+export type Session = components["schemas"]["Session"];
+export type Workspace = components["schemas"]["Workspace"];
+
+/** The browser's cookies, forwarded so the API sees the user's session (server components only). */
+async function sessionHeaders(): Promise<HeadersInit> {
+  const { cookies } = await import("next/headers");
+  const cookie = (await cookies()).toString();
+  return cookie ? { cookie } : {};
+}
+
+/** Sign-in state of the current browser session; ANONYMOUS if the API can't be reached. */
+export async function fetchSession(): Promise<Session> {
+  try {
+    const { data } = await api.GET("/auth/session", {
+      headers: await sessionHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    return data ?? { state: "ANONYMOUS" };
+  } catch {
+    return { state: "ANONYMOUS" };
+  }
+}
+
+/** Workspace settings plus ETag for optimistic locking, or null if not signed in. */
+export async function fetchWorkspace(): Promise<{ workspace: Workspace; etag: string } | null> {
+  const { data, response } = await api.GET("/workspace", {
+    headers: await sessionHeaders(),
+    cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+  });
+  return data ? { workspace: data, etag: response.headers.get("ETag") ?? "" } : null;
+}

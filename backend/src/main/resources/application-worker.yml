@@ -2,5 +2,8 @@
 spring:
   main:
     web-application-type: none
+    # Without a web server only daemon threads remain (virtual threads are always daemon
+    # threads), so the JVM would exit right after start-up. Keep it running.
+    keep-alive: true
   flyway:
     enabled: false

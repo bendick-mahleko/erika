@@ -8,9 +8,14 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation
 import software.amazon.awssdk.core.checksums.ResponseChecksumValidation
+import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException
+import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.net.URI
 import java.time.Duration
 
@@ -54,6 +59,26 @@ class StorageConfiguration {
 interface ObjectStorage {
     /** Throws if the bucket can't be reached with the configured credentials. */
     fun checkAccess()
+
+    /** Writes an object to [bucket] (e.g. the backup bucket). Not for originals: use `archive`. */
+    fun put(
+        bucket: String,
+        key: String,
+        bytes: ByteArray,
+        contentType: String,
+    )
+
+    /** Reads an object, or null if it doesn't exist. */
+    fun get(
+        bucket: String,
+        key: String,
+    ): ByteArray?
+
+    /** Keys under [prefix], sorted (at most 1,000). */
+    fun list(
+        bucket: String,
+        prefix: String,
+    ): List<String>
 }
 
 @Component
@@ -64,4 +89,53 @@ class S3ObjectStorage(
     override fun checkAccess() {
         s3.headBucket(HeadBucketRequest.builder().bucket(props.bucket).build())
     }
+
+    override fun put(
+        bucket: String,
+        key: String,
+        bytes: ByteArray,
+        contentType: String,
+    ) {
+        s3.putObject(
+            PutObjectRequest
+                .builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(contentType)
+                .build(),
+            RequestBody.fromBytes(bytes),
+        )
+    }
+
+    override fun get(
+        bucket: String,
+        key: String,
+    ): ByteArray? =
+        try {
+            s3
+                .getObjectAsBytes(
+                    GetObjectRequest
+                        .builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .build(),
+                ).asByteArray()
+        } catch (e: NoSuchKeyException) {
+            null
+        }
+
+    override fun list(
+        bucket: String,
+        prefix: String,
+    ): List<String> =
+        s3
+            .listObjectsV2(
+                ListObjectsV2Request
+                    .builder()
+                    .bucket(bucket)
+                    .prefix(prefix)
+                    .build(),
+            ).contents()
+            .map { it.key() }
+            .sorted()
 }

@@ -3,5 +3,7 @@ extends:
 rules:
   # Private API until release 2; licence info isn't meaningful yet.
   info-license: off
-  # Health is reachable without a session on purpose.
+  # Health and the sign-in flow are reachable without a session on purpose.
   security-defined: off
+  # Every operation has a `default` RFC 9457 problem response that covers all 4xx codes.
+  operation-4xx-response: off

@@ -6,7 +6,9 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.web.ErrorResponseException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
@@ -51,6 +53,23 @@ class ProblemDetailsAdvice : ResponseEntityExceptionHandler() {
         }
         return super.createResponseEntity(body, headers, statusCode, request)
     }
+
+    /** Bean validation of a request body: code VALIDATION_FAILED plus the fields (never the values). */
+    override fun handleMethodArgumentNotValid(
+        ex: MethodArgumentNotValidException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        ex.body.setProperty(CODE, "VALIDATION_FAILED")
+        ex.body.setProperty("errors", ex.bindingResult.fieldErrors.map { mapOf("field" to it.field, "message" to it.defaultMessage) })
+        return super.handleMethodArgumentNotValid(ex, headers, status, request)
+    }
+
+    /** `@PreAuthorize` denied the call: the role doesn't allow it. */
+    @ExceptionHandler(AccessDeniedException::class)
+    fun handleAccessDenied(ex: AccessDeniedException): ProblemDetail =
+        problem(HttpStatus.FORBIDDEN, "Your role does not allow this action.", "FORBIDDEN")
 
     /** Anything unexpected: log it, return a generic 500 without internals. */
     @ExceptionHandler(Exception::class)

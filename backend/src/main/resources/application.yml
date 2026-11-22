@@ -24,6 +24,24 @@ spring:
   # Omit nulls: optional fields in the OpenAPI contract are absent, not null.
   jackson:
     default-property-inclusion: non_null
+  # Account emails (identity); texts in i18n/mail_*.properties, German first.
+  messages:
+    basename: i18n/mail
+    fallback-to-system-locale: false
+  mail:
+    host: ${ERIKA_SMTP_HOST:localhost}
+    port: ${ERIKA_SMTP_PORT:1025}
+    username: ${ERIKA_SMTP_USER:}
+    password: ${ERIKA_SMTP_PASSWORD:}
+    properties:
+      "[mail.smtp.connectiontimeout]": 10000
+      "[mail.smtp.timeout]": 10000
+      "[mail.smtp.starttls.enable]": ${ERIKA_SMTP_STARTTLS:true}
+  # Server-side sessions in PostgreSQL (ADR 0008); tables come from Flyway.
+  session:
+    jdbc:
+      initialize-schema: never
+      table-name: erika.spring_session
   task:
     scheduling:
       pool:
@@ -31,6 +49,15 @@ spring:
 
 server:
   port: ${ERIKA_HTTP_PORT:8080}
+  servlet:
+    session:
+      # 12 h idle timeout (Software Design §7).
+      timeout: 12h
+      cookie:
+        name: ERIKA_SESSION
+        http-only: true
+        secure: ${ERIKA_SECURE_COOKIES:true}
+        same-site: lax
   shutdown: graceful
   forward-headers-strategy: framework
 
@@ -74,6 +101,14 @@ erika:
     batch-size: 10
     lease: 5m
     poll-interval: 1s
+  identity:
+    totp-encryption-key: ${ERIKA_TOTP_ENCRYPTION_KEY:}
+    secure-cookies: ${ERIKA_SECURE_COOKIES:true}
+  mail:
+    from: ${ERIKA_MAIL_FROM:ERIKA <no-reply@erika.local>}
+    web-base-url: ${ERIKA_WEB_BASE_URL:http://localhost:3000}
+  audit:
+    head-bucket: ${ERIKA_BACKUP_BUCKET:erika-backups}
   worker:
     heartbeat-interval: 30s
     stale-after: 2m
