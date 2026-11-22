@@ -12,15 +12,17 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest
 import java.net.URI
+import java.time.Duration
 
 /**
- * PostgreSQL, S3 (SeaweedFS) and SMTP (Mailpit) containers shared by all integration tests in a JVM.
+ * PostgreSQL, S3 (SeaweedFS), SMTP (Mailpit) and ClamAV containers shared by all integration tests in a JVM.
  * They use the same bootstrap files as the local Docker Compose stack, so tests
  * exercise the real role set-up (erika_owner / erika_app) and bucket policy.
  */
 object TestInfrastructure {
     const val BUCKET = "erika-originals"
     const val BACKUP_BUCKET = "erika-backups"
+    const val UPLOADS_BUCKET = "erika-uploads"
 
     private val postgres =
         PostgreSQLContainer("postgres:16.15-alpine")
@@ -46,8 +48,18 @@ object TestInfrastructure {
             .withExposedPorts(SMTP_PORT, MAILPIT_API_PORT)
             .waitingFor(Wait.forHttp("/livez").forPort(MAILPIT_API_PORT))
 
+    // Real ClamAV (NF-04 exit criterion: EICAR is rejected). Signatures ship with the image;
+    // freshclam is off so tests don't depend on the internet. clamd opens its port only
+    // after loading the signatures (about a minute).
+    private val clamav: GenericContainer<*> =
+        GenericContainer("clamav/clamav:1.4.7")
+            .withEnv("CLAMAV_NO_FRESHCLAMD", "true")
+            .withEnv("CLAMAV_NO_MILTERD", "true")
+            .withExposedPorts(CLAMAV_PORT)
+            .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
+
     init {
-        Startables.deepStart(postgres, s3, mailpit).join()
+        Startables.deepStart(postgres, s3, mailpit, clamav).join()
         createBucket()
     }
 
@@ -76,6 +88,9 @@ object TestInfrastructure {
             "erika.audit.head-bucket" to BACKUP_BUCKET,
             "spring.mail.host" to mailpit.host,
             "spring.mail.port" to mailpit.getMappedPort(SMTP_PORT).toString(),
+            "erika.storage.uploads-bucket" to UPLOADS_BUCKET,
+            "erika.intake.clamav.host" to clamav.host,
+            "erika.intake.clamav.port" to clamav.getMappedPort(CLAMAV_PORT).toString(),
         )
 
     fun register(registry: DynamicPropertyRegistry) {
@@ -101,10 +116,13 @@ object TestInfrastructure {
                             .build(),
                     )
                 }
+                // Quarantine for uploads: no Object Lock (infra/local/seaweedfs/init.sh).
+                s3.createBucket(CreateBucketRequest.builder().bucket(UPLOADS_BUCKET).build())
             }
     }
 
     private const val S3_PORT = 8333
     private const val SMTP_PORT = 1025
     private const val MAILPIT_API_PORT = 8025
+    private const val CLAMAV_PORT = 3310
 }

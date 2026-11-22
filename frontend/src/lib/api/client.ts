@@ -65,3 +65,46 @@ export async function fetchWorkspace(): Promise<{ workspace: Workspace; etag: st
   });
   return data ? { workspace: data, etag: response.headers.get("ETag") ?? "" } : null;
 }
+
+export type DocumentList = components["schemas"]["DocumentList"];
+export type DocumentSummary = components["schemas"]["DocumentSummary"];
+export type Document = components["schemas"]["Document"];
+export type InboxSummary = components["schemas"]["InboxSummary"];
+
+async function authed<T>(
+  call: (init: { headers: HeadersInit; cache: "no-store"; signal: AbortSignal }) => Promise<{ data?: T }>,
+): Promise<T | null> {
+  try {
+    const { data } = await call({
+      headers: await sessionHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** First page of documents, newest first (null if not signed in). */
+export async function fetchDocuments(): Promise<DocumentList | null> {
+  return authed((init) => api.GET("/documents", { ...init, params: { query: { limit: 50 } } }));
+}
+
+export async function fetchDocument(documentId: string): Promise<Document | null> {
+  return authed((init) => api.GET("/documents/{documentId}", { ...init, params: { path: { documentId } } }));
+}
+
+/** Counts for the badge in the navigation. */
+export async function fetchInboxSummary(): Promise<InboxSummary | null> {
+  return authed((init) => api.GET("/inbox/summary", init));
+}
+
+export async function fetchIntakeAddress(): Promise<string | null> {
+  const data = await authed((init) => api.GET("/intake/address", init));
+  return data?.address ?? null;
+}
+
+export async function fetchNotificationSettings(): Promise<components["schemas"]["NotificationSettings"] | null> {
+  return authed((init) => api.GET("/notification-settings", init));
+}

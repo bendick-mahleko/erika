@@ -1,5 +1,6 @@
 package de.erika.platform.jobs
 
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
@@ -19,9 +20,17 @@ class JobQueue(
     private val jdbc: JdbcClient,
     private val jsonMapper: JsonMapper,
     private val properties: JobProperties,
-    handlers: List<JobHandler<*>>,
+    handlers: ObjectProvider<JobHandler<*>>,
 ) {
-    private val knownTypes: Set<String> = handlers.map { it.type }.toSet()
+    // Looked up lazily: handlers may themselves queue jobs (e.g. intake → document validation),
+    // so resolving them while this bean is created would be a dependency cycle.
+    private val knownTypes: Set<String> by lazy {
+        handlers
+            .orderedStream()
+            .map { it.type }
+            .toList()
+            .toSet()
+    }
 
     fun enqueue(
         type: String,

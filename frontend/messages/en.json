@@ -31,7 +31,9 @@
     "signUp": "Sign up",
     "signOut": "Sign out",
     "settings": "Settings",
-    "signedInAs": "Signed in as {name}"
+    "signedInAs": "Signed in as {name}",
+    "inbox": "Inbox",
+    "inboxBadge": "{count, plural, one {# new document} other {# new documents}}"
   },
   "Auth": {
     "email": "Email address",
@@ -110,6 +112,128 @@
     "FORBIDDEN": "Your role doesn't allow this action.",
     "CSRF_TOKEN_INVALID": "Your session has expired. Please reload the page.",
     "UNAUTHORIZED": "Please sign in.",
+    "UPLOAD_FILE_MISSING": "The file didn't arrive. Please upload it again.",
+    "UPLOAD_SIZE_MISMATCH": "The file didn't arrive completely. Please upload it again.",
+    "UPLOAD_NOT_FOUND": "This upload doesn't exist.",
+    "DOCUMENT_NOT_FOUND": "This document doesn't exist.",
     "generic": "Something went wrong. Please try again."
+  },
+  "Inbox": {
+    "title": "Inbox",
+    "intro": "Your invoices arrive here – uploaded, or sent by email to your intake address. ERIKA scans every file for viruses, archives the original so it can't be changed, and checks e-invoices against the official rules.",
+    "addressLabel": "Your intake address for invoices",
+    "addressHint": "Give this address to your suppliers. Attachments (XML, PDF, ZIP) are imported automatically.",
+    "copy": "Copy address",
+    "copied": "Copied.",
+    "empty": "No documents yet. Upload an invoice or have it sent to your intake address.",
+    "listHeading": "Documents",
+    "processingNote": "{count, plural, one {# document is} other {# documents are}} being checked …",
+    "column": {
+      "received": "Received",
+      "file": "File",
+      "supplier": "Supplier",
+      "number": "Invoice no.",
+      "amount": "Amount",
+      "result": "Result"
+    },
+    "via": {
+      "UPLOAD": "Upload",
+      "EMAIL": "Email",
+      "CREATED": "Created"
+    },
+    "more": "Load more"
+  },
+  "Upload": {
+    "heading": "Upload invoices",
+    "drop": "Drag files here or",
+    "choose": "choose files",
+    "hint": "XRechnung (XML), ZUGFeRD/Factur-X (PDF), other PDF invoices or a ZIP with several files – at most 20 MB per file.",
+    "tooLarge": "{name}: the file is larger than 20 MB.",
+    "uploading": "{name}: uploading …",
+    "processing": "{name}: checking …",
+    "failed": "{name}: the upload didn't work. Please try again.",
+    "rejected": "{name}: rejected – {reason}",
+    "itemImported": "{name}: imported",
+    "itemDuplicate": "{name}: possible duplicate – this file is already in the archive.",
+    "itemRejected": "{name}: not imported – {reason}",
+    "openDocument": "View document",
+    "resultsHeading": "Upload result"
+  },
+  "IntakeReason": {
+    "VIRUS_FOUND": "Malware was found in the file. It was not imported.",
+    "UNSUPPORTED_FILE_TYPE": "This file type is not supported (only XML, PDF and ZIP).",
+    "FILE_TOO_LARGE": "The file is larger than 20 MB.",
+    "EMPTY_FILE": "The file is empty.",
+    "FILE_MISSING": "The file didn't arrive. Please upload it again.",
+    "ZIP_TOO_DEEP": "The ZIP contains ZIP files nested too deeply (at most one level).",
+    "ZIP_TOO_MANY_FILES": "The ZIP contains more than 50 files.",
+    "ZIP_BOMB": "The ZIP is suspiciously highly compressed and was rejected for safety.",
+    "ZIP_ENCRYPTED": "The ZIP is encrypted. Please upload the files unencrypted.",
+    "ZIP_DAMAGED": "The ZIP is damaged and can't be opened.",
+    "NO_ATTACHMENTS": "The email had no usable attachments."
+  },
+  "Document": {
+    "processing": "Checking …",
+    "processingFailed": "Check failed",
+    "level": {
+      "VALID": "Valid e-invoice",
+      "WARNING": "Valid with remarks",
+      "ERROR": "Has errors"
+    },
+    "notEInvoice": "Not an e-invoice (other invoice)",
+    "notEInvoiceReason": {
+      "PLAIN_PDF": "This PDF contains no structured invoice data. Since 2025, invoices between businesses in Germany must generally be e-invoices (XRechnung or ZUGFeRD); such invoices are still allowed for a transition period. ERIKA has archived the file unchanged anyway.",
+      "INSUFFICIENT_PROFILE": "The file only has a ZUGFeRD profile (MINIMUM or BASIC-WL) that doesn't count as an e-invoice. Ask the supplier for an invoice in the EN 16931 or XRechnung profile.",
+      "ZUGFERD_1": "The file uses the outdated ZUGFeRD 1.0 format, which no longer counts as an e-invoice.",
+      "UNKNOWN_XML": "The XML file is not an invoice in UBL or CII format.",
+      "UNKNOWN_PROFILE": "The invoice names no known specification (BT-24).",
+      "UNREADABLE": "The file could not be read."
+    },
+    "duplicate": "Possible duplicate",
+    "duplicateHint": "An earlier invoice has the same supplier tax ID, invoice number and amount.",
+    "format": {
+      "UNKNOWN": "–",
+      "XRECHNUNG_UBL": "XRechnung (UBL)",
+      "XRECHNUNG_CII": "XRechnung (CII)",
+      "UBL": "E-invoice (UBL)",
+      "CII": "E-invoice (CII)",
+      "ZUGFERD": "ZUGFeRD / Factur-X",
+      "PDF_ONLY": "PDF",
+      "UNSUPPORTED": "Not supported",
+      "UNREADABLE": "Not readable"
+    },
+    "title": "Document",
+    "back": "Back to the inbox",
+    "facts": {
+      "file": "File",
+      "received": "Received",
+      "via": "Received by",
+      "format": "Format",
+      "profile": "Profile",
+      "sha256": "Checksum (SHA-256) of the original",
+      "supplier": "Supplier",
+      "supplierTaxId": "Supplier tax ID",
+      "buyer": "Buyer",
+      "number": "Invoice number",
+      "issueDate": "Invoice date",
+      "dueDate": "Due date",
+      "net": "Net",
+      "tax": "VAT",
+      "gross": "Gross"
+    },
+    "validationHeading": "Check result",
+    "pack": "Checked with rule pack {pack} on {date}",
+    "noMessages": "No errors or remarks.",
+    "severity": {
+      "ERROR": "Error",
+      "WARNING": "Remark",
+      "INFO": "Info"
+    },
+    "viewerNote": "The full invoice view follows soon."
+  },
+  "Notifications": {
+    "heading": "Notifications",
+    "emailOnNewDocuments": "Email me when new documents arrive",
+    "saved": "Saved."
   }
 }

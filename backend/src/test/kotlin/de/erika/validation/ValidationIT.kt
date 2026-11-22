@@ -45,6 +45,14 @@ class ValidationIT : WorkerIntegrationTest() {
     }
 
     @Test
+    fun `the sample invoice of the end-to-end tests is a valid XRechnung`() {
+        val sample = File("../frontend/e2e/fixtures/xrechnung-beispiel.xml").readBytes()
+        val report = validator.validate(sample)
+        assertEquals(ValidationLevel.VALID, report.level, report.messages.toString())
+        assertEquals("EN16931 XRechnung (UBL Invoice)", report.scenario)
+    }
+
+    @Test
     fun `a missing buyer reference is an error with a German explanation (BR-DE-15)`() {
         val broken = ubl.replace(Regex("<cbc:BuyerReference>[^<]*</cbc:BuyerReference>"), "")
         val report = validator.validate(broken.toByteArray())

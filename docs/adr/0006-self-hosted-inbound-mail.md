@@ -1,6 +1,6 @@
 # 0006. Self-hosted inbound Postfix
 
-- Status: Accepted
+- Status: Accepted (implemented by 0024)
 - Date: 2026-11-21 (Software Design v1.1, D7 / ADR 006)
 
 ## Decision

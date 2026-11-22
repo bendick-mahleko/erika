@@ -60,10 +60,37 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
         TestDatabase.update(
             """
             INSERT INTO stored_object (workspace_id, sha256, size_bytes, media_type, storage_key, retention_until, object_lock)
-            VALUES (?, repeat('a', 64), 0, 'application/xml', 'ws/rls/aaa', '2034-12-31', 'NONE')
+            VALUES (?, repeat('a', 64), 1, 'application/xml', 'ws/rls/aaa', '2034-12-31', 'NONE')
             ON CONFLICT DO NOTHING
             """.trimIndent(),
             user.workspaceId,
+        )
+        // One row in every Stage 5 table (intake_address is created at sign-up).
+        val doc = java.util.UUID.randomUUID()
+        val intake = java.util.UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO document (id, workspace_id, direction, sha256, media_type, size_bytes, received_via) VALUES (?, ?, 'IN', repeat('a', 64), 'application/xml', 0, 'UPLOAD')",
+            doc,
+            user.workspaceId,
+        )
+        TestDatabase.update("INSERT INTO parsed_invoice (document_id, workspace_id, data) VALUES (?, ?, '{}')", doc, user.workspaceId)
+        TestDatabase.update(
+            """
+            INSERT INTO validation_result (id, workspace_id, document_id, artefact_version, level, applicable, messages, checked_at)
+            VALUES (gen_random_uuid(), ?, ?, 'test', 'VALID', true, '[]', now())
+            """.trimIndent(),
+            user.workspaceId,
+            doc,
+        )
+        TestDatabase.update(
+            "INSERT INTO intake (id, workspace_id, source, status) VALUES (?, ?, 'UPLOAD', 'DONE')",
+            intake,
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            "INSERT INTO intake_item (id, workspace_id, intake_id, seq, file_name, outcome) VALUES (gen_random_uuid(), ?, ?, 0, 'x.xml', 'IMPORTED')",
+            user.workspaceId,
+            intake,
         )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"

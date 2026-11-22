@@ -97,6 +97,10 @@ erika:
     access-key: ${ERIKA_S3_ACCESS_KEY}
     secret-key: ${ERIKA_S3_SECRET_KEY}
     path-style: ${ERIKA_S3_PATH_STYLE:true}
+    # Quarantine for uploads until they are virus-scanned (no Object Lock; lifecycle expiry 1 day).
+    uploads-bucket: ${ERIKA_S3_UPLOADS_BUCKET:erika-uploads}
+    # Endpoint for pre-signed upload URLs as the browser sees it; empty = same as endpoint.
+    public-endpoint: ${ERIKA_S3_PUBLIC_ENDPOINT:}
   jobs:
     batch-size: 10
     lease: 5m
@@ -113,6 +117,14 @@ erika:
     # COMPLIANCE: S3 Object Lock until the retention date (ADR 0013, 0022). NONE only for
     # a provider without Object Lock (documented fallback).
     object-lock: ${ERIKA_ARCHIVE_OBJECT_LOCK:COMPLIANCE}
+  intake:
+    # Intake addresses are <token>@<mail-domain> (IN-01).
+    mail-domain: ${ERIKA_INTAKE_MAIL_DOMAIN:in.erika.local}
+    # Shared secret of the mail server (Postfix → /internal/intake/**). Empty disables mail intake.
+    mail-secret: ${ERIKA_INTAKE_MAIL_SECRET:}
+    clamav:
+      host: ${ERIKA_CLAMAV_HOST:localhost}
+      port: ${ERIKA_CLAMAV_PORT:3310}
   validation:
     # Assembled validation packs (./gradlew prepareValidationPacks; /app/validation-packs in the image).
     packs-dir: ${ERIKA_VALIDATION_PACKS_DIR:build/validation-packs}

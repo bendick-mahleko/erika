@@ -28,3 +28,5 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0020](0020-invoice-core-from-source.md) | The back end builds invoice-core from source | Accepted |
 | [0021](0021-validation-packs-and-engine.md) | Validation packs and the validation engine | Accepted |
 | [0022](0022-archive-write-once-originals.md) | Archive: write-once originals, retention, integrity | Accepted |
+| [0023](0023-intake-pipeline-and-documents.md) | Intake pipeline, uploads and documents | Accepted |
+| [0024](0024-email-intake.md) | Email intake: Postfix, policy lookup and pipe to the API | Accepted (production DNS pending S5-a) |

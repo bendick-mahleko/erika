@@ -29,3 +29,8 @@ erika:
     endpoint: ${ERIKA_S3_ENDPOINT:http://localhost:9000}
     access-key: ${ERIKA_S3_ACCESS_KEY:erika-dev}
     secret-key: ${ERIKA_S3_SECRET_KEY:erika-dev-secret}
+    # The browser uploads to the S3 port on localhost (compose maps it to 9000).
+    public-endpoint: ${ERIKA_S3_PUBLIC_ENDPOINT:http://localhost:9000}
+  intake:
+    # DEV-ONLY secret, shared with the local mail container (infra/local/compose.yml).
+    mail-secret: ${ERIKA_INTAKE_MAIL_SECRET:dev-intake-secret}

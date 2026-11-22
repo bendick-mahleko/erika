@@ -11,8 +11,11 @@ import software.amazon.awssdk.core.checksums.ResponseChecksumValidation
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.S3Configuration
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.ObjectLockMode
@@ -20,6 +23,9 @@ import software.amazon.awssdk.services.s3.model.ObjectLockRetention
 import software.amazon.awssdk.services.s3.model.ObjectLockRetentionMode
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRetentionRequest
+import software.amazon.awssdk.services.s3.model.S3Exception
+import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
 import java.net.URI
 import java.security.MessageDigest
 import java.time.Duration
@@ -42,6 +48,16 @@ data class StorageProperties(
     /** Path-style addressing (`endpoint/bucket/key`); needed for MinIO. */
     val pathStyle: Boolean = true,
     val apiCallTimeout: Duration = Duration.ofSeconds(10),
+    /**
+     * Quarantine for uploads before the virus scan (no Object Lock; the app may delete).
+     * Objects that are never processed expire through the bucket's lifecycle rule.
+     */
+    val uploadsBucket: String = "erika-uploads",
+    /**
+     * Endpoint the browser uses for pre-signed upload URLs, when it differs from [endpoint]
+     * (locally the API reaches S3 as `http://s3:8333`, the browser as `http://localhost:9000`).
+     */
+    val publicEndpoint: URI? = null,
 )
 
 @Configuration(proxyBeanMethods = false)
@@ -60,7 +76,26 @@ class StorageConfiguration {
             .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
             .overrideConfiguration { it.apiCallTimeout(props.apiCallTimeout) }
             .build()
+
+    /** Signs upload URLs for the browser, against the public endpoint. */
+    @Bean(destroyMethod = "close")
+    fun s3Presigner(props: StorageProperties): S3Presigner =
+        S3Presigner
+            .builder()
+            .region(Region.of(props.region))
+            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.accessKey, props.secretKey)))
+            .apply {
+                (props.publicEndpoint ?: props.endpoint)?.takeIf { it.toString().isNotBlank() }?.let { endpointOverride(it) }
+            }.serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(props.pathStyle).build())
+            .build()
 }
+
+/** A URL the browser can `PUT` one file to, with the headers it must send unchanged. */
+data class PresignedUpload(
+    val url: String,
+    val headers: Map<String, String>,
+    val expiresAt: Instant,
+)
 
 /** Result of a write to the originals bucket. */
 data class StoredVersion(
@@ -117,11 +152,36 @@ interface ObjectStorage {
         bucket: String,
         prefix: String,
     ): List<String>
+
+    /**
+     * Pre-signed `PUT` of exactly [size] bytes of [contentType] to [key] in the uploads
+     * bucket. Content type and length are part of the signature, so the browser can't send
+     * a larger file than announced.
+     */
+    fun presignUpload(
+        key: String,
+        contentType: String,
+        size: Long,
+        validFor: Duration,
+    ): PresignedUpload
+
+    /** Size of an object, or null if it doesn't exist. */
+    fun size(
+        bucket: String,
+        key: String,
+    ): Long?
+
+    /** Deletes an object (uploads bucket only; the app key can't delete originals). */
+    fun delete(
+        bucket: String,
+        key: String,
+    )
 }
 
 @Component
 class S3ObjectStorage(
     private val s3: S3Client,
+    private val presigner: S3Presigner,
     private val props: StorageProperties,
 ) : ObjectStorage {
     override fun checkAccess() {
@@ -239,4 +299,67 @@ class S3ObjectStorage(
             ).contents()
             .map { it.key() }
             .sorted()
+
+    override fun presignUpload(
+        key: String,
+        contentType: String,
+        size: Long,
+        validFor: Duration,
+    ): PresignedUpload {
+        val put =
+            PutObjectRequest
+                .builder()
+                .bucket(props.uploadsBucket)
+                .key(key)
+                .contentType(contentType)
+                .contentLength(size)
+                .build()
+        val signed =
+            presigner.presignPutObject(
+                PutObjectPresignRequest
+                    .builder()
+                    .signatureDuration(validFor)
+                    .putObjectRequest(put)
+                    .build(),
+            )
+        // The browser sets Host and Content-Length itself; it must send the rest as signed.
+        val headers =
+            signed
+                .signedHeaders()
+                .filterKeys { !it.equals("host", ignoreCase = true) && !it.equals("content-length", ignoreCase = true) }
+                .mapValues { (_, values) -> values.joinToString(",") }
+        return PresignedUpload(signed.url().toString(), headers, signed.expiration())
+    }
+
+    override fun size(
+        bucket: String,
+        key: String,
+    ): Long? =
+        try {
+            s3
+                .headObject(
+                    HeadObjectRequest
+                        .builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .build(),
+                ).contentLength()
+        } catch (e: NoSuchKeyException) {
+            null
+        } catch (e: S3Exception) {
+            if (e.statusCode() == 404) null else throw e
+        }
+
+    override fun delete(
+        bucket: String,
+        key: String,
+    ) {
+        s3.deleteObject(
+            DeleteObjectRequest
+                .builder()
+                .bucket(bucket)
+                .key(key)
+                .build(),
+        )
+    }
 }

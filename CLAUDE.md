@@ -20,6 +20,8 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - Validation packs are data (`validation-packs/`, ADR 0021): never commit third-party artefacts, pin them by SHA-256 in `pack.json`; every rule ID needs a German text (`RuleTextCatalogueTest`).
 - invoice-core is built from source (composite build, ADR 0020); keep `invoice-core/gradle.properties` and the version in `backend/gradle/libs.versions.toml` equal.
 - Jobs: `JobHandler` implementations must be idempotent; enqueue inside the creating transaction.
+- Intake (ADR 0023/0024): every received file is virus-scanned (fail closed) before `archive.Archive.store`; documents are created only via `documents.Documents.registerIncoming`. `/internal/intake/**` is for the mail server only (shared secret, `api/internal.yaml`).
+- Never commit the EICAR test string; tests assemble it at run time.
 - Errors: RFC 9457 problem details with a stable `code` (`ErikaException`).
 - No invoice content in logs or exception messages.
 - UI texts in `frontend/messages/{de,en}.json`; German first.

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.1.0
+  version: 0.2.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -31,6 +31,12 @@ tags:
     description: The signed-in user's workspace (from the session, never from the URL)
   - name: members
     description: Users of the workspace and their roles
+  - name: notifications
+    description: The signed-in user's notification preferences
+  - name: intake
+    description: Receiving files by upload and email (IN-01, IN-02, IN-05, NF-04)
+  - name: documents
+    description: Received documents and their validation (IN-04, IN-05). Filters, status changes and the viewer follow in Stage 6.
 paths:
   /health:
     get:
@@ -258,6 +264,153 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Member" }
         default: { $ref: "#/components/responses/Problem" }
+  /notification-settings:
+    get:
+      tags: [notifications]
+      operationId: getNotificationSettings
+      summary: The signed-in user's notification preferences in this workspace
+      responses:
+        "200":
+          description: Current preferences.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [notifications]
+      operationId: updateNotificationSettings
+      summary: Change the signed-in user's notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationSettings" }
+            example: { emailOnNewDocuments: true }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+  /intake/address:
+    get:
+      tags: [intake]
+      operationId: getIntakeAddress
+      summary: The workspace's email address for incoming invoices (IN-01)
+      description: Suppliers send invoices to this address; attachments (XML, PDF, ZIP) are imported automatically.
+      responses:
+        "200":
+          description: The intake address.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntakeAddress" }
+        default: { $ref: "#/components/responses/Problem" }
+  /uploads:
+    post:
+      tags: [intake]
+      operationId: createUpload
+      summary: Start an upload (IN-02)
+      description: |
+        Announces one file (XML, PDF or ZIP, at most 20 MB) and returns a short-lived URL.
+        The browser sends the file there with `PUT`, using exactly the returned headers,
+        and then calls `POST /uploads/{uploadId}/complete`. The file is virus-scanned,
+        unpacked if it is a ZIP, archived and validated in the background.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadRequest" }
+            example: { fileName: "rechnung-2026-0815.xml", size: 24576, contentType: "application/xml" }
+      responses:
+        "201":
+          description: Upload started; send the file to `uploadUrl`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Upload" }
+        default: { $ref: "#/components/responses/Problem" }
+  /uploads/{uploadId}:
+    get:
+      tags: [intake]
+      operationId: getUpload
+      summary: State and result of an upload
+      parameters:
+        - $ref: "#/components/parameters/UploadId"
+      responses:
+        "200":
+          description: The upload with one item per file found in it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Upload" }
+        default: { $ref: "#/components/responses/Problem" }
+  /uploads/{uploadId}/complete:
+    post:
+      tags: [intake]
+      operationId: completeUpload
+      summary: Confirm that the file has been sent
+      description: |
+        Checks that the file arrived with the announced size and queues it for processing.
+        Calling it again for an upload that is already being processed returns its state.
+      parameters:
+        - $ref: "#/components/parameters/UploadId"
+      responses:
+        "202":
+          description: The file is queued for processing; poll `GET /uploads/{uploadId}`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Upload" }
+        default: { $ref: "#/components/responses/Problem" }
+  /inbox/summary:
+    get:
+      tags: [documents]
+      operationId: getInboxSummary
+      summary: Counts for the in-app badge
+      responses:
+        "200":
+          description: Number of new documents and of documents still being processed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InboxSummary" }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents:
+    get:
+      tags: [documents]
+      operationId: listDocuments
+      summary: Documents of the workspace, newest first
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          description: "`nextCursor` from the previous page."
+          schema: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: One page of documents.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}:
+    get:
+      tags: [documents]
+      operationId: getDocument
+      summary: One document with its invoice data and latest validation result
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     session:
@@ -276,6 +429,11 @@ components:
       required: false
       description: ETag of the version being changed. Missing → 428, outdated → 412.
       schema: { type: string }
+    UploadId:
+      name: uploadId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
   responses:
     Problem:
       description: Error as RFC 9457 problem details.
@@ -413,6 +571,246 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Member" }
+    NotificationSettings:
+      type: object
+      required: [emailOnNewDocuments]
+      properties:
+        emailOnNewDocuments:
+          type: boolean
+          description: Send an email when new documents arrive (one email per upload or incoming email).
+    IntakeAddress:
+      type: object
+      required: [address]
+      properties:
+        address:
+          type: string
+          description: Email address for incoming invoices, e.g. `k3m9q2xw4a7t5b8c1d6e@in.erika-app.de`.
+    UploadRequest:
+      type: object
+      required: [fileName, size, contentType]
+      properties:
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 20971520
+          description: Exact size in bytes; at most 20 MB.
+        contentType:
+          type: string
+          maxLength: 100
+          description: Media type the browser will send, e.g. `application/xml`, `application/pdf`, `application/zip`.
+    UploadStatus:
+      type: string
+      description: |
+        AWAITING_FILE: send the file to `uploadUrl`. RECEIVED: queued. DONE: see `items`.
+        REJECTED: the whole file was refused (see `reason`). FAILED: processing failed; try again.
+      enum: [AWAITING_FILE, RECEIVED, PROCESSING, DONE, REJECTED, FAILED]
+    IntakeOutcome:
+      type: string
+      description: |
+        IMPORTED: a new document. ALREADY_IN_ARCHIVE: the same file is already in the archive
+        (shown as "possible duplicate", IN-05); `documentId` is the existing document. REJECTED: see `reason`.
+      enum: [IMPORTED, ALREADY_IN_ARCHIVE, REJECTED]
+    IntakeReason:
+      type: string
+      enum:
+        - VIRUS_FOUND
+        - UNSUPPORTED_FILE_TYPE
+        - FILE_TOO_LARGE
+        - EMPTY_FILE
+        - FILE_MISSING
+        - ZIP_TOO_DEEP
+        - ZIP_TOO_MANY_FILES
+        - ZIP_BOMB
+        - ZIP_ENCRYPTED
+        - ZIP_DAMAGED
+        - NO_ATTACHMENTS
+    IntakeItem:
+      type: object
+      required: [fileName, outcome]
+      properties:
+        fileName:
+          type: string
+          description: Name of the file; for files from a ZIP, the path inside it (`rechnungen.zip/re-1.xml`).
+        outcome: { $ref: "#/components/schemas/IntakeOutcome" }
+        reason: { $ref: "#/components/schemas/IntakeReason" }
+        documentId: { type: string, format: uuid }
+    Upload:
+      type: object
+      required: [id, fileName, size, status, createdAt, items]
+      properties:
+        id: { type: string, format: uuid }
+        fileName: { type: string }
+        size: { type: integer, format: int64 }
+        status: { $ref: "#/components/schemas/UploadStatus" }
+        reason:
+          $ref: "#/components/schemas/IntakeReason"
+        createdAt: { type: string, format: date-time }
+        uploadUrl:
+          type: string
+          description: Only while AWAITING_FILE. Send the file here with `PUT`.
+        uploadHeaders:
+          type: object
+          additionalProperties: { type: string }
+          description: Headers to send with the `PUT`, exactly as given.
+        uploadExpiresAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/IntakeItem" }
+    InboxSummary:
+      type: object
+      required: [newDocuments, processing]
+      properties:
+        newDocuments:
+          type: integer
+          format: int32
+          description: Documents with status NEW (not yet looked at), for the badge.
+        processing:
+          type: integer
+          format: int32
+          description: Documents still being read and validated.
+    DocumentStatus:
+      type: string
+      enum: [NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED]
+    DocumentFormat:
+      type: string
+      description: |
+        Detected format. UNKNOWN: not yet read. UNREADABLE: the file could not be read.
+        PDF_ONLY: "not an e-invoice (other invoice)" (IN-04). UNSUPPORTED: readable but not a supported invoice format.
+      enum: [UNKNOWN, XRECHNUNG_UBL, XRECHNUNG_CII, UBL, CII, ZUGFERD, PDF_ONLY, UNSUPPORTED, UNREADABLE]
+    NotEInvoiceReason:
+      type: string
+      description: Why the document doesn't count as an e-invoice; absent for e-invoices.
+      enum: [PLAIN_PDF, INSUFFICIENT_PROFILE, ZUGFERD_1, UNKNOWN_XML, UNKNOWN_PROFILE, UNREADABLE]
+    DocumentType:
+      type: string
+      enum: [UNKNOWN, INVOICE, CREDIT_NOTE, OTHER]
+    ProcessingState:
+      type: string
+      description: PENDING while the file is read and validated in the background.
+      enum: [PENDING, DONE, FAILED]
+    ReceivedVia:
+      type: string
+      enum: [UPLOAD, EMAIL, CREATED]
+    ValidationLevel:
+      type: string
+      enum: [VALID, WARNING, ERROR]
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: Decimal amount as a string, e.g. "1234.50".
+    DocumentSummary:
+      type: object
+      required: [id, receivedAt, receivedVia, format, docType, status, processing]
+      properties:
+        id: { type: string, format: uuid }
+        receivedAt: { type: string, format: date-time }
+        receivedVia: { $ref: "#/components/schemas/ReceivedVia" }
+        fileName: { type: string }
+        format: { $ref: "#/components/schemas/DocumentFormat" }
+        notEInvoiceReason: { $ref: "#/components/schemas/NotEInvoiceReason" }
+        docType: { $ref: "#/components/schemas/DocumentType" }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        processing: { $ref: "#/components/schemas/ProcessingState" }
+        invoiceNumber: { type: string }
+        issueDate: { type: string, format: date }
+        sellerName: { type: string }
+        grossAmount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+        validationLevel: { $ref: "#/components/schemas/ValidationLevel" }
+        duplicateOf:
+          type: string
+          format: uuid
+          description: An earlier document with the same supplier tax ID, invoice number and gross amount ("possible duplicate", IN-05).
+    DocumentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentSummary" }
+        nextCursor:
+          type: string
+          description: Pass as `cursor` for the next page; absent on the last page.
+    InvoiceSummary:
+      type: object
+      properties:
+        invoiceNumber: { type: string, description: BT-1 }
+        issueDate: { type: string, format: date, description: BT-2 }
+        dueDate: { type: string, format: date, description: BT-9 }
+        currency: { type: string, description: BT-5 }
+        sellerName: { type: string, description: BT-27 }
+        sellerTaxId: { type: string, description: "BT-31, or BT-32 when there is no VAT ID" }
+        buyerName: { type: string, description: BT-44 }
+        netAmount: { $ref: "#/components/schemas/Money" }
+        taxAmount: { $ref: "#/components/schemas/Money" }
+        grossAmount: { $ref: "#/components/schemas/Money" }
+    MessageSeverity:
+      type: string
+      enum: [ERROR, WARNING, INFO]
+    ValidationMessage:
+      type: object
+      required: [ruleId, severity, source, text]
+      properties:
+        ruleId: { type: string, examples: ["BR-DE-15"] }
+        severity: { $ref: "#/components/schemas/MessageSeverity" }
+        source:
+          type: string
+          enum: [FORMAT, XML_SCHEMA, SCHEMATRON, PDFA, CONTENT]
+        text:
+          type: string
+          description: Plain-language German explanation (VW-04).
+        originalText:
+          type: string
+          description: The rule's published text (mostly English).
+        location: { type: string, description: "XPath of the element concerned, if known." }
+    ValidationResult:
+      type: object
+      required: [level, applicable, packId, checkedAt, messages]
+      properties:
+        level: { $ref: "#/components/schemas/ValidationLevel" }
+        applicable:
+          type: boolean
+          description: False if the file can't be validated as an e-invoice (plain PDF, MINIMUM profile …).
+        packId:
+          type: string
+          description: Validation pack that was applied (BR-07), e.g. `xrechnung-3.0.2_2026-08-31`.
+        scenario: { type: string }
+        checkedAt: { type: string, format: date-time }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/ValidationMessage" }
+    Document:
+      type: object
+      required: [id, direction, receivedAt, receivedVia, format, docType, status, processing, sha256, sizeBytes, mediaType]
+      properties:
+        id: { type: string, format: uuid }
+        direction:
+          type: string
+          enum: [IN, OUT]
+        receivedAt: { type: string, format: date-time }
+        receivedVia: { $ref: "#/components/schemas/ReceivedVia" }
+        fileName: { type: string }
+        mediaType: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        sha256:
+          type: string
+          description: SHA-256 of the original, as archived (AR-01).
+        format: { $ref: "#/components/schemas/DocumentFormat" }
+        profile:
+          type: string
+          description: Detected profile, e.g. XRECHNUNG, EN16931, BASIC.
+        notEInvoiceReason: { $ref: "#/components/schemas/NotEInvoiceReason" }
+        docType: { $ref: "#/components/schemas/DocumentType" }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        processing: { $ref: "#/components/schemas/ProcessingState" }
+        duplicateOf:
+          type: string
+          format: uuid
+          description: An earlier document with the same supplier tax ID, invoice number and gross amount ("possible duplicate", IN-05).
+        invoice: { $ref: "#/components/schemas/InvoiceSummary" }
+        validation: { $ref: "#/components/schemas/ValidationResult" }
     HealthStatus:
       type: string
       enum: [UP, DEGRADED, DOWN]

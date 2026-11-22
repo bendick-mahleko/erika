@@ -3,6 +3,7 @@ package de.erika
 import de.erika.support.ApiIntegrationTest
 import de.erika.support.Response
 import de.erika.support.TestClient
+import de.erika.support.TestDatabase
 import de.erika.support.TestUser
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DynamicTest
@@ -58,9 +59,17 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 .first()
         // Path parameter name → an ID that belongs to tenant B. Later stages add theirs here
         // (documentId, invoiceId, exportId …); unknown parameters fail the harness.
+        val uploadB =
+            b
+                .post("/api/v1/uploads", mapOf("fileName" to "b.xml", "size" to 10, "contentType" to "application/xml"))
+                .tree
+                .path("id")
+                .asString()
         fixturesB =
             mapOf(
                 "memberId" to memberB.path("id").asString(),
+                "uploadId" to uploadB,
+                "documentId" to documentOf(userB.workspaceId).toString(),
             )
         markersB = setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH") + fixturesB.values
     }
@@ -87,6 +96,28 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 }
             }
         }
+
+    /** A document of tenant B, written directly (processing it needs the worker, not the point here). */
+    private fun documentOf(workspaceId: UUID): UUID {
+        val id = UUID.randomUUID()
+        val sha = (id.toString().replace("-", "") + id.toString().replace("-", "")).take(64)
+        TestDatabase.update(
+            """
+            INSERT INTO stored_object (workspace_id, sha256, size_bytes, media_type, storage_key, retention_until, object_lock)
+            VALUES (?, ?, 1, 'application/xml', ?, '2034-12-31', 'NONE')
+            """.trimIndent(),
+            workspaceId,
+            sha,
+            "ws/$workspaceId/$sha",
+        )
+        TestDatabase.update(
+            "INSERT INTO document (id, workspace_id, direction, sha256, media_type, size_bytes, received_via) VALUES (?, ?, 'IN', ?, 'application/xml', 1, 'UPLOAD')",
+            id,
+            workspaceId,
+            sha,
+        )
+        return id
+    }
 
     private fun exerciseAsA(op: Operation) {
         val headers = mutableListOf<Pair<String, String>>()

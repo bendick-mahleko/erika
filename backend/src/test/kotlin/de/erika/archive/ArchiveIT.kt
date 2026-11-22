@@ -183,7 +183,7 @@ class ArchiveIT : WorkerIntegrationTest() {
 
     @Test
     fun `the integrity check job re-hashes originals and fails when one is damaged`() {
-        TestDatabase.update("DELETE FROM stored_object WHERE size_bytes = 1") // forged rows of other tests
+        TestDatabase.removeForgedOriginals() // rows of other tests without an object in storage
         val ws = workspace()
         val genuine = inWorkspace(ws) { archive.store(ws, random(), "application/xml", null, today) }
 
@@ -203,7 +203,7 @@ class ArchiveIT : WorkerIntegrationTest() {
 
         forgedRow(ws, pointingAt = genuine)
         assertEquals("FAILED", runCheck(1.0))
-        TestDatabase.update("DELETE FROM stored_object WHERE size_bytes = 1")
+        TestDatabase.removeForgedOriginals()
     }
 
     @Test

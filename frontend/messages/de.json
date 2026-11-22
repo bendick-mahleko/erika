@@ -31,7 +31,9 @@
     "signUp": "Registrieren",
     "signOut": "Abmelden",
     "settings": "Einstellungen",
-    "signedInAs": "Angemeldet als {name}"
+    "signedInAs": "Angemeldet als {name}",
+    "inbox": "Eingang",
+    "inboxBadge": "{count, plural, one {# neues Dokument} other {# neue Dokumente}}"
   },
   "Auth": {
     "email": "E-Mail-Adresse",
@@ -110,6 +112,128 @@
     "FORBIDDEN": "Ihre Rolle erlaubt diese Aktion nicht.",
     "CSRF_TOKEN_INVALID": "Ihre Sitzung ist abgelaufen. Bitte laden Sie die Seite neu.",
     "UNAUTHORIZED": "Bitte melden Sie sich an.",
+    "UPLOAD_FILE_MISSING": "Die Datei ist nicht angekommen. Bitte laden Sie sie erneut hoch.",
+    "UPLOAD_SIZE_MISMATCH": "Die Datei ist nicht vollständig angekommen. Bitte laden Sie sie erneut hoch.",
+    "UPLOAD_NOT_FOUND": "Dieser Upload existiert nicht.",
+    "DOCUMENT_NOT_FOUND": "Dieses Dokument existiert nicht.",
     "generic": "Etwas ist schiefgegangen. Bitte versuchen Sie es erneut."
+  },
+  "Inbox": {
+    "title": "Eingang",
+    "intro": "Hier landen Ihre Rechnungen – hochgeladen oder per E-Mail an Ihre Eingangsadresse geschickt. ERIKA prüft jede Datei auf Viren, archiviert das Original unveränderbar und prüft E-Rechnungen gegen die amtlichen Regeln.",
+    "addressLabel": "Ihre Eingangsadresse für Rechnungen",
+    "addressHint": "Geben Sie diese Adresse Ihren Lieferanten. Anhänge (XML, PDF, ZIP) werden automatisch übernommen.",
+    "copy": "Adresse kopieren",
+    "copied": "Kopiert.",
+    "empty": "Noch keine Dokumente. Laden Sie eine Rechnung hoch oder lassen Sie sie an Ihre Eingangsadresse schicken.",
+    "listHeading": "Dokumente",
+    "processingNote": "{count, plural, one {# Dokument wird} other {# Dokumente werden}} gerade geprüft …",
+    "column": {
+      "received": "Eingang",
+      "file": "Datei",
+      "supplier": "Lieferant",
+      "number": "Rechnungsnr.",
+      "amount": "Betrag",
+      "result": "Ergebnis"
+    },
+    "via": {
+      "UPLOAD": "Upload",
+      "EMAIL": "E-Mail",
+      "CREATED": "Erstellt"
+    },
+    "more": "Weitere laden"
+  },
+  "Upload": {
+    "heading": "Rechnungen hochladen",
+    "drop": "Dateien hierher ziehen oder",
+    "choose": "Dateien auswählen",
+    "hint": "XRechnung (XML), ZUGFeRD/Factur-X (PDF), andere PDF-Rechnungen oder ein ZIP mit mehreren Dateien – höchstens 20 MB pro Datei.",
+    "tooLarge": "{name}: Die Datei ist größer als 20 MB.",
+    "uploading": "{name}: wird hochgeladen …",
+    "processing": "{name}: wird geprüft …",
+    "failed": "{name}: Das Hochladen hat nicht geklappt. Bitte versuchen Sie es erneut.",
+    "rejected": "{name}: abgelehnt – {reason}",
+    "itemImported": "{name}: übernommen",
+    "itemDuplicate": "{name}: Mögliches Duplikat – diese Datei ist bereits im Archiv.",
+    "itemRejected": "{name}: nicht übernommen – {reason}",
+    "openDocument": "Dokument ansehen",
+    "resultsHeading": "Ergebnis des Uploads"
+  },
+  "IntakeReason": {
+    "VIRUS_FOUND": "In der Datei wurde Schadsoftware gefunden. Sie wurde nicht übernommen.",
+    "UNSUPPORTED_FILE_TYPE": "Dieser Dateityp wird nicht unterstützt (nur XML, PDF und ZIP).",
+    "FILE_TOO_LARGE": "Die Datei ist größer als 20 MB.",
+    "EMPTY_FILE": "Die Datei ist leer.",
+    "FILE_MISSING": "Die Datei ist nicht angekommen. Bitte laden Sie sie erneut hoch.",
+    "ZIP_TOO_DEEP": "Das ZIP enthält zu tief verschachtelte ZIP-Dateien (höchstens eine Ebene).",
+    "ZIP_TOO_MANY_FILES": "Das ZIP enthält mehr als 50 Dateien.",
+    "ZIP_BOMB": "Das ZIP ist auffällig stark gepackt und wurde aus Sicherheitsgründen abgelehnt.",
+    "ZIP_ENCRYPTED": "Das ZIP ist verschlüsselt. Bitte laden Sie die Dateien unverschlüsselt hoch.",
+    "ZIP_DAMAGED": "Das ZIP ist beschädigt und kann nicht geöffnet werden.",
+    "NO_ATTACHMENTS": "Die E-Mail enthielt keine verwertbaren Anhänge."
+  },
+  "Document": {
+    "processing": "Wird geprüft …",
+    "processingFailed": "Prüfung fehlgeschlagen",
+    "level": {
+      "VALID": "Gültige E-Rechnung",
+      "WARNING": "Gültig mit Hinweisen",
+      "ERROR": "Fehlerhaft"
+    },
+    "notEInvoice": "Keine E-Rechnung (sonstige Rechnung)",
+    "notEInvoiceReason": {
+      "PLAIN_PDF": "Diese PDF-Datei enthält keine strukturierten Rechnungsdaten. Seit 2025 müssen Rechnungen zwischen Unternehmen in Deutschland grundsätzlich als E-Rechnung (XRechnung oder ZUGFeRD) ausgestellt werden; für eine Übergangszeit sind solche Rechnungen noch erlaubt. ERIKA hat die Datei trotzdem unveränderbar archiviert.",
+      "INSUFFICIENT_PROFILE": "Die Datei enthält nur ein ZUGFeRD-Profil (MINIMUM oder BASIC-WL), das nicht als E-Rechnung gilt. Bitten Sie den Lieferanten um eine Rechnung im Profil EN 16931 oder XRechnung.",
+      "ZUGFERD_1": "Die Datei ist im veralteten Format ZUGFeRD 1.0, das nicht mehr als E-Rechnung gilt.",
+      "UNKNOWN_XML": "Die XML-Datei ist keine Rechnung im Format UBL oder CII.",
+      "UNKNOWN_PROFILE": "Die Rechnung nennt keine bekannte Spezifikation (BT-24).",
+      "UNREADABLE": "Die Datei konnte nicht gelesen werden."
+    },
+    "duplicate": "Mögliches Duplikat",
+    "duplicateHint": "Eine frühere Rechnung hat dieselbe Steuernummer des Lieferanten, dieselbe Rechnungsnummer und denselben Betrag.",
+    "format": {
+      "UNKNOWN": "–",
+      "XRECHNUNG_UBL": "XRechnung (UBL)",
+      "XRECHNUNG_CII": "XRechnung (CII)",
+      "UBL": "E-Rechnung (UBL)",
+      "CII": "E-Rechnung (CII)",
+      "ZUGFERD": "ZUGFeRD / Factur-X",
+      "PDF_ONLY": "PDF",
+      "UNSUPPORTED": "Nicht unterstützt",
+      "UNREADABLE": "Nicht lesbar"
+    },
+    "title": "Dokument",
+    "back": "Zurück zum Eingang",
+    "facts": {
+      "file": "Datei",
+      "received": "Eingegangen",
+      "via": "Eingangsweg",
+      "format": "Format",
+      "profile": "Profil",
+      "sha256": "Prüfsumme (SHA-256) des Originals",
+      "supplier": "Lieferant",
+      "supplierTaxId": "Steuer-ID des Lieferanten",
+      "buyer": "Käufer",
+      "number": "Rechnungsnummer",
+      "issueDate": "Rechnungsdatum",
+      "dueDate": "Fällig am",
+      "net": "Netto",
+      "tax": "Umsatzsteuer",
+      "gross": "Brutto"
+    },
+    "validationHeading": "Prüfergebnis",
+    "pack": "Geprüft mit Regelwerk {pack} am {date}",
+    "noMessages": "Keine Fehler oder Hinweise.",
+    "severity": {
+      "ERROR": "Fehler",
+      "WARNING": "Hinweis",
+      "INFO": "Info"
+    },
+    "viewerNote": "Die vollständige Rechnungsansicht folgt in Kürze."
+  },
+  "Notifications": {
+    "heading": "Benachrichtigungen",
+    "emailOnNewDocuments": "E-Mail an mich, wenn neue Dokumente eingehen",
+    "saved": "Gespeichert."
   }
 }

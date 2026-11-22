@@ -13,6 +13,8 @@ erika:
   identity:
     totp-encryption-key: dGVzdC1vbmx5LXRvdHAta2V5LTMyLWJ5dGVzLWxvbmc=
     secure-cookies: false
+  intake:
+    mail-secret: test-intake-secret
 
 logging:
   structured:

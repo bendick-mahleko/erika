@@ -1,43 +1,5 @@
-import { createHmac } from "node:crypto";
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-
-const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-const mailpit = process.env.E2E_MAILPIT_URL ?? "http://localhost:8025";
-
-async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG).analyze();
-  expect(results.violations).toEqual([]);
-}
-
-/** RFC 6238 TOTP (SHA-1, 6 digits, 30 s), as an authenticator app computes it. */
-function totp(base32Secret: string, offsetSteps = 0): string {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const c of base32Secret.replace(/=+$/, "")) bits += alphabet.indexOf(c).toString(2).padStart(5, "0");
-  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000 / 30) + offsetSteps));
-  const hash = createHmac("sha1", key).update(counter).digest();
-  const offset = hash[hash.length - 1]! & 0x0f;
-  const code = (hash.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
-  return code.toString().padStart(6, "0");
-}
-
-/** Waits for the verification mail in Mailpit and returns the token from its link. */
-async function verificationToken(email: string): Promise<string> {
-  for (let i = 0; i < 60; i++) {
-    const search = await fetch(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
-    const { messages } = (await search.json()) as { messages: { ID: string }[] };
-    if (messages.length > 0) {
-      const message = await (await fetch(`${mailpit}/api/v1/message/${messages[0]!.ID}`)).json();
-      const token = /token=([A-Za-z0-9_-]+)/.exec(message.Text as string)?.[1];
-      if (token) return token;
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error(`No verification mail for ${email}`);
-}
+import { expect, test } from "@playwright/test";
+import { expectAccessible, totp, verificationToken } from "./support";
 
 test.describe("sign-in pages", () => {
   test("sign-up and sign-in pages are German and accessible", async ({ page }) => {

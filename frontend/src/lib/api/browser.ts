@@ -13,6 +13,9 @@ export type Problem = components["schemas"]["Problem"];
 export type Session = components["schemas"]["Session"];
 export type Workspace = components["schemas"]["Workspace"];
 export type WorkspaceUpdate = components["schemas"]["WorkspaceUpdate"];
+export type Upload = components["schemas"]["Upload"];
+export type IntakeItem = components["schemas"]["IntakeItem"];
+export type DocumentSummary = components["schemas"]["DocumentSummary"];
 
 function readCookie(name: string): string | undefined {
   return document.cookie

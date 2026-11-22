@@ -200,6 +200,21 @@ class Archive(
         return ArchivedContent(stored, storage.getOriginal(stored.storageKey, stored.versionId)!!)
     }
 
+    /**
+     * Recomputes the retention once the document date is known (originals are stored at
+     * intake, before the file is read, with the receipt date). Only ever extends the lock.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun retainFor(
+        workspaceId: UUID,
+        sha256: String,
+        documentDate: LocalDate?,
+        receivedOn: LocalDate,
+    ): StoredObject? {
+        val existing = find(workspaceId, sha256) ?: return null
+        return extendIfLater(existing, RetentionPolicy.retentionUntil(documentDate, receivedOn))
+    }
+
     /** Legal hold (e.g. tax audit, litigation): the deletion job (later) skips held objects. */
     @Transactional(propagation = Propagation.MANDATORY)
     fun setLegalHold(

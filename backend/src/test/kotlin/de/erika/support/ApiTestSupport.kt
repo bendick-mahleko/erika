@@ -283,6 +283,22 @@ object TestDatabase {
     fun <T> asApp(block: (java.sql.Connection) -> T): T =
         DriverManager.getConnection(TestInfrastructure.jdbcUrl, "erika_app", "erika_app_dev").use(block)
 
+    /**
+     * Removes the stored_object rows that tests wrote without a real object in storage
+     * (marked with size_bytes = 1), and what refers to them, so the archive integrity check
+     * sees only genuine originals.
+     */
+    fun removeForgedOriginals() {
+        val forged =
+            "SELECT d.id FROM document d JOIN stored_object s ON s.workspace_id = d.workspace_id AND s.sha256 = d.sha256 " +
+                "WHERE s.size_bytes = 1"
+        update("DELETE FROM validation_result WHERE document_id IN ($forged)")
+        update("DELETE FROM parsed_invoice WHERE document_id IN ($forged)")
+        update("UPDATE document SET duplicate_of = NULL WHERE duplicate_of IN ($forged)")
+        update("DELETE FROM document WHERE id IN ($forged)")
+        update("DELETE FROM stored_object WHERE size_bytes = 1")
+    }
+
     fun update(
         sql: String,
         vararg args: Any?,

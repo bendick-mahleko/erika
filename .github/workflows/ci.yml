@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/openapi.yaml
+      # Internal endpoints for the mail server (not generated, ADR 0024).
+      - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/internal.yaml
 
   backend:
     name: Back end (lint, unit, integration, modularity)
@@ -83,7 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start stack
-        run: docker compose -f infra/local/compose.yml --profile app up -d --build --wait --wait-timeout 300
+        run: docker compose -f infra/local/compose.yml --profile app up -d --build --wait --wait-timeout 600
       - uses: pnpm/action-setup@v4
         with: { package_json_file: frontend/package.json }
       - uses: actions/setup-node@v4
@@ -105,6 +107,8 @@ jobs:
       - working-directory: frontend
         env: { E2E_BASE_URL: "http://localhost:3000", E2E_EXPECT_API: "true" }
         run: pnpm test:e2e
+      - name: Mail server delivered to the API (email intake test)
+        run: docker compose -f infra/local/compose.yml --profile app logs mail | grep -q "status=sent"
       - name: Worker processed the API's startup probe
         run: docker compose -f infra/local/compose.yml logs worker | grep -q "Startup probe from API instance"
       - name: Stack logs
@@ -126,7 +130,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        image: [backend, frontend]
+        image: [backend, frontend, mail]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

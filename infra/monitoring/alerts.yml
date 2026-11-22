@@ -1,0 +1,40 @@
+# Prometheus alert rules (Software Design §8). Loaded by the monitoring stack (Stage 7).
+# Metrics come from the API's actuator (/actuator/prometheus on the management port). The
+# worker has no web server; its own counters (erika_documents_processing_failed_total,
+# erika_archive_integrity_failures_total) need a metrics endpoint or push gateway for the
+# worker (Stage 7). Until then those failures alert through GlitchTip (logged at ERROR).
+groups:
+  - name: erika-intake
+    rules:
+      # IN-01: an email must be in the inbox within 2 minutes; alert well before that is at risk.
+      - alert: ErikaIntakeQueueStuck
+        expr: max by (type) (erika_jobs_oldest_due_seconds{type=~"intake\\..*|documents\\.parse-and-validate"}) > 300
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "Intake queue older than 5 minutes ({{ $labels.type }})"
+          runbook: docs/ops/intake.md#intake-queue-older-than-5-minutes-erikaintakequeuestuck
+
+      - alert: ErikaJobsFailed
+        expr: max by (type) (erika_jobs_failed_recent) > 0
+        for: 5m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Background jobs failed in the last 24 hours ({{ $labels.type }})"
+          runbook: docs/ops/intake.md#failed-jobs-erikajobsfailed
+
+      - alert: ErikaDocumentProcessingFailed
+        expr: increase(erika_documents_processing_failed_total[1h]) > 0
+        labels: { severity: ticket }
+        annotations:
+          summary: "Documents could not be read and validated"
+          runbook: docs/ops/intake.md#failed-jobs-erikajobsfailed
+
+  - name: erika-archive
+    rules:
+      - alert: ErikaArchiveIntegrityFailure
+        expr: increase(erika_archive_integrity_failures_total[1d]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "An archived original failed its integrity check"
+          runbook: docs/ops/archive-integrity.md

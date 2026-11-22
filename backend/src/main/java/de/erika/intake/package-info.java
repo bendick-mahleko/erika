@@ -4,7 +4,7 @@
  * <p>Owns its own tables. Talks to other feature modules only through published
  * interfaces or domain events (Software Design §3).
  */
-@ApplicationModule(displayName = "Intake", allowedDependencies = {"platform", "contract", "validation", "archive"})
+@ApplicationModule(displayName = "Intake", allowedDependencies = {"platform", "contract", "archive", "documents", "identity"})
 package de.erika.intake;
 
 import org.springframework.modulith.ApplicationModule;

@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info:
+  title: ERIKA internal API (mail intake)
+  version: 0.1.0
+  description: |
+    Endpoints for the inbound mail server (Postfix, ADR 0006, ADR 0024). Not part of the
+    public API: they live outside `/api/v1`, the reverse proxy doesn't route them, and
+    they are reachable only on the internal Docker network. Every call needs the shared
+    secret in `X-Intake-Secret`.
+
+    Not generated into code: the public contract (`openapi.yaml`) is what the clients and
+    the tenant-isolation harness are built from. These two endpoints are implemented by
+    hand in `de.erika.intake.mail.MailIntakeController`.
+servers:
+  - url: /
+security:
+  - intakeSecret: []
+paths:
+  /internal/intake/recipients/check:
+    post:
+      operationId: checkIntakeRecipient
+      summary: Does this recipient address belong to a workspace? (Postfix policy lookup)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient]
+              properties:
+                recipient: { type: string, maxLength: 320 }
+            example: { recipient: "k3m9q2xw4a7t5b8c1d6e@in.erika.local" }
+      responses:
+        "200":
+          description: Whether mail for this recipient is accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [known]
+                properties:
+                  known: { type: boolean }
+        "401":
+          description: Missing or wrong secret.
+  /internal/intake/mail:
+    post:
+      operationId: receiveIntakeMail
+      summary: One received email, as delivered by Postfix (IN-01)
+      description: |
+        The raw message is archived write-once first (Software Design §5, Flow A step 2);
+        attachments are extracted, virus-scanned and imported in the background.
+        Answers 202 when the message is safely stored, 404 if the recipient is unknown
+        (Postfix bounces), 413 if it is larger than 25 MB. Any 5xx means "try again later".
+      parameters:
+        - name: X-Erika-Recipient
+          in: header
+          required: true
+          description: Envelope recipient (`<token>@<intake domain>`).
+          schema: { type: string, maxLength: 320 }
+        - name: X-Erika-Sender
+          in: header
+          required: false
+          description: Envelope sender, kept for the sender allow-list (IN-06, later).
+          schema: { type: string, maxLength: 320 }
+      requestBody:
+        required: true
+        content:
+          message/rfc822:
+            schema: { type: string, format: binary }
+      responses:
+        "202": { description: Stored; processing continues in the background. }
+        "401": { description: Missing or wrong secret. }
+        "404": { description: Unknown recipient. }
+        "413": { description: Message larger than 25 MB. }
+components:
+  securitySchemes:
+    intakeSecret:
+      type: apiKey
+      in: header
+      name: X-Intake-Secret

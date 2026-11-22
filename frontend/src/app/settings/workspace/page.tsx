@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { fetchSession, fetchWorkspace } from "@/lib/api/client";
+import { fetchIntakeAddress, fetchNotificationSettings, fetchSession, fetchWorkspace } from "@/lib/api/client";
+import { IntakeAddress } from "@/app/inbox/IntakeAddress";
+import { NotificationForm } from "./NotificationForm";
 import { WorkspaceForm } from "./WorkspaceForm";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,6 +17,7 @@ export default async function WorkspaceSettingsPage() {
   const result = await fetchWorkspace();
   if (!result) redirect("/login");
   const t = await getTranslations("Workspace");
+  const [address, notifications] = await Promise.all([fetchIntakeAddress(), fetchNotificationSettings()]);
 
   return (
     <div className="space-y-6">
@@ -24,6 +27,10 @@ export default async function WorkspaceSettingsPage() {
       </div>
       {/* The back end enforces the role as well; this only avoids offering what would be refused. */}
       <WorkspaceForm initial={result.workspace} etag={result.etag} canEdit={session.role === "OWNER"} />
+      {address && <IntakeAddress address={address} />}
+      {notifications && (
+        <NotificationForm initial={notifications.emailOnNewDocuments} canEdit={session.role !== "ADVISOR"} />
+      )}
     </div>
   );
 }

@@ -398,6 +398,25 @@ internal class MembershipRepository(
             .optional()
             .orElse(null)
 
+    /** The user's "email on new documents" flag in the current workspace, or null if not a member. */
+    fun notifyNewDocuments(userId: UUID): Boolean? =
+        jdbc
+            .sql("SELECT notify_new_documents FROM membership WHERE user_id = :user AND workspace_id = current_workspace_id()")
+            .param("user", userId)
+            .query(Boolean::class.java)
+            .optional()
+            .orElse(null)
+
+    fun setNotifyNewDocuments(
+        userId: UUID,
+        notify: Boolean,
+    ): Boolean =
+        jdbc
+            .sql("UPDATE membership SET notify_new_documents = :notify WHERE user_id = :user AND workspace_id = current_workspace_id()")
+            .param("notify", notify)
+            .param("user", userId)
+            .update() == 1
+
     private fun map(
         rs: ResultSet,
         @Suppress("UNUSED_PARAMETER") row: Int,

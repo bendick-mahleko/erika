@@ -12,15 +12,17 @@
 ## Local infrastructure
 
 ```bash
-docker compose -f infra/local/compose.yml up -d        # postgres, s3, s3-init, mailpit
+docker compose -f infra/local/compose.yml up -d        # postgres, s3, s3-init, clamav, mailpit
 docker compose -f infra/local/compose.yml down -v      # reset everything (deletes data)
 ```
 
 | Service | Address | Credentials (dev only) |
 |---|---|---|
 | PostgreSQL 16 | `localhost:5432/erika` | app `erika_app` / `erika_app_dev`; owner `erika_owner` / `erika_owner_dev`; superuser `postgres` / `postgres_dev` |
-| S3 (SeaweedFS) | `http://localhost:9000`, buckets `erika-originals` and `erika-backups` (Object Lock on; the app key may set retention but not delete) | app key `erika-dev` / `erika-dev-secret`; admin `seaweed_admin` / `seaweed_admin_dev` |
+| S3 (SeaweedFS) | `http://localhost:9000`, buckets `erika-originals` and `erika-backups` (Object Lock on; the app key may set retention but not delete) and `erika-uploads` (upload quarantine, CORS for the browser) | app key `erika-dev` / `erika-dev-secret`; admin `seaweed_admin` / `seaweed_admin_dev` |
 | Mailpit | SMTP `localhost:1025`, UI http://localhost:8025 | – (all mail sent by the worker lands here) |
+| ClamAV | `localhost:3310` (clamd) | – (loads its signatures for about a minute after start) |
+| Intake mail (profile `app`) | SMTP `localhost:2525`, domain `in.erika.local` | shared secret `dev-intake-secret` with the API |
 
 Database roles: the app runs as `erika_app` (no DDL, no BYPASSRLS); Flyway migrates as `erika_owner` (ADR 0011).
 
@@ -71,6 +73,14 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - Originals go through `Archive.store/open` inside a workspace-scoped transaction; never write to the originals bucket directly. The app key has no delete permission, and versions are locked (Object Lock, COMPLIANCE).
 - invoice-core is built from source as part of the back-end build (composite build, ADR 0020). Change its API in `invoice-core/` and the back end sees it immediately.
 
+### Intake (uploads and email)
+
+- Upload: the browser gets a pre-signed URL from `POST /uploads`, sends the file straight to the `erika-uploads` bucket, then calls `/complete`; the worker scans (ClamAV), unpacks ZIPs, archives and validates (ADR 0023). With the back end on the host, `ERIKA_S3_PUBLIC_ENDPOINT` defaults to `http://localhost:9000` (profile `local`).
+- Email: with the `app` profile, send a mail to your workspace's address (Eingang page) through `localhost:2525`, e.g. `swaks --server localhost:2525 --to <token>@in.erika.local --attach @frontend/e2e/fixtures/xrechnung-beispiel.xml`. Without Postfix, post a raw message to `POST /internal/intake/mail` with `X-Intake-Secret: dev-intake-secret` (`api/internal.yaml`).
+- The worker needs ClamAV (`ERIKA_CLAMAV_HOST`); without it intake jobs fail and retry, never pass unscanned.
+- Integration tests: `IntakeIT` drives both roles: API requests in the test's context, background jobs in a worker context in the same JVM (`support/WorkerContext.kt`, `drain()`).
+- EICAR test files are assembled at run time (`Samples.eicar()`, `e2e/support.ts`); don't commit the EICAR string, local virus scanners would quarantine the file.
+
 ## Front end
 
 ```bash
@@ -83,7 +93,7 @@ pnpm build && pnpm test:e2e      # Playwright (first time: pnpm exec playwright 
 
 `ERIKA_API_INTERNAL_URL` (default `http://localhost:8080`) tells server components where the API is. Browser calls go to `/api/v1/*` on the web app's own origin; `src/proxy.ts` forwards them to that URL, so the session cookie stays first-party (Caddy does this in staging).
 
-Full-stack E2E tests (`E2E_EXPECT_API=true`) read the verification mail from Mailpit: set `E2E_MAILPIT_URL` if its UI isn't on `http://localhost:8025`.
+Full-stack E2E tests (`E2E_EXPECT_API=true`) read the verification mail from Mailpit: set `E2E_MAILPIT_URL` if its UI isn't on `http://localhost:8025`. The intake tests send email through the mail container: `E2E_SMTP_HOST` / `E2E_SMTP_PORT` (default `localhost:2525`).
 
 Texts: every UI string goes into `messages/de.json` and `messages/en.json` (NF-13).
 

@@ -6,6 +6,7 @@ import de.erika.invoicecore.ParseErrorCode
 import de.erika.invoicecore.check.InvoiceChecks
 import de.erika.invoicecore.check.Severity
 import de.erika.invoicecore.model.InvoiceFormat
+import de.erika.invoicecore.model.ParsedDocument
 import de.erika.platform.runtime.RuntimeInstance
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -48,13 +49,22 @@ class InvoiceValidator(
     fun validate(
         bytes: ByteArray,
         onDate: LocalDate = LocalDate.now(clock),
-    ): ValidationReport {
+    ): ValidationReport = check(bytes, onDate).report
+
+    /**
+     * Like [validate], and also returns what invoice-core read from the file, so callers
+     * that store the neutral model don't parse the file a second time.
+     */
+    fun check(
+        bytes: ByteArray,
+        onDate: LocalDate = LocalDate.now(clock),
+    ): ValidationOutcome {
         val started = System.nanoTime()
         val pack = packs.activeOn(onDate)
-        val report = run(pack, bytes)
+        val outcome = run(pack, bytes)
         val millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
         timer.record(millis, TimeUnit.MILLISECONDS)
-        return report.copy(durationMillis = millis)
+        return outcome.copy(report = outcome.report.copy(durationMillis = millis))
     }
 
     /** Compiles the active pack's stylesheets once at start-up, so the first job is fast and a broken pack fails early. */
@@ -71,7 +81,7 @@ class InvoiceValidator(
     private fun run(
         pack: ValidationPack,
         bytes: ByteArray,
-    ): ValidationReport {
+    ): ValidationOutcome {
         val texts = RuleTextResolver(pack)
         val parsed =
             try {
@@ -79,13 +89,17 @@ class InvoiceValidator(
             } catch (e: InvoiceParseException) {
                 val applicable = e.code != ParseErrorCode.UNKNOWN_FILE_TYPE
                 val message = texts.format("ERIKA-FORMAT-${e.code.name}", MessageSeverity.ERROR)
-                return report(pack, applicable, null, null, null, null, listOf(message))
+                return ValidationOutcome(null, e.code, report(pack, applicable, null, null, null, null, listOf(message)))
             }
         val format = parsed.format
         if (!format.isEInvoice) {
             val reason = format.reason?.name ?: "UNKNOWN_PROFILE"
             val message = texts.format("ERIKA-NOT-EINVOICE-$reason", MessageSeverity.ERROR)
-            return report(pack, false, format.format.name, format.profile?.name, null, null, listOf(message))
+            return ValidationOutcome(
+                parsed,
+                null,
+                report(pack, false, format.format.name, format.profile?.name, null, null, listOf(message)),
+            )
         }
 
         val messages = mutableListOf<ValidationMessage>()
@@ -108,7 +122,11 @@ class InvoiceValidator(
                 )
             }
         }
-        return report(pack, true, format.format.name, format.profile?.name, result.scenario, result.accepted, messages)
+        return ValidationOutcome(
+            parsed,
+            null,
+            report(pack, true, format.format.name, format.profile?.name, result.scenario, result.accepted, messages),
+        )
     }
 
     private fun pdfaMessages(
@@ -165,6 +183,16 @@ class InvoiceValidator(
         val WARM_UP_XML = "<warm-up/>".toByteArray()
     }
 }
+
+/**
+ * What [InvoiceValidator.check] found: the parsed document (null if the file couldn't be
+ * read at all, then [parseError] says why) and the validation report.
+ */
+data class ValidationOutcome(
+    val parsed: ParsedDocument?,
+    val parseError: ParseErrorCode?,
+    val report: ValidationReport,
+)
 
 /** Turns rule IDs into German texts: the pack's catalogue for KoSIT rules, ERIKA's own for the rest. */
 internal class RuleTextResolver(

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.filter.OncePerRequestFilter
+import org.springframework.web.util.ContentCachingResponseWrapper
 
 /**
  * Software Design §7: each request of a signed-in user runs in one transaction with
@@ -21,6 +22,11 @@ import org.springframework.web.filter.OncePerRequestFilter
  * Runs after Spring Security (which restores the principal from the session). Responses
  * with status >= 400 roll the transaction back, also when an exception handler turned
  * the exception into a response.
+ *
+ * The response body is buffered and written only after the transaction has ended. A
+ * response committed inside the transaction would make Spring Session save the session
+ * right then, in a transaction of its own, which needs a second pooled connection while
+ * this request still holds one; under load every connection ends up waiting for another.
  */
 @Component
 @Profile(RuntimeInstance.PROFILE_API)
@@ -41,12 +47,17 @@ class TenantTransactionFilter(
             filterChain.doFilter(request, response)
             return
         }
-        tx.executeWithoutResult { status ->
-            // Only the workspace: app.user_id (which widens RLS to all of a user's memberships)
-            // is for the sign-in flow, never for normal requests.
-            tenant.enterWorkspace(principal.workspaceId)
-            filterChain.doFilter(request, response)
-            if (response.status >= 400) status.setRollbackOnly()
+        val buffered = ContentCachingResponseWrapper(response)
+        try {
+            tx.executeWithoutResult { status ->
+                // Only the workspace: app.user_id (which widens RLS to all of a user's memberships)
+                // is for the sign-in flow, never for normal requests.
+                tenant.enterWorkspace(principal.workspaceId)
+                filterChain.doFilter(request, buffered)
+                if (buffered.status >= 400) status.setRollbackOnly()
+            }
+        } finally {
+            buffered.copyBodyToResponse()
         }
     }
 }

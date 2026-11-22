@@ -11,9 +11,11 @@ Requirements and design live outside this repository (*ERIKA – Requirements Sp
 | `api/` | OpenAPI 3.1 contract — source of truth for back end and front end |
 | `backend/` | Kotlin + Spring Boot 4 modular monolith (runs as `api` or `worker`) |
 | `frontend/` | Next.js (TypeScript, Tailwind, next-intl) |
-| `infra/local/` | Docker Compose for development: PostgreSQL 16, S3 (SeaweedFS), Mailpit |
+| `infra/local/` | Docker Compose for development: PostgreSQL 16, S3 (SeaweedFS), ClamAV, Mailpit; profile `app` adds API, worker, web and the intake mail server |
 | `infra/staging/` | Staging deployment: Compose, Caddy, deploy script with rollback |
-| `infra/docker/` | Dockerfiles (build context: repo root) |
+| `infra/docker/` | Dockerfiles (build context: repo root): back end, front end, intake mail server |
+| `infra/mail/` | Intake mail server scripts: Postfix policy lookup and pipe to the API (ADR 0024) |
+| `infra/monitoring/` | Prometheus alert rules |
 | `invoice-core/` | E-invoice library (Kotlin, independent Gradle build and releases) |
 | `validation-packs/` | Versioned validation packs: manifests, ERIKA scenarios, German rule texts (artefacts downloaded by Gradle) |
 | `docs/` | Build plan, ADRs, developer docs |
@@ -39,6 +41,6 @@ cd frontend && pnpm install && pnpm dev
 
 Or run everything in containers: `docker compose -f infra/local/compose.yml --profile app up -d --build`.
 
-Open http://localhost:3000 — the page shows the system status reported by `GET /api/v1/health`.
+Open http://localhost:3000, sign up, and upload invoices on the Eingang (inbox) page; with the `app` profile, email them to your intake address through `localhost:2525`.
 
 More: [docs/dev-setup.md](docs/dev-setup.md).

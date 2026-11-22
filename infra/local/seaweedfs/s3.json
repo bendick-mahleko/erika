@@ -11,7 +11,8 @@
       "actions": [
         "Read:erika-originals", "Write:erika-originals", "List:erika-originals", "Tagging:erika-originals",
         "PutObjectRetention:erika-originals", "GetObjectRetention:erika-originals",
-        "Read:erika-backups", "Write:erika-backups", "List:erika-backups"
+        "Read:erika-backups", "Write:erika-backups", "List:erika-backups",
+        "Read:erika-uploads", "Write:erika-uploads", "List:erika-uploads"
       ]
     }
   ]
