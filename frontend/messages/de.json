@@ -6,7 +6,7 @@
   },
   "Home": {
     "title": "Willkommen bei ERIKA",
-    "intro": "ERIKA wird gerade aufgebaut. Diese Seite zeigt, ob alle Systemteile erreichbar sind."
+    "intro": "ERIKA ist in der geschlossenen Beta. Diese Seite zeigt, ob alle Systemteile erreichbar sind."
   },
   "Health": {
     "heading": "Systemstatus",
@@ -47,7 +47,12 @@
       "submit": "Konto anlegen",
       "doneTitle": "Bitte prüfen Sie Ihr Postfach",
       "done": "Wir haben eine E-Mail an {email} geschickt. Klicken Sie auf den Link darin, um Ihre Adresse zu bestätigen.",
-      "haveAccount": "Sie haben schon ein Konto?"
+      "haveAccount": "Sie haben schon ein Konto?",
+      "terms": "Ich akzeptiere die <terms>Beta-Nutzungsbedingungen</terms> einschließlich des <dpa>Vertrags zur Auftragsverarbeitung</dpa>. Die <privacy>Datenschutzhinweise</privacy> habe ich zur Kenntnis genommen.",
+      "inviteOnlyTitle": "Geschlossene Beta",
+      "inviteOnly": "ERIKA wird gerade mit einer kleinen Gruppe von Betrieben getestet. Ein Konto können Sie nur mit einem persönlichen Einladungslink anlegen.",
+      "inviteOnlyContact": "Sie möchten mitmachen? Schreiben Sie uns an {email}.",
+      "invited": "Sie wurden eingeladen. Die Einladung gilt für diese E-Mail-Adresse."
     },
     "verify": {
       "title": "E-Mail-Adresse bestätigen",
@@ -119,7 +124,10 @@
     "VIEW_NOT_AVAILABLE": "Für dieses Dokument gibt es keine Rechnungsansicht.",
     "ATTACHMENT_NOT_FOUND": "Dieser Anhang existiert nicht.",
     "INVALID_CURSOR": "Bitte laden Sie die Liste neu.",
-    "generic": "Etwas ist schiefgegangen. Bitte versuchen Sie es erneut."
+    "generic": "Etwas ist schiefgegangen. Bitte versuchen Sie es erneut.",
+    "TERMS_NOT_ACCEPTED": "Bitte akzeptieren Sie die Nutzungsbedingungen und den Vertrag zur Auftragsverarbeitung.",
+    "INVITATION_REQUIRED": "ERIKA ist in der geschlossenen Beta. Für die Registrierung brauchen Sie einen Einladungslink.",
+    "INVITATION_INVALID": "Die Einladung ist ungültig, abgelaufen oder gilt für eine andere E-Mail-Adresse."
   },
   "Inbox": {
     "title": "Eingang",
@@ -301,5 +309,36 @@
     "openMail": "Im E-Mail-Programm öffnen",
     "copy": "Text kopieren",
     "copied": "Kopiert."
+  },
+  "Feedback": {
+    "button": "Feedback",
+    "title": "Feedback an das ERIKA-Team",
+    "intro": "Was funktioniert gut, was nicht, was fehlt Ihnen? Ihre Nachricht geht direkt an das ERIKA-Team. Bitte schicken Sie keine Rechnungsinhalte mit.",
+    "category": "Worum geht es?",
+    "categories": {
+      "PROBLEM": "Ein Problem",
+      "IDEA": "Eine Idee",
+      "PRAISE": "Lob",
+      "OTHER": "Etwas anderes"
+    },
+    "message": "Ihre Nachricht",
+    "send": "Senden",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "thanks": "Vielen Dank! Wir lesen jede Nachricht und melden uns bei Rückfragen per E-Mail."
+  },
+  "Footer": {
+    "label": "Rechtliches und Service",
+    "imprint": "Impressum",
+    "privacy": "Datenschutz",
+    "terms": "Nutzungsbedingungen (Beta)",
+    "dpa": "Auftragsverarbeitung",
+    "subprocessors": "Unterauftragsverarbeiter",
+    "status": "Systemstatus"
+  },
+  "Legal": {
+    "draft": "Entwurf – vor dem Start der Beta noch rechtlich zu prüfen.",
+    "updated": "Stand: {date}",
+    "germanOnly": ""
   }
 }

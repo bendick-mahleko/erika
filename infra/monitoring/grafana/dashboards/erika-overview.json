@@ -1,0 +1,100 @@
+{
+  "uid": "erika-overview",
+  "title": "ERIKA – Überblick",
+  "description": "Software Design §8: requests, errors, latency, job queue, failed jobs, JVM, disks, backups.",
+  "tags": ["erika"],
+  "timezone": "Europe/Berlin",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Erreichbar (Health-Probe)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "min(probe_success{job=\"blackbox-https\"})" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "GESTÖRT", "color": "red" }, "1": { "text": "OK", "color": "green" } } }] }, "overrides": [] }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Verfügbarkeit 30 Tage (NF-06: 99,5 %)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "avg_over_time(min(probe_success{job=\"blackbox-https\"})[30d:1m])" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 3, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.995 }] } }, "overrides": [] }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Letzte DB-Sicherung (Alter)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "time() - max(erika_backup_last_success_timestamp_seconds{kind=\"postgres\"})" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 93600 }] } }, "overrides": [] }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Audit-Kette defekt (Workspaces)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "max(erika_audit_chain_broken)" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Anfragen pro Sekunde nach Statusklasse",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (class) (label_replace(rate(caddy_http_request_duration_seconds_count[5m]), \"class\", \"${1}xx\", \"code\", \"(.).*\"))", "legendFormat": "{{class}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "API-Antwortzeit p95 (NF-07)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(caddy_http_request_duration_seconds_bucket{handler=\"reverse_proxy\"}[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Warteschlange: ältester fälliger Job",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "max by (type) (erika_jobs_oldest_due_seconds)", "legendFormat": "{{type}}" }],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "thresholdsStyle": { "mode": "line" } }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 300 }] } }, "overrides": [] }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Fehlgeschlagene Jobs (24 h)",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "max by (type) (erika_jobs_failed_recent)", "legendFormat": "{{type}}" }]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "JVM-Heap",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (job) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "{{job}}" }],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 10, "type": "bargauge", "title": "Freier Plattenplatz",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\"}", "legendFormat": "{{instance}} {{mountpoint}}" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0.05 }, { "color": "green", "value": 0.15 }] } }, "overrides": [] }
+    },
+    {
+      "id": 11, "type": "table", "title": "Sicherungen",
+      "gridPos": { "x": 0, "y": 28, "w": 24, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "time() - erika_backup_last_success_timestamp_seconds", "format": "table", "instant": true },
+        { "refId": "B", "expr": "erika_backup_last_status", "format": "table", "instant": true },
+        { "refId": "C", "expr": "erika_backup_duration_seconds", "format": "table", "instant": true }
+      ],
+      "transformations": [{ "id": "merge" }, { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true }, "renameByName": { "Value #A": "Alter (s)", "Value #B": "OK", "Value #C": "Dauer (s)" } } }]
+    },
+    {
+      "id": 12, "type": "logs", "title": "Fehler in den Logs (ohne volle IP-Adressen)",
+      "gridPos": { "x": 0, "y": 34, "w": 24, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [{ "refId": "A", "expr": "{ip=\"masked\", service=~\"api|worker|web|mail\"} |~ \"(?i)\\\"(log\\\\.level|level)\\\":\\\"(error|warn)\"" }]
+    }
+  ]
+}

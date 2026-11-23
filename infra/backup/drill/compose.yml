@@ -1,0 +1,79 @@
+# Local restore drill (docs/ops/restore.md): the production backup setup in miniature.
+#   - s3:  SeaweedFS with TLS, standing in for the backup bucket (pgBackRest needs HTTPS)
+#   - db:  the ERIKA PostgreSQL image with continuous WAL archiving into s3
+# Driven by run-local-drill.sh; DEV-ONLY credentials.
+name: erika-drill
+
+services:
+  certs:
+    image: alpine:3.22
+    volumes: [certs:/certs]
+    command:
+      - sh
+      - -c
+      - |
+        [ -f /certs/s3.crt ] && exit 0
+        apk add --no-cache openssl >/dev/null
+        openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj /CN=s3 -addext subjectAltName=DNS:s3 \
+          -keyout /certs/s3.key -out /certs/s3.crt 2>/dev/null
+        chmod 0644 /certs/s3.key /certs/s3.crt
+
+  s3:
+    image: chrislusf/seaweedfs:4.50
+    command: >
+      server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+      -s3.cert.file=/certs/s3.crt -s3.key.file=/certs/s3.key
+    volumes:
+      - s3data:/data
+      - certs:/certs:ro
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
+    depends_on:
+      certs: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status || exit 1"]
+      interval: 5s
+      retries: 30
+
+  s3-init:
+    image: amazon/aws-cli:2.27.0
+    depends_on:
+      s3: { condition: service_healthy }
+    environment:
+      AWS_ACCESS_KEY_ID: drill
+      AWS_SECRET_ACCESS_KEY: drill-secret
+      AWS_DEFAULT_REGION: eu-central-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for i in $$(seq 1 30); do
+          aws --no-verify-ssl --endpoint-url https://s3:8333 s3api head-bucket --bucket erika-pgbackrest 2>/dev/null && exit 0
+          aws --no-verify-ssl --endpoint-url https://s3:8333 s3api create-bucket --bucket erika-pgbackrest 2>/dev/null && exit 0
+          sleep 2
+        done
+        exit 1
+
+  postgres:
+    build: { context: ../../.., dockerfile: infra/docker/postgres.Dockerfile }
+    image: erika-postgres:local
+    env_file: [pgbackrest.env]
+    environment:
+      POSTGRES_DB: erika
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev
+      ERIKA_WAL_ARCHIVE: "on"
+      # Short in the drill so the test needs no long wait; production uses 300 s.
+      ERIKA_ARCHIVE_TIMEOUT: "30"
+    volumes:
+      - drilldata:/var/lib/postgresql/data
+      - ./00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+    depends_on:
+      s3-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erika"]
+      interval: 5s
+      retries: 30
+
+volumes:
+  certs:
+  s3data:
+  drilldata:

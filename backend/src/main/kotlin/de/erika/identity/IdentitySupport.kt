@@ -43,6 +43,15 @@ class IdentityConfiguration {
 
     @Bean
     fun totp(): Totp = Totp(Clock.systemUTC())
+
+    @Bean
+    fun signupPolicy(props: SignupProperties): SignupPolicy {
+        val invitations = props.inviteSecret.takeIf { it.isNotBlank() }?.let { BetaInvitations(it) }
+        check(props.mode == SignupMode.OPEN || invitations != null) {
+            "erika.signup.mode=INVITE_ONLY needs erika.signup.invite-secret (ERIKA_INVITE_SECRET)"
+        }
+        return SignupPolicy(props, invitations)
+    }
 }
 
 /** Stable error codes of the identity module (RFC 9457 `code`). */

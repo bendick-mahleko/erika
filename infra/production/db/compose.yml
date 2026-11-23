@@ -1,0 +1,118 @@
+# Production database server (Falkenstein, private network only; ADR 0027, 0028).
+# PostgreSQL 16 with pgBackRest: continuous WAL archiving to the backup bucket at the
+# second location; nightly full backups and hourly checks via systemd timers (Ansible).
+# Data directory on an encrypted (LUKS) Hetzner volume mounted at /mnt/pgdata.
+name: erika
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  postgres:
+    # Pinned separately from the app release: a new tag restarts the database.
+    image: ghcr.io/${ERIKA_IMAGE_REPO}/postgres:${ERIKA_POSTGRES_IMAGE_TAG:?}
+    restart: unless-stopped
+    shm_size: 512m
+    env_file: [pgbackrest.env]
+    environment:
+      POSTGRES_DB: erika
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?}
+      ERIKA_DB_APP_PASSWORD: ${ERIKA_DB_APP_PASSWORD:?}
+      ERIKA_DB_OWNER_PASSWORD: ${ERIKA_DB_OWNER_PASSWORD:?}
+      ERIKA_DB_MONITOR_PASSWORD: ${ERIKA_DB_MONITOR_PASSWORD:?}
+      ERIKA_WAL_ARCHIVE: "on"
+      # At most 5 minutes of writes are only on this server (RPO, design target 15 min).
+      ERIKA_ARCHIVE_TIMEOUT: "300"
+    command:
+      - postgres
+      # 8 GB server: a quarter for shared buffers, the rest for the OS page cache.
+      - -c
+      - shared_buffers=2GB
+      - -c
+      - effective_cache_size=5GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_connections=100
+      - -c
+      - password_encryption=scram-sha-256
+      # TLS for the app's connections over the private network; certificate from Ansible.
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/postgresql/tls/server.crt
+      - -c
+      - ssl_key_file=/etc/postgresql/tls/server.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      # No statement parameters in the server log: they can contain invoice content.
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - log_connections=off
+      - -c
+      - log_checkpoints=on
+    ports:
+      # Only on the private network; the app server connects here. No public interface.
+      - "${ERIKA_PRIVATE_IP:?}:5432:5432"
+    volumes:
+      - /mnt/pgdata/data:/var/lib/postgresql/data
+      - /mnt/pgdata/spool:/var/spool/pgbackrest
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - /mnt/pgdata/tls:/etc/postgresql/tls:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erika"]
+      interval: 10s
+      retries: 30
+    logging: *logging
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: postgres:5432/erika?sslmode=disable
+      DATA_SOURCE_USER: erika_monitor
+      DATA_SOURCE_PASS: ${ERIKA_DB_MONITOR_PASSWORD:?}
+    ports: ["${ERIKA_PRIVATE_IP:?}:9187:9187"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    logging: *logging
+
+  alloy:
+    image: grafana/alloy:v1.10.2
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
+    environment:
+      ERIKA_LOKI_URL: http://${ERIKA_OPS_HOST:?}:3100/loki/api/v1/push
+      ERIKA_HOST: db
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy
+    logging: *logging
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=${ERIKA_PRIVATE_IP:?}:9100
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /:/host:ro,rslave
+      - /var/lib/node_exporter/textfile:/textfile:ro
+    logging: *logging
+
+volumes:
+  alloy_data:

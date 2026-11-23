@@ -65,7 +65,13 @@ export async function signedInAccount(page: Page, prefix: string): Promise<{ ema
     const text = await response.text();
     return text ? JSON.parse(text) : null;
   };
-  await post("/api/v1/auth/signup", { email, password, displayName: "Erika Test", workspaceName: "Test Malerbetrieb" });
+  await post("/api/v1/auth/signup", {
+    email,
+    password,
+    displayName: "Erika Test",
+    workspaceName: "Test Malerbetrieb",
+    termsAccepted: true,
+  });
   await post("/api/v1/auth/verify-email", { token: await verificationToken(email) });
   await post("/api/v1/auth/login", { email, password });
   const enrolment = await post("/api/v1/auth/totp/enrolment");

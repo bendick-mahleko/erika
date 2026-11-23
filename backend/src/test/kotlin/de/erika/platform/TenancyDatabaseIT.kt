@@ -105,6 +105,11 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.workspaceId,
             intake,
         )
+        TestDatabase.update(
+            "INSERT INTO feedback (id, workspace_id, user_id, category, message) VALUES (gen_random_uuid(), ?, ?, 'IDEA', 'x')",
+            user.workspaceId,
+            user.userId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

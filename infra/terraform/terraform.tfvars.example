@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars (git-ignored) or keep encrypted as terraform.tfvars.sops.json.
+# Secrets can also come from the environment: TF_VAR_hcloud_token=... etc.
+domain        = "erika-app.de"
+mail_hostname = "mx.erika-app.de"
+bucket_prefix = "erika-prod"
+
+admin_ssh_keys = {
+  "admin-laptop" = "ssh-ed25519 AAAA... admin@laptop"
+}
+admin_cidrs = ["203.0.113.10/32"]
+
+# Check current types and prices first: hcloud server-type list
+app_server_type = "<4-8 vCPU, 16 GB>"
+db_server_type  = "<4 vCPU, 8 GB>"
+ops_server_type = "<2-4 vCPU, 4-8 GB>"
+
+# hcloud_token          = ""   # project erika-prod
+# s3_primary_access_key = ""   # project erika-prod, Object Storage key
+# s3_primary_secret_key = ""
+# s3_backup_access_key  = ""   # project erika-backup
+# s3_backup_secret_key  = ""

@@ -1,0 +1,41 @@
+# Managed by Ansible (role erika_app) from infra/production/secrets.sops.yaml. Do not edit.
+# Template with explanations: infra/production/app/.env.example.
+ERIKA_DOMAIN={{ erika_domain }}
+ERIKA_ACME_EMAIL={{ erika_acme_email }}
+ERIKA_IMAGE_REPO={{ erika_image_repo }}
+
+ERIKA_PRIVATE_IP={{ private_ip }}
+ERIKA_DB_HOST={{ erika_private_ip.db }}
+ERIKA_OPS_HOST={{ erika_private_ip.ops }}
+ERIKA_DB_SSH=erika@{{ erika_private_ip.db }}
+
+ERIKA_DB_OWNER_PASSWORD={{ erika_db_owner_password }}
+ERIKA_DB_APP_PASSWORD={{ erika_db_app_password }}
+
+ERIKA_S3_ENDPOINT=https://{{ erika_s3_primary_location }}.your-objectstorage.com
+ERIKA_S3_REGION={{ erika_s3_primary_location }}
+ERIKA_S3_ACCESS_KEY={{ erika_s3_primary_access_key }}
+ERIKA_S3_SECRET_KEY={{ erika_s3_primary_secret_key }}
+ERIKA_S3_BUCKET={{ erika_bucket_prefix }}-originals
+ERIKA_S3_UPLOADS_BUCKET={{ erika_bucket_prefix }}-uploads
+ERIKA_S3_DERIVED_BUCKET={{ erika_bucket_prefix }}-derived
+ERIKA_BACKUP_BUCKET={{ erika_bucket_prefix }}-audit-heads
+
+ERIKA_TOTP_ENCRYPTION_KEY={{ erika_totp_encryption_key }}
+
+ERIKA_MAIL_FROM={{ erika_mail_from }}
+ERIKA_SMTP_HOST={{ erika_smtp_host }}
+ERIKA_SMTP_PORT=587
+ERIKA_SMTP_USER={{ erika_smtp_user }}
+ERIKA_SMTP_PASSWORD={{ erika_smtp_password }}
+
+ERIKA_INTAKE_MAIL_DOMAIN={{ erika_intake_mail_domain }}
+ERIKA_MAIL_HOSTNAME={{ erika_mail_hostname }}
+ERIKA_INTAKE_MAIL_SECRET={{ erika_intake_mail_secret }}
+
+ERIKA_SIGNUP_MODE={{ erika_signup_mode }}
+ERIKA_INVITE_SECRET={{ erika_invite_secret }}
+ERIKA_TERMS_VERSION={{ erika_terms_version }}
+ERIKA_FEEDBACK_TO={{ erika_feedback_to }}
+
+ERIKA_SENTRY_DSN={{ erika_sentry_dsn | default('') }}

@@ -1,0 +1,6 @@
+# SOPS configuration for production secrets (ADR 0027). Add every administrator's age
+# public key (age-keygen -y ~/.config/sops/age/keys.txt), then: sops -e -i secrets.sops.yaml
+creation_rules:
+  - path_regex: secrets\.sops\.yaml$
+    age: >-
+      age1replacewithadministratorpublickey000000000000000000000000000000000

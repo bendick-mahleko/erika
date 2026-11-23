@@ -13,6 +13,7 @@ import org.springframework.test.context.DynamicPropertySource
     properties = [
         "spring.flyway.enabled=true",
         "erika.jobs.polling-enabled=false",
+        "erika.worker.metrics-port=0",
     ],
 )
 @ActiveProfiles("worker", "test")

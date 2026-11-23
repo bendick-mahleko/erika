@@ -6,7 +6,7 @@
   },
   "Home": {
     "title": "Welcome to ERIKA",
-    "intro": "ERIKA is under construction. This page shows whether all parts of the system can be reached."
+    "intro": "ERIKA is in a closed beta. This page shows whether all parts of the system can be reached."
   },
   "Health": {
     "heading": "System status",
@@ -47,7 +47,12 @@
       "submit": "Create account",
       "doneTitle": "Please check your inbox",
       "done": "We sent an email to {email}. Click the link in it to confirm your address.",
-      "haveAccount": "Already have an account?"
+      "haveAccount": "Already have an account?",
+      "terms": "I accept the <terms>beta terms of use</terms> including the <dpa>data processing agreement</dpa>. I have read the <privacy>privacy notice</privacy>.",
+      "inviteOnlyTitle": "Closed beta",
+      "inviteOnly": "ERIKA is currently being tested with a small group of businesses. You can only create an account with a personal invitation link.",
+      "inviteOnlyContact": "Would you like to take part? Write to us at {email}.",
+      "invited": "You have been invited. The invitation is valid for this email address."
     },
     "verify": {
       "title": "Confirm email address",
@@ -119,7 +124,10 @@
     "VIEW_NOT_AVAILABLE": "There is no invoice view for this document.",
     "ATTACHMENT_NOT_FOUND": "This attachment doesn't exist.",
     "INVALID_CURSOR": "Please reload the list.",
-    "generic": "Something went wrong. Please try again."
+    "generic": "Something went wrong. Please try again.",
+    "TERMS_NOT_ACCEPTED": "Please accept the terms of use and the data processing agreement.",
+    "INVITATION_REQUIRED": "ERIKA is in a closed beta. You need an invitation link to sign up.",
+    "INVITATION_INVALID": "The invitation is invalid, has expired or is for another email address."
   },
   "Inbox": {
     "title": "Inbox",
@@ -301,5 +309,36 @@
     "openMail": "Open in mail program",
     "copy": "Copy text",
     "copied": "Copied."
+  },
+  "Feedback": {
+    "button": "Feedback",
+    "title": "Feedback to the ERIKA team",
+    "intro": "What works well, what doesn't, what are you missing? Your message goes straight to the ERIKA team. Please don't include invoice contents.",
+    "category": "What is it about?",
+    "categories": {
+      "PROBLEM": "A problem",
+      "IDEA": "An idea",
+      "PRAISE": "Praise",
+      "OTHER": "Something else"
+    },
+    "message": "Your message",
+    "send": "Send",
+    "cancel": "Cancel",
+    "close": "Close",
+    "thanks": "Thank you! We read every message and will reply by email if we have questions."
+  },
+  "Footer": {
+    "label": "Legal and service",
+    "imprint": "Legal notice",
+    "privacy": "Privacy",
+    "terms": "Terms of use (beta)",
+    "dpa": "Data processing",
+    "subprocessors": "Sub-processors",
+    "status": "System status"
+  },
+  "Legal": {
+    "draft": "Draft – to be reviewed legally before the beta starts.",
+    "updated": "Last updated: {date}",
+    "germanOnly": "This document is available in German only; the German version is binding."
   }
 }

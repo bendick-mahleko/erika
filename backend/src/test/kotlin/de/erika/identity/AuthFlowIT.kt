@@ -77,7 +77,10 @@ class AuthFlowIT : ApiIntegrationTest() {
         val c = client()
         val email = "unverified-${UUID.randomUUID()}@example.test"
         val password = "a long enough passphrase"
-        c.post("/api/v1/auth/signup", mapOf("email" to email, "password" to password, "displayName" to "U", "workspaceName" to "W"))
+        c.post(
+            "/api/v1/auth/signup",
+            mapOf("email" to email, "password" to password, "displayName" to "U", "workspaceName" to "W", "termsAccepted" to true),
+        )
 
         val login = c.post("/api/v1/auth/login", mapOf("email" to email, "password" to password))
         assertEquals(403, login.status)
@@ -95,6 +98,7 @@ class AuthFlowIT : ApiIntegrationTest() {
                 "password" to "a long enough passphrase",
                 "displayName" to "U",
                 "workspaceName" to "W",
+                "termsAccepted" to true,
             ),
         )
         val token = Mails.verificationToken(jdbc, email)
@@ -116,6 +120,7 @@ class AuthFlowIT : ApiIntegrationTest() {
                     "password" to "another long passphrase",
                     "displayName" to "X",
                     "workspaceName" to "Y",
+                    "termsAccepted" to true,
                 ),
             )
         assertEquals(202, response.status)
@@ -135,6 +140,7 @@ class AuthFlowIT : ApiIntegrationTest() {
                     "password" to "short",
                     "displayName" to "U",
                     "workspaceName" to "W",
+                    "termsAccepted" to true,
                 ),
             )
         assertEquals(400, short.status)
@@ -144,9 +150,51 @@ class AuthFlowIT : ApiIntegrationTest() {
         val containsEmail =
             c.post(
                 "/api/v1/auth/signup",
-                mapOf("email" to "me@example.test", "password" to "me@example.test-123", "displayName" to "U", "workspaceName" to "W"),
+                mapOf(
+                    "email" to "me@example.test",
+                    "password" to "me@example.test-123",
+                    "displayName" to "U",
+                    "workspaceName" to "W",
+                    "termsAccepted" to true,
+                ),
             )
         assertEquals("WEAK_PASSWORD", containsEmail.code)
+    }
+
+    @Test
+    fun `sign-up needs the accepted terms, and records their version in the audit log`() {
+        val c = client()
+        val email = "terms-${UUID.randomUUID()}@example.test"
+        val body = mapOf("email" to email, "password" to "a long enough passphrase", "displayName" to "U", "workspaceName" to "W")
+        val refused = c.post("/api/v1/auth/signup", body + ("termsAccepted" to false))
+        assertEquals(400, refused.status)
+        assertEquals("TERMS_NOT_ACCEPTED", refused.code)
+        assertTrue(Mails.queuedTo(jdbc, email).isEmpty())
+
+        assertEquals(202, c.post("/api/v1/auth/signup", body + ("termsAccepted" to true)).status)
+        val (version, workspaceId) =
+            TestDatabase.asOwner {
+                it
+                    .prepareStatement(
+                        "SELECT u.terms_version, m.workspace_id FROM app_user u JOIN membership m ON m.user_id = u.id " +
+                            "WHERE u.email = ? AND u.terms_accepted_at IS NOT NULL",
+                    ).apply { setString(1, email) }
+                    .executeQuery()
+                    .run {
+                        assertTrue(next(), "terms acceptance stored")
+                        getString(1) to getObject(2, UUID::class.java)
+                    }
+            }
+        assertEquals("beta-2026-12", version)
+        assertTrue("identity.terms.accepted" in auditActions(workspaceId))
+    }
+
+    @Test
+    fun `the sign-up policy says whether an invitation is needed`() {
+        val policy = client().get("/api/v1/auth/signup-policy")
+        assertEquals(200, policy.status)
+        assertEquals(false, policy.tree.path("inviteOnly").asBoolean())
+        assertEquals("beta-2026-12", policy.tree.path("termsVersion").asString())
     }
 
     @Test

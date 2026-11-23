@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "drill",
+      "credentials": [{ "accessKey": "drill", "secretKey": "drill-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

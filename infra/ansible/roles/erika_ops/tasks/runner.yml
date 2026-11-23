@@ -1,0 +1,71 @@
+# Self-hosted GitHub Actions runner (label "erika-ops") for the deploy-production job: it
+# reaches the app server over the private network, so the app server's SSH stays closed
+# to the internet except for the admins (ADR 0027). Private repository only: a public
+# repository would let pull requests run code here.
+- name: Runner user
+  ansible.builtin.user:
+    name: gh-runner
+    system: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Runner directory
+  ansible.builtin.file:
+    path: /opt/actions-runner
+    state: directory
+    owner: gh-runner
+    group: gh-runner
+    mode: "0750"
+
+- name: Download and unpack the runner
+  ansible.builtin.unarchive:
+    src: "https://github.com/actions/runner/releases/download/v{{ erika_runner_version }}/actions-runner-linux-x64-{{ erika_runner_version }}.tar.gz"
+    dest: /opt/actions-runner
+    remote_src: true
+    owner: gh-runner
+    group: gh-runner
+    creates: /opt/actions-runner/config.sh
+
+- name: Register the runner (one-time token from the repository settings)
+  ansible.builtin.command: >
+    ./config.sh --unattended --url https://github.com/{{ erika_github_repository }}
+    --token {{ erika_ci_runner_token }} --name erika-ops --labels erika-ops --replace
+  args:
+    chdir: /opt/actions-runner
+    creates: /opt/actions-runner/.runner
+  become: true
+  become_user: gh-runner
+  no_log: true
+
+- name: Install the runner service
+  ansible.builtin.command: ./svc.sh install gh-runner
+  args:
+    chdir: /opt/actions-runner
+    creates: /etc/systemd/system/actions.runner.{{ erika_github_repository | replace('/', '-') }}.erika-ops.service
+
+- name: Start the runner service
+  ansible.builtin.command: ./svc.sh start
+  args:
+    chdir: /opt/actions-runner
+  changed_when: false
+
+- name: Deploy key of the runner
+  community.crypto.openssh_keypair:
+    path: /home/gh-runner/.ssh/id_ed25519
+    type: ed25519
+    owner: gh-runner
+    group: gh-runner
+    comment: erika-ops runner deploy
+
+- name: Read the deploy key
+  ansible.builtin.slurp:
+    src: /home/gh-runner/.ssh/id_ed25519.pub
+  register: erika_ops_runner_pubkey
+
+# Forced command: the runner can only run deploy.sh with a version argument on the app server.
+- name: Authorize the deploy key on the app server
+  ansible.posix.authorized_key:
+    user: erika
+    key: "{{ erika_ops_runner_pubkey.content | b64decode }}"
+    key_options: 'from="{{ erika_private_ip.ops }}",restrict,command="/opt/erika/deploy.sh \"$SSH_ORIGINAL_COMMAND\""'
+  delegate_to: "{{ groups['app'][0] }}"

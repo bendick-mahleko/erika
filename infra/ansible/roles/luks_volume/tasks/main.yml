@@ -1,0 +1,59 @@
+# Encrypted database volume (Software Design §7: LUKS for volumes, ADR 0027).
+# The key file lives on the server's root disk: it protects the volume's data when the
+# volume is detached, snapshotted or disposed of by the provider, not against someone who
+# controls the running server. Backups are encrypted separately (pgBackRest cipher).
+- name: Key file for the database volume
+  ansible.builtin.shell: |
+    set -eu
+    umask 077
+    head -c 64 /dev/urandom > /root/pgdata.key
+  args:
+    creates: /root/pgdata.key
+
+- name: Key file permissions
+  ansible.builtin.file:
+    path: /root/pgdata.key
+    owner: root
+    group: root
+    mode: "0400"
+
+- name: LUKS container on the volume (formats only an empty, unencrypted device)
+  community.crypto.luks_device:
+    device: "{{ pgdata_device }}"
+    keyfile: /root/pgdata.key
+    name: pgdata
+    type: luks2
+    state: opened
+
+- name: Unlock at boot
+  ansible.builtin.lineinfile:
+    path: /etc/crypttab
+    regexp: "^pgdata "
+    line: "pgdata {{ pgdata_device }} /root/pgdata.key luks,discard"
+    create: true
+    mode: "0600"
+
+- name: Filesystem on the unlocked device
+  community.general.filesystem:
+    dev: /dev/mapper/pgdata
+    fstype: ext4
+
+- name: Mount at /mnt/pgdata
+  ansible.posix.mount:
+    path: /mnt/pgdata
+    src: /dev/mapper/pgdata
+    fstype: ext4
+    opts: defaults,noatime,nofail
+    state: mounted
+
+- name: Directories for data, WAL spool and TLS (uid 999 = postgres in the image)
+  ansible.builtin.file:
+    path: "/mnt/pgdata/{{ item.name }}"
+    state: directory
+    owner: "999"
+    group: "999"
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: data, mode: "0700" }
+    - { name: spool, mode: "0750" }
+    - { name: tls, mode: "0750" }

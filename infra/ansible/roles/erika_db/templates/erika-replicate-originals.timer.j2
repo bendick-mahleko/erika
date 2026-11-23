@@ -1,0 +1,11 @@
+# Managed by Ansible (role erika_db).
+[Unit]
+Description=Timer: Nightly copy of originals and audit heads to the second location
+
+[Timer]
+OnCalendar={{ erika_replication_calendar }}
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

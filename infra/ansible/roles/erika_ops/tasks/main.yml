@@ -1,0 +1,99 @@
+# Ops server (ADR 0029): monitoring, error tracking, status page, CI runner for deployments.
+- name: Directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.owner | default('root') }}"
+    mode: "{{ item.mode | default('0750') }}"
+  loop:
+    - { path: /opt/erika-ops }
+    - { path: /opt/erika-ops/prometheus-targets, mode: "0755" }
+    - { path: /opt/erika-ops/secrets, mode: "0755" }
+    - { path: /opt/erika-ops/secrets/alertmanager, owner: "65534", mode: "0750" }
+
+- name: Monitoring configuration (rules, dashboards, Loki, Blackbox, Prometheus)
+  ansible.builtin.copy:
+    src: "{{ erika_repo_root }}/infra/monitoring/"
+    dest: /opt/erika-ops/monitoring/
+    mode: "0644"
+    directory_mode: "0755"
+  notify: Reload monitoring
+
+- name: Compose file and Caddyfile
+  ansible.builtin.copy:
+    src: "{{ erika_repo_root }}/infra/production/ops/{{ item }}"
+    dest: "/opt/erika-ops/{{ item }}"
+    mode: "0644"
+  loop: [compose.yml, Caddyfile]
+  notify: Restart ops stack
+
+- name: Environment from the SOPS secrets
+  ansible.builtin.template:
+    src: dotenv.j2
+    dest: /opt/erika-ops/.env
+    mode: "0600"
+  notify: Restart ops stack
+
+- name: Alertmanager configuration
+  ansible.builtin.template:
+    src: "{{ erika_repo_root }}/infra/monitoring/alertmanager/alertmanager.yml.j2"
+    dest: /opt/erika-ops/alertmanager.yml
+    mode: "0644"
+  notify: Reload monitoring
+
+- name: Alertmanager secrets (files, never inside the configuration)
+  ansible.builtin.copy:
+    dest: "/opt/erika-ops/secrets/alertmanager/{{ item.name }}"
+    content: "{{ item.value }}"
+    owner: "65534"
+    group: "65534"
+    mode: "0400"
+  loop:
+    - { name: smtp_password, value: "{{ erika_alert_smtp_password }}" }
+    - { name: deadmans_switch_url, value: "{{ erika_deadmans_switch_url }}" }
+    - { name: pushover_user_key, value: "{{ erika_alert_pushover_user_key | default('') }}" }
+    - { name: pushover_token, value: "{{ erika_alert_pushover_token | default('') }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  notify: Reload monitoring
+
+- name: Grafana admin password (uid 472 = grafana)
+  ansible.builtin.copy:
+    dest: /opt/erika-ops/secrets/grafana_admin_password
+    content: "{{ erika_grafana_admin_password }}"
+    owner: "472"
+    group: "0"
+    mode: "0440"
+  no_log: true
+
+- name: Prometheus targets from the inventory
+  ansible.builtin.copy:
+    dest: "/opt/erika-ops/prometheus-targets/{{ item.job }}.json"
+    mode: "0644"
+    content: "{{ [{'targets': item.targets, 'labels': item.labels | default({})}] | to_nice_json }}\n"
+  loop:
+    - { job: erika-api, targets: ["{{ erika_private_ip.app }}:8081"], labels: { host: app } }
+    - { job: erika-worker, targets: ["{{ erika_private_ip.app }}:8082"], labels: { host: app } }
+    - { job: caddy, targets: ["{{ erika_private_ip.app }}:9180"], labels: { host: app } }
+    - { job: postgres, targets: ["{{ erika_private_ip.db }}:9187"], labels: { host: db } }
+    - job: node
+      targets: ["{{ erika_private_ip.app }}:9100", "{{ erika_private_ip.db }}:9100", "node-exporter:9100"]
+    - job: blackbox-https
+      targets: ["https://{{ erika_domain }}/api/v1/health", "https://status.{{ erika_domain }}/status/erika"]
+    - job: blackbox-smtp
+      targets: ["{{ erika_mail_hostname }}:25"]
+  loop_control:
+    label: "{{ item.job }}"
+
+- name: Start the ops stack
+  ansible.builtin.command: docker compose up -d --remove-orphans
+  args:
+    chdir: /opt/erika-ops
+  register: erika_ops_up
+  changed_when: "'Started' in erika_ops_up.stderr or 'Recreated' in erika_ops_up.stderr"
+
+- name: Self-hosted GitHub runner for deployments (optional)
+  ansible.builtin.include_tasks: runner.yml
+  when: erika_ci_runner_token | default('') | length > 0

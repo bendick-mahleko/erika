@@ -1,0 +1,16 @@
+# Managed by Ansible (role erika_db).
+[Unit]
+Description=Hourly check that WAL archiving works end to end
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=ERIKA_COMPOSE_DIR=/opt/erika
+Environment=ERIKA_TEXTFILE_DIR=/var/lib/node_exporter/textfile
+Environment=ERIKA_DRILL_REPORT_DIR=/var/log/erika
+ExecStart=/opt/erika/backup/pg-backup.sh check
+TimeoutStartSec=15min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

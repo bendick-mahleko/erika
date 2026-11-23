@@ -171,7 +171,13 @@ class Accounts(
         val signup =
             client.post(
                 "/api/v1/auth/signup",
-                mapOf("email" to email, "password" to password, "displayName" to "Test $prefix", "workspaceName" to workspaceName),
+                mapOf(
+                    "email" to email,
+                    "password" to password,
+                    "displayName" to "Test $prefix",
+                    "workspaceName" to workspaceName,
+                    "termsAccepted" to true,
+                ),
             )
         check(signup.status == 202) { "sign-up failed: $signup" }
         val token = Mails.verificationToken(test.jdbc, email)

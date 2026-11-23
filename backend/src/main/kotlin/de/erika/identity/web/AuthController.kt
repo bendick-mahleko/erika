@@ -18,6 +18,7 @@ import de.erika.identity.IdentityProperties
 import de.erika.identity.LoginCompleted
 import de.erika.identity.PendingLogin
 import de.erika.identity.SignUp
+import de.erika.identity.SignupPolicy
 import de.erika.identity.UserRepository
 import de.erika.identity.WorkspaceRepository
 import de.erika.platform.runtime.RuntimeInstance
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 import de.erika.contract.model.Locale as ApiLocale
 import de.erika.contract.model.Role as ApiRole
+import de.erika.contract.model.SignupPolicy as ApiSignupPolicy
 
 @RestController
 @Profile(RuntimeInstance.PROFILE_API)
@@ -42,6 +44,7 @@ internal class AuthController(
     private val users: UserRepository,
     private val workspaces: WorkspaceRepository,
     private val request: HttpServletRequest,
+    private val signupPolicy: SignupPolicy,
     props: IdentityProperties,
 ) : AuthApi {
     private val attempts = RateLimiter(props.loginRateLimit, props.loginRateWindow)
@@ -51,6 +54,9 @@ internal class AuthController(
         (request.getAttribute(CsrfToken::class.java.name) as? CsrfToken)?.token
         return ResponseEntity.ok(currentSession())
     }
+
+    override fun getSignupPolicy(): ResponseEntity<ApiSignupPolicy> =
+        ResponseEntity.ok(ApiSignupPolicy(inviteOnly = signupPolicy.inviteOnly, termsVersion = signupPolicy.termsVersion))
 
     override fun signUp(signupRequest: SignupRequest): ResponseEntity<Unit> {
         limit()
@@ -62,6 +68,8 @@ internal class AuthController(
                     displayName = signupRequest.displayName,
                     workspaceName = signupRequest.workspaceName,
                     locale = (signupRequest.locale ?: ApiLocale.DE).value,
+                    termsAccepted = signupRequest.termsAccepted,
+                    invitationCode = signupRequest.invitationCode,
                 ),
             )
         } catch (e: DuplicateKeyException) {

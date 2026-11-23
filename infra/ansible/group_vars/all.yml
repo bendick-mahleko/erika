@@ -1,0 +1,35 @@
+# Non-secret settings of the production environment (ADR 0027). Secrets: ../production/secrets.sops.yaml.
+erika_repo_root: "{{ playbook_dir }}/../.."
+erika_image_repo: "<github-owner>/<repo>"   # lowercase, as on ghcr.io
+erika_postgres_image_tag: "16.15-<short sha>"
+erika_timezone: Europe/Berlin
+
+erika_mail_hostname: "mx.{{ erika_domain }}"
+erika_intake_mail_domain: "in.{{ erika_domain }}"
+erika_acme_email: "ops@{{ erika_domain }}"
+erika_mail_from: "ERIKA <no-reply@{{ erika_domain }}>"
+erika_feedback_to: "beta@{{ erika_domain }}"
+erika_signup_mode: INVITE_ONLY
+erika_terms_version: beta-2026-12
+
+# Object storage (ADR 0028)
+erika_s3_primary_location: fsn1
+erika_s3_backup_location: nbg1
+erika_bucket_prefix: erika-prod
+
+# Alerting (ADR 0029)
+erika_alert_email_to: "ops@{{ erika_domain }}"
+erika_alert_mail_from: "ERIKA Monitoring <monitoring@{{ erika_domain }}>"
+erika_alert_smtp_port: 587
+erika_alert_pushover_enabled: false
+
+# Self-hosted runner for deployments (ADR 0027)
+erika_github_repository: "<github-owner>/<repo>"
+erika_runner_version: "2.329.0"
+
+# Backup schedule (systemd OnCalendar, Europe/Berlin)
+erika_backup_full_calendar: "*-*-* 01:30:00"
+erika_backup_check_calendar: "hourly"
+erika_replication_calendar: "*-*-* 02:30:00"
+# Monthly restore drill on the database server, into a temporary volume (docs/ops/restore.md).
+erika_restore_drill_calendar: "Sun *-*-01..07 04:00:00"

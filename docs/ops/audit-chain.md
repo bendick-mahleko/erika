@@ -7,15 +7,7 @@
 
 Background: [ADR 0019](../adr/0019-audit-hash-chain.md).
 
-Suggested Prometheus rule (Stage 7 monitoring):
-
-```yaml
-- alert: AuditChainBroken
-  expr: erika_audit_chain_broken > 0
-  labels: { severity: critical }
-  annotations:
-    summary: "Audit log hash chain broken in {{ $value }} workspace(s)"
-```
+Prometheus rules (`infra/monitoring/alerts.yml`, ADR 0029): `ErikaAuditChainBroken` (the worker's gauge, served on its `/metrics` endpoint) and `ErikaAuditChainCheckFailed` (the job failed). Both page.
 
 ## What it means
 The audit log of one or more workspaces no longer matches its hashes. Possible causes:

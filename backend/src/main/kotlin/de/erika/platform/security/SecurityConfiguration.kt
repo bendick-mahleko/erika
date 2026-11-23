@@ -70,6 +70,9 @@ class SecurityConfiguration {
                     // Later stages add explicit exceptions (e.g. POST /exports for advisors).
                     .requestMatchers(HttpMethod.GET, "/api/v1/**")
                     .authenticated()
+                    // Feedback to the ERIKA team changes no workspace data: every role (ADR 0030).
+                    .requestMatchers(HttpMethod.POST, "/api/v1/feedback")
+                    .authenticated()
                     .requestMatchers("/api/v1/**")
                     .access(AuthorityAuthorizationManager.hasAnyRole("OWNER", "MEMBER"))
                     .anyRequest()

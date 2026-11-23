@@ -1,0 +1,41 @@
+# Production environment (ADR 0027). Idempotent: run after every infrastructure change.
+#   ansible-galaxy collection install -r requirements.yml
+#   terraform -chdir=../terraform output -raw ansible_inventory > inventory/production.yml
+#   ansible-playbook site.yml                 # everything
+#   ansible-playbook site.yml --limit db      # one server
+# App releases are not deployed here but by CI (deploy.sh); see docs/ops/production.md.
+
+- name: Load secrets (SOPS + age)
+  hosts: all
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Decrypt infra/production/secrets.sops.yaml
+      community.sops.load_vars:
+        file: "{{ erika_repo_root }}/infra/production/secrets.sops.yaml"
+      delegate_to: localhost
+      run_once: true
+
+# The app server first: it is the NAT gateway the database server needs for packages.
+- name: App server
+  hosts: app
+  become: true
+  roles:
+    - common
+    - nat_gateway
+    - erika_app
+
+- name: Database server
+  hosts: db
+  become: true
+  roles:
+    - common
+    - luks_volume
+    - erika_db
+
+- name: Ops server
+  hosts: ops
+  become: true
+  roles:
+    - common
+    - erika_ops

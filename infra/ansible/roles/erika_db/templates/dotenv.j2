@@ -1,0 +1,9 @@
+# Managed by Ansible (role erika_db) from infra/production/secrets.sops.yaml. Do not edit.
+ERIKA_IMAGE_REPO={{ erika_image_repo }}
+ERIKA_POSTGRES_IMAGE_TAG={{ erika_postgres_image_tag }}
+ERIKA_PRIVATE_IP={{ private_ip }}
+ERIKA_OPS_HOST={{ erika_private_ip.ops }}
+POSTGRES_SUPERUSER_PASSWORD={{ erika_db_superuser_password }}
+ERIKA_DB_OWNER_PASSWORD={{ erika_db_owner_password }}
+ERIKA_DB_APP_PASSWORD={{ erika_db_app_password }}
+ERIKA_DB_MONITOR_PASSWORD={{ erika_db_monitor_password }}

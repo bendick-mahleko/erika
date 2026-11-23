@@ -24,7 +24,7 @@ AR-03 asks for statuses NEW, CHECKED, APPROVED, PAID, DISPUTED and BOOKED, with 
 - The date filters use the invoice date (BT-2), or the receipt date for documents without one.
 - Keyset pagination on (received time, ID) stays stable while new documents arrive.
 
-**`pg_trgm`** must be created by a superuser: `CREATE EXTENSION pg_trgm SCHEMA erika`. The migration role can't create extensions. The bootstrap scripts (`infra/local/postgres/01-roles.sql`, `infra/staging/postgres/01-roles.sh`) do it, and migration V5 stops with a clear message if it's missing. Existing local databases need the command once (`docs/dev-setup.md`).
+**`pg_trgm`** must be created by a superuser: `CREATE EXTENSION pg_trgm SCHEMA erika`. The migration role can't create extensions. The bootstrap scripts (`infra/local/postgres/01-roles.sql`, `infra/postgres/init/01-roles.sh`) do it, and migration V5 stops with a clear message if it's missing. Existing local databases need the command once (`docs/dev-setup.md`).
 
 ## Consequences
 - `DocumentsIT` seeds 10,000 invoices and checks that full-text, trigram, number and filter searches each answer in under a second.

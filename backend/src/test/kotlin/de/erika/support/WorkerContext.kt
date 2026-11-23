@@ -20,6 +20,7 @@ object WorkerContext {
                     "erika.jobs.polling-enabled" to "false",
                     "spring.flyway.enabled" to "false",
                     "management.server.port" to "0",
+                    "erika.worker.metrics-port" to "0",
                 )
         // As command-line arguments: they outrank application.yml (default properties wouldn't).
         SpringApplicationBuilder(ErikaApplication::class.java)

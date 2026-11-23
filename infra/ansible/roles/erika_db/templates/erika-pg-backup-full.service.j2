@@ -1,0 +1,16 @@
+# Managed by Ansible (role erika_db).
+[Unit]
+Description=Nightly full backup with pgBackRest (ADR 0028)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=ERIKA_COMPOSE_DIR=/opt/erika
+Environment=ERIKA_TEXTFILE_DIR=/var/lib/node_exporter/textfile
+Environment=ERIKA_DRILL_REPORT_DIR=/var/log/erika
+ExecStart=/opt/erika/backup/pg-backup.sh full
+TimeoutStartSec=4h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

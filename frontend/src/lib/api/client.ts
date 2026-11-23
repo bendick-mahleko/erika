@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import createClient from "openapi-fetch";
 import type { components, paths } from "./schema";
 
@@ -42,8 +43,11 @@ async function sessionHeaders(): Promise<HeadersInit> {
   return cookie ? { cookie } : {};
 }
 
-/** Sign-in state of the current browser session; ANONYMOUS if the API can't be reached. */
-export async function fetchSession(): Promise<Session> {
+/**
+ * Sign-in state of the current browser session; ANONYMOUS if the API can't be reached.
+ * Cached per request: the layout (feedback button) and the navigation both need it.
+ */
+export const fetchSession = cache(async (): Promise<Session> => {
   try {
     const { data } = await api.GET("/auth/session", {
       headers: await sessionHeaders(),
@@ -53,6 +57,18 @@ export async function fetchSession(): Promise<Session> {
     return data ?? { state: "ANONYMOUS" };
   } catch {
     return { state: "ANONYMOUS" };
+  }
+});
+
+export type SignupPolicy = components["schemas"]["SignupPolicy"];
+
+/** Invite-only during the closed beta (ADR 0030). Falls back to "open" if the API is unreachable. */
+export async function fetchSignupPolicy(): Promise<SignupPolicy> {
+  try {
+    const { data } = await api.GET("/auth/signup-policy", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    return data ?? { inviteOnly: false, termsVersion: "" };
+  } catch {
+    return { inviteOnly: false, termsVersion: "" };
   }
 }
 

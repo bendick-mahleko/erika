@@ -1,0 +1,42 @@
+{
+	email {$ERIKA_ACME_EMAIL}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+grafana.{$ERIKA_DOMAIN} {
+	import common
+	reverse_proxy grafana:3000
+}
+
+errors.{$ERIKA_DOMAIN} {
+	import common
+	reverse_proxy glitchtip-web:8000
+}
+
+# Public status page only; Uptime Kuma's admin UI is reachable through an SSH tunnel.
+status.{$ERIKA_DOMAIN} {
+	import common
+	header -X-Robots-Tag
+	@public path /status/* /api/status-page/* /api/badge/* /assets/* /upload/* /icon.svg /favicon.ico /manifest.json
+	handle @public {
+		reverse_proxy uptime-kuma:3001
+	}
+	handle / {
+		redir * /status/erika
+	}
+	handle {
+		respond 404
+	}
+}

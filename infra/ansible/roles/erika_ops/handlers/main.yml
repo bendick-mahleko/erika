@@ -1,0 +1,13 @@
+- name: Restart ops stack
+  ansible.builtin.command: docker compose up -d --remove-orphans
+  args:
+    chdir: /opt/erika-ops
+  changed_when: true
+
+# Prometheus and Alertmanager re-read their configuration on SIGHUP (no restart, no gap).
+- name: Reload monitoring
+  ansible.builtin.command: docker compose kill -s SIGHUP prometheus alertmanager
+  args:
+    chdir: /opt/erika-ops
+  changed_when: true
+  failed_when: false

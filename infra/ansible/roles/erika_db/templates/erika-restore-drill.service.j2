@@ -1,0 +1,17 @@
+# Managed by Ansible (role erika_db).
+[Unit]
+Description=Monthly restore drill into a temporary volume (docs/ops/restore.md)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=ERIKA_COMPOSE_DIR=/opt/erika
+Environment=ERIKA_TEXTFILE_DIR=/var/lib/node_exporter/textfile
+Environment=ERIKA_DRILL_REPORT_DIR=/var/log/erika
+Environment=ERIKA_POSTGRES_IMAGE=ghcr.io/{{ erika_image_repo }}/postgres:{{ erika_postgres_image_tag }}
+ExecStart=/opt/erika/backup/restore-drill.sh --env-file /opt/erika/pgbackrest.env
+TimeoutStartSec=6h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

@@ -1,0 +1,170 @@
+# Unit tests for infra/monitoring/alerts.yml (Stage 7 exit criterion "alerts fire in a test":
+# site down, backup failed, audit chain broken, plus the other design §8 alerts).
+#   docker run --rm -v "$PWD/infra/monitoring:/m" -w /m --entrypoint promtool prom/prometheus:v3.5.0 test rules tests/alerts.test.yml
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: site down for two minutes pages; a healthy site doesn't
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="blackbox-https", instance="https://erika-app.de/api/v1/health"}'
+        values: "1 1 0 0 0 0"
+      - series: 'probe_success{job="blackbox-https", instance="https://status.erika-app.de"}'
+        values: "1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ErikaSiteDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ErikaSiteDown
+        exp_alerts:
+          - exp_labels: { severity: page, job: blackbox-https, instance: "https://erika-app.de/api/v1/health" }
+            exp_annotations:
+              summary: "https://erika-app.de/api/v1/health is not reachable or not healthy"
+              runbook: docs/ops/monitoring.md#erikasitedown
+
+  - name: more than 1 % server errors page
+    interval: 1m
+    input_series:
+      - series: 'caddy_http_request_duration_seconds_count{code="200"}'
+        values: "0+588x15"
+      - series: 'caddy_http_request_duration_seconds_count{code="500"}'
+        values: "0+12x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ErikaHighErrorRate
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: "More than 1 % of requests fail with 5xx (2%)"
+              runbook: docs/ops/monitoring.md#erikahigherrorrate
+
+  - name: a failed backup pages at once
+    interval: 1m
+    input_series:
+      - series: 'erika_backup_last_status{kind="postgres", type="full", instance="db"}'
+        values: "1 0"
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: ErikaBackupFailed
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: ErikaBackupFailed
+        exp_alerts:
+          - exp_labels: { severity: page, kind: postgres, type: full, instance: db }
+            exp_annotations:
+              summary: "Backup job postgres/full failed"
+              runbook: docs/ops/backup.md#erikabackupfailed
+
+  - name: a missing nightly backup or WAL check pages
+    interval: 1h
+    input_series:
+      # Last success at epoch 0 = the start of the test's clock.
+      - series: 'erika_backup_last_success_timestamp_seconds{kind="postgres", type="full", instance="db"}'
+        values: "0x30"
+      - series: 'erika_backup_last_success_timestamp_seconds{kind="postgres-archive", type="check", instance="db"}'
+        values: "0x30"
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: ErikaBackupMissing
+        exp_alerts: []
+      - eval_time: 3h
+        alertname: ErikaBackupMissing
+        exp_alerts:
+          - exp_labels: { severity: page, kind: postgres-archive, type: check, instance: db }
+            exp_annotations:
+              summary: "No successful postgres-archive/check backup for 3h 0m 0s"
+              runbook: docs/ops/backup.md#erikabackupmissing
+      - eval_time: 27h
+        alertname: ErikaBackupMissing
+        exp_alerts:
+          - exp_labels: { severity: page, kind: postgres, type: full, instance: db }
+            exp_annotations:
+              summary: "No successful postgres/full backup for 1d 3h 0m 0s"
+              runbook: docs/ops/backup.md#erikabackupmissing
+          - exp_labels: { severity: page, kind: postgres-archive, type: check, instance: db }
+            exp_annotations:
+              summary: "No successful postgres-archive/check backup for 1d 3h 0m 0s"
+              runbook: docs/ops/backup.md#erikabackupmissing
+
+  - name: a broken audit chain pages
+    interval: 1m
+    input_series:
+      - series: 'erika_audit_chain_broken{job="erika-worker", instance="app:8082"}'
+        values: "0 1"
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: ErikaAuditChainBroken
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: ErikaAuditChainBroken
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: "Audit log hash chain broken in 1 workspace(s)"
+              runbook: docs/ops/audit-chain.md
+
+  - name: a failed audit chain check job pages, other failed jobs only make a ticket
+    interval: 1m
+    input_series:
+      - series: 'erika_jobs_failed_recent{type="audit.verify-chains"}'
+        values: "1x10"
+      - series: 'erika_jobs_failed_recent{type="intake.process-upload"}'
+        values: "1x10"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: ErikaAuditChainCheckFailed
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: "The daily audit chain check failed"
+              runbook: docs/ops/audit-chain.md
+      - eval_time: 6m
+        alertname: ErikaJobsFailed
+        exp_alerts:
+          - exp_labels: { severity: ticket, type: intake.process-upload }
+            exp_annotations:
+              summary: "Background jobs failed in the last 24 hours (intake.process-upload)"
+              runbook: docs/ops/intake.md#failed-jobs-erikajobsfailed
+
+  - name: a certificate that isn't renewed raises a ticket
+    interval: 1m
+    input_series:
+      # Expires 10 days after the start of the test's clock.
+      - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-https", instance="https://erika-app.de/api/v1/health"}'
+        values: "864000x200"
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: ErikaCertificateExpiresSoon
+        exp_alerts:
+          - exp_labels: { severity: ticket, job: blackbox-https, instance: "https://erika-app.de/api/v1/health" }
+            exp_annotations:
+              summary: "TLS certificate of https://erika-app.de/api/v1/health expires in 9.917 days"
+              runbook: docs/ops/monitoring.md#erikacertificateexpiressoon
+
+  - name: the intake queue older than five minutes pages
+    interval: 1m
+    input_series:
+      - series: 'erika_jobs_oldest_due_seconds{type="intake.process-mail"}'
+        values: "100 200 320 380 440 500"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ErikaIntakeQueueStuck
+        exp_alerts:
+          - exp_labels: { severity: page, type: intake.process-mail }
+            exp_annotations:
+              summary: "Intake queue older than 5 minutes (intake.process-mail)"
+              runbook: docs/ops/intake.md#intake-queue-older-than-5-minutes-erikaintakequeuestuck
+
+  - name: the watchdog always fires
+    interval: 1m
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: Watchdog
+        exp_alerts:
+          - exp_labels: { severity: none }
+            exp_annotations:
+              summary: "Alerting pipeline is alive"

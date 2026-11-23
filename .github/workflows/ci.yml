@@ -25,6 +25,54 @@ jobs:
       # Internal endpoints for the mail server (not generated, ADR 0024).
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/internal.yaml
 
+  # Stage 7 (ADR 0027–0029): everything in infra/ is checked by its own tool.
+  infra:
+    name: Infrastructure (Terraform, Ansible, monitoring, scripts)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell scripts
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 -S warning -x --source-path=SCRIPTDIR \
+            infra/backup/*.sh infra/backup/drill/run-local-drill.sh infra/production/app/deploy.sh \
+            infra/staging/deploy.sh infra/postgres/erika-entrypoint.sh infra/postgres/init/01-roles.sh infra/mail/entrypoint.sh
+      - name: Alert rules and their unit tests ("alerts fire in a test")
+        run: |
+          docker run --rm -v "$PWD/infra/monitoring:/m" -w /m --entrypoint promtool prom/prometheus:v3.5.0 check rules alerts.yml
+          docker run --rm -v "$PWD/infra/monitoring:/m" -w /m --entrypoint promtool prom/prometheus:v3.5.0 test rules tests/alerts.test.yml
+      - name: Prometheus, Alertmanager, Blackbox, Loki, Alloy configuration
+        run: |
+          docker run --rm -v "$PWD/infra/monitoring:/src:ro" --entrypoint sh prom/prometheus:v3.5.0 -c \
+            'cp /src/alerts.yml /tmp/alerts.yml && sed "s#/etc/prometheus/alerts.yml#/tmp/alerts.yml#" /src/prometheus/prometheus.yml > /tmp/p.yml && promtool check config /tmp/p.yml'
+          pip install -q jinja2
+          for push in False True; do
+            python3 -c "import jinja2; print(jinja2.Template(open('infra/monitoring/alertmanager/alertmanager.yml.j2').read()).render(erika_alert_smtp_host='smtp.example', erika_alert_smtp_user='u', erika_alert_mail_from='m@example.org', erika_alert_email_to='ops@example.org', erika_alert_pushover_enabled=$push))" > "$RUNNER_TEMP/am-$push.yml"
+            docker run --rm -v "$RUNNER_TEMP:/c:ro" --entrypoint amtool prom/alertmanager:v0.28.1 check-config "/c/am-$push.yml"
+          done
+          docker run --rm -v "$PWD/infra/monitoring/blackbox:/b:ro" prom/blackbox-exporter:v0.27.0 --config.file=/b/blackbox.yml --config.check
+          docker run --rm -v "$PWD/infra/monitoring/loki:/l:ro" grafana/loki:3.5.3 -config.file=/l/loki.yml -verify-config
+          docker run --rm -v "$PWD/infra/monitoring/alloy:/a:ro" grafana/alloy:v1.10.2 fmt /a/config.alloy > /dev/null
+      - name: Caddyfiles
+        run: |
+          for f in infra/production/app/Caddyfile infra/production/ops/Caddyfile infra/staging/Caddyfile; do
+            docker run --rm -e ERIKA_DOMAIN=erika.example -e ERIKA_MAIL_HOSTNAME=mx.erika.example -e ERIKA_ACME_EMAIL=ops@erika.example \
+              -e STAGING_USER=u -e STAGING_PASSWORD_HASH='$2a$14$LdBIUeP2jWNFJtb4Dfw64OvBqGZvh/xkeLu0JtPxlYz1gUUBwvFOq' \
+              -v "$PWD/$f:/etc/caddy/Caddyfile:ro" caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          done
+      - name: Terraform
+        run: |
+          docker run --rm -v "$PWD/infra/terraform:/tf" -w /tf hashicorp/terraform:1.13 fmt -check -recursive
+          docker run --rm -v "$PWD/infra/terraform:/tf" -w /tf -e TF_DATA_DIR=/tmp/tf --entrypoint sh hashicorp/terraform:1.13 \
+            -c 'terraform init -backend=false -input=false > /dev/null && terraform validate'
+      - name: Ansible
+        working-directory: infra/ansible
+        run: |
+          pip install -q "ansible-core==2.19.*" ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+          cp inventory/production.yml.example inventory/production.yml
+          ansible-playbook site.yml --syntax-check
+          ansible-lint --offline site.yml roles
+
   backend:
     name: Back end (lint, unit, integration, modularity)
     runs-on: ubuntu-24.04
@@ -176,8 +224,29 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
       - name: Copy deployment files
-        run: scp -r infra/staging/compose.yml infra/staging/Caddyfile infra/staging/deploy.sh infra/staging/postgres "${{ secrets.STAGING_SSH_TARGET }}:/opt/erika/"
+        run: |
+          ssh "${{ secrets.STAGING_SSH_TARGET }}" "mkdir -p /opt/erika/postgres-init /opt/erika/backup"
+          scp infra/staging/compose.yml infra/staging/Caddyfile infra/staging/deploy.sh infra/production/invite.py "${{ secrets.STAGING_SSH_TARGET }}:/opt/erika/"
+          scp infra/postgres/init/01-roles.sh "${{ secrets.STAGING_SSH_TARGET }}:/opt/erika/postgres-init/"
+          scp infra/backup/*.sh "${{ secrets.STAGING_SSH_TARGET }}:/opt/erika/backup/"
       - name: Deploy (with health check and automatic rollback)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           ssh "${{ secrets.STAGING_SSH_TARGET }}" "cd /opt/erika && ./deploy.sh '$VERSION'"
+
+  # Production (ADR 0027): after staging, with a required reviewer on the GitHub environment
+  # "production". Runs on the self-hosted runner on the ops server, which reaches the app
+  # server over the private network; its key may only run deploy.sh <version> (forced command).
+  # Configuration files are deployed by Ansible, not here.
+  deploy-production:
+    name: Deploy to production
+    needs: [deploy-staging]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: [self-hosted, erika-ops]
+    environment: production
+    concurrency: deploy-production
+    steps:
+      - name: Deploy (WAL check, health check and automatic rollback)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ssh -o BatchMode=yes erika@10.0.1.10 "$VERSION"

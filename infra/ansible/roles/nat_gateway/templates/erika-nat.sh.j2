@@ -1,0 +1,16 @@
+#!/bin/sh
+# Managed by Ansible (role nat_gateway). Idempotent: each rule is added only if missing.
+set -eu
+NET=10.0.0.0/16
+OUT={{ ansible_facts['default_ipv4']['interface'] }}
+
+add() { # add <table> <chain> <rule...>
+  table="$1"; chain="$2"; shift 2
+  iptables -t "$table" -C "$chain" "$@" 2>/dev/null || iptables -t "$table" -I "$chain" "$@"
+}
+
+# Outgoing traffic of the private network leaves with the app server's public address.
+add nat POSTROUTING -s "$NET" -o "$OUT" -j MASQUERADE
+# Docker sets the FORWARD policy to DROP; allow the private network out, and answers back in.
+add filter DOCKER-USER -s "$NET" -o "$OUT" -j ACCEPT
+add filter DOCKER-USER -d "$NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT

@@ -53,18 +53,20 @@ internal class UserRepository(
         displayName: String,
         passwordHash: String,
         locale: String,
+        termsVersion: String,
     ) {
         jdbc
             .sql(
                 """
-                INSERT INTO app_user (id, email, display_name, password_hash, locale)
-                VALUES (:id, :email, :displayName, :passwordHash, :locale)
+                INSERT INTO app_user (id, email, display_name, password_hash, locale, terms_version, terms_accepted_at)
+                VALUES (:id, :email, :displayName, :passwordHash, :locale, :termsVersion, now())
                 """.trimIndent(),
             ).param("id", id)
             .param("email", email.trim())
             .param("displayName", displayName.trim())
             .param("passwordHash", passwordHash)
             .param("locale", locale)
+            .param("termsVersion", termsVersion)
             .update()
     }
 

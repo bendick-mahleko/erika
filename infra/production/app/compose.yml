@@ -1,0 +1,161 @@
+# Production app server (Nuremberg, Software Design §8, ADR 0027): Caddy, web, API, worker,
+# Postfix + ClamAV, log shipping and host metrics. PostgreSQL runs on the database server
+# (private network only); monitoring on the ops server.
+#
+# Deployed to /opt/erika by Ansible (infra/ansible, role erika_app); releases by deploy.sh.
+# Values come from /opt/erika/.env (template: .env.example; real values in SOPS).
+# Ports on ${ERIKA_PRIVATE_IP} are reachable only from the private network (Prometheus).
+name: erika
+
+x-backend: &backend
+  image: ghcr.io/${ERIKA_IMAGE_REPO}/backend:${ERIKA_IMAGE_TAG:?set by deploy.sh}
+  restart: unless-stopped
+  environment: &backend-env
+    ERIKA_ENVIRONMENT: production
+    ERIKA_VERSION: ${ERIKA_IMAGE_TAG}
+    # TLS to the database over the private network (self-signed server certificate: encrypted, not verified).
+    ERIKA_DB_URL: jdbc:postgresql://${ERIKA_DB_HOST:?}:5432/erika?currentSchema=erika&sslmode=require
+    ERIKA_DB_APP_PASSWORD: ${ERIKA_DB_APP_PASSWORD:?}
+    ERIKA_DB_OWNER_PASSWORD: ${ERIKA_DB_OWNER_PASSWORD:?}
+    ERIKA_DB_POOL_SIZE: ${ERIKA_DB_POOL_SIZE:-20}
+    ERIKA_S3_ENDPOINT: ${ERIKA_S3_ENDPOINT:?}
+    ERIKA_S3_REGION: ${ERIKA_S3_REGION:?}
+    ERIKA_S3_BUCKET: ${ERIKA_S3_BUCKET:?}
+    ERIKA_S3_ACCESS_KEY: ${ERIKA_S3_ACCESS_KEY:?}
+    ERIKA_S3_SECRET_KEY: ${ERIKA_S3_SECRET_KEY:?}
+    ERIKA_S3_PATH_STYLE: "false"
+    ERIKA_S3_UPLOADS_BUCKET: ${ERIKA_S3_UPLOADS_BUCKET:?}
+    ERIKA_S3_DERIVED_BUCKET: ${ERIKA_S3_DERIVED_BUCKET:?}
+    ERIKA_BACKUP_BUCKET: ${ERIKA_BACKUP_BUCKET:?}
+    ERIKA_ARCHIVE_OBJECT_LOCK: COMPLIANCE
+    ERIKA_SENTRY_DSN: ${ERIKA_SENTRY_DSN:-}
+    ERIKA_TOTP_ENCRYPTION_KEY: ${ERIKA_TOTP_ENCRYPTION_KEY:?}
+    ERIKA_WEB_BASE_URL: https://${ERIKA_DOMAIN:?}
+    ERIKA_MAIL_FROM: ${ERIKA_MAIL_FROM:?}
+    ERIKA_SMTP_HOST: ${ERIKA_SMTP_HOST:?}
+    ERIKA_SMTP_PORT: ${ERIKA_SMTP_PORT:-587}
+    ERIKA_SMTP_USER: ${ERIKA_SMTP_USER:?}
+    ERIKA_SMTP_PASSWORD: ${ERIKA_SMTP_PASSWORD:?}
+    ERIKA_CLAMAV_HOST: clamav
+    ERIKA_INTAKE_MAIL_DOMAIN: ${ERIKA_INTAKE_MAIL_DOMAIN:?}
+    ERIKA_INTAKE_MAIL_SECRET: ${ERIKA_INTAKE_MAIL_SECRET:?}
+    # Closed beta (ADR 0030): sign-up only with an invitation link (invite.py).
+    ERIKA_SIGNUP_MODE: ${ERIKA_SIGNUP_MODE:-INVITE_ONLY}
+    ERIKA_INVITE_SECRET: ${ERIKA_INVITE_SECRET:?}
+    ERIKA_TERMS_VERSION: ${ERIKA_TERMS_VERSION:-beta-2026-12}
+    ERIKA_FEEDBACK_TO: ${ERIKA_FEEDBACK_TO:?}
+  logging: &logging
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "${ERIKA_PRIVATE_IP:?}:9180:9180" # metrics for Prometheus (private network)
+    environment:
+      ERIKA_DOMAIN: ${ERIKA_DOMAIN:?}
+      ERIKA_MAIL_HOSTNAME: ${ERIKA_MAIL_HOSTNAME:?}
+      ERIKA_ACME_EMAIL: ${ERIKA_ACME_EMAIL:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      SPRING_PROFILES_ACTIVE: api
+    ports:
+      - "127.0.0.1:8081:8081" # health checks of deploy.sh
+      - "${ERIKA_PRIVATE_IP:?}:8081:8081" # /actuator/prometheus for Prometheus
+
+  worker:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      SPRING_PROFILES_ACTIVE: worker
+    ports:
+      - "${ERIKA_PRIVATE_IP:?}:8082:8082" # /metrics for Prometheus (ADR 0029)
+    depends_on:
+      clamav: { condition: service_healthy }
+
+  clamav:
+    image: clamav/clamav:1.4.7
+    restart: unless-stopped
+    volumes: [clamav_db:/var/lib/clamav]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      retries: 10
+      start_period: 180s
+    logging: *logging
+
+  # Inbound mail for intake addresses (IN-01, ADR 0024). TLS certificate from Caddy's store.
+  mail:
+    image: ghcr.io/${ERIKA_IMAGE_REPO}/mail:${ERIKA_IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    ports: ["25:25"]
+    environment:
+      ERIKA_INTAKE_MAIL_DOMAIN: ${ERIKA_INTAKE_MAIL_DOMAIN:?}
+      ERIKA_API_URL: http://api:8080
+      ERIKA_INTAKE_MAIL_SECRET: ${ERIKA_INTAKE_MAIL_SECRET:?}
+      MAIL_HOSTNAME: ${ERIKA_MAIL_HOSTNAME:?}
+      TLS_CERT: /certs/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${ERIKA_MAIL_HOSTNAME}/${ERIKA_MAIL_HOSTNAME}.crt
+      TLS_KEY: /certs/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${ERIKA_MAIL_HOSTNAME}/${ERIKA_MAIL_HOSTNAME}.key
+    volumes:
+      - caddy_data:/certs:ro
+    depends_on:
+      api: { condition: service_started }
+      clamav: { condition: service_healthy }
+    logging: *logging
+
+  web:
+    image: ghcr.io/${ERIKA_IMAGE_REPO}/frontend:${ERIKA_IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    environment:
+      ERIKA_API_INTERNAL_URL: http://api:8080
+      # Footer link to the public status page (NF-06) and the beta contact on the sign-up page.
+      ERIKA_STATUS_URL: https://status.${ERIKA_DOMAIN}
+      ERIKA_BETA_CONTACT: ${ERIKA_FEEDBACK_TO:?}
+    logging: *logging
+
+  # Ships container logs to Loki on the ops server (ADR 0029). Two streams: full IPs (kept
+  # 7 days) and IPs masked to /24 resp. /48 (kept 14 days), Software Design §7.
+  alloy:
+    image: grafana/alloy:v1.10.2
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
+    environment:
+      ERIKA_LOKI_URL: http://${ERIKA_OPS_HOST:?}:3100/loki/api/v1/push
+      ERIKA_HOST: app
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy
+    logging: *logging
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=${ERIKA_PRIVATE_IP:?}:9100
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /:/host:ro,rslave
+      - /var/lib/node_exporter/textfile:/textfile:ro
+    logging: *logging
+
+volumes:
+  clamav_db:
+  caddy_data:
+  caddy_config:
+  alloy_data:

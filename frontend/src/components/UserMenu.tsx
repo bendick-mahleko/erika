@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { fetchInboxSummary, fetchSession } from "@/lib/api/client";
+import { FeedbackButton } from "./FeedbackButton";
 import { LogoutButton } from "./LogoutButton";
 
 /** Header navigation: sign-in links or the signed-in user with settings and sign-out. */
@@ -31,6 +32,7 @@ export async function UserMenu() {
           <Link href="/settings/workspace" className={link}>
             {t("settings")}
           </Link>
+          <FeedbackButton />
           <LogoutButton label={t("signOut")} />
         </>
       ) : (

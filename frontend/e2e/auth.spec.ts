@@ -36,6 +36,7 @@ test.describe("account flow (full stack)", () => {
     await page.getByLabel("Name Ihres Unternehmens").fill("Test Malerbetrieb");
     await page.getByLabel("E-Mail-Adresse").fill(email);
     await page.getByLabel("Passwort").fill(password);
+    await page.getByRole("checkbox", { name: /Beta-Nutzungsbedingungen/ }).check();
     await page.getByRole("button", { name: "Konto anlegen" }).click();
     await expect(page.getByText("Bitte prüfen Sie Ihr Postfach")).toBeVisible();
 

@@ -1,0 +1,4 @@
+# ansible-lint --offline site.yml roles  (run in CI, job "infra")
+skip_list:
+  # The secrets are decrypted once on the control node; the playbook uses the linear strategy.
+  - run-once[task]

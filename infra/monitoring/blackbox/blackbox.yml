@@ -1,0 +1,32 @@
+# Blackbox exporter modules (ADR 0029).
+modules:
+  # GET /api/v1/health: 200 means up or degraded (the API answers); 503 or no answer = down.
+  # Fails on certificate errors, so an expired certificate counts as "site down" too.
+  https_health:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200]
+      method: GET
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: false
+
+  # Inbound SMTP: banner, EHLO, STARTTLS with a valid certificate, QUIT. Never sends mail.
+  smtp_starttls:
+    prober: tcp
+    timeout: 15s
+    tcp:
+      preferred_ip_protocol: ip4
+      query_response:
+        - expect: "^220 "
+        - send: "EHLO monitoring.erika\r"
+        - expect: "^250-STARTTLS"
+        - expect: "^250 "
+        - send: "STARTTLS\r"
+        - expect: "^220 "
+        - starttls: true
+        - send: "EHLO monitoring.erika\r"
+        - expect: "^250 "
+        - send: "QUIT\r"

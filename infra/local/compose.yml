@@ -87,6 +87,8 @@ services:
       ERIKA_S3_PUBLIC_ENDPOINT: http://localhost:${ERIKA_S3_PORT:-9000}
       ERIKA_INTAKE_MAIL_DOMAIN: in.erika.local
       ERIKA_INTAKE_MAIL_SECRET: dev-intake-secret
+      # Closed beta (ADR 0030): sign-up stays OPEN locally; feedback mails land in Mailpit.
+      ERIKA_FEEDBACK_TO: beta@erika.local
     ports: ["127.0.0.1:${ERIKA_API_PORT:-8080}:8080"]
     depends_on:
       postgres: { condition: service_healthy }

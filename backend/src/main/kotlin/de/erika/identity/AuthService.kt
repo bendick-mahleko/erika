@@ -20,6 +20,8 @@ internal data class SignUp(
     val displayName: String,
     val workspaceName: String,
     val locale: String,
+    val termsAccepted: Boolean,
+    val invitationCode: String? = null,
 )
 
 /** Result of the password step: who is signing in, into which workspace, and what comes next. */
@@ -57,6 +59,7 @@ internal class AuthService(
     private val outbox: Outbox,
     private val events: ApplicationEventPublisher,
     private val props: IdentityProperties,
+    private val signupPolicy: SignupPolicy,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -67,8 +70,10 @@ internal class AuthService(
     /**
      * Creates user, workspace and OWNER membership and sends the verification email.
      * An address that is already registered gets a notice instead (no account enumeration).
+     * Needs accepted terms and, during the closed beta, an invitation for this address.
      */
     fun signUp(cmd: SignUp) {
+        signupPolicy.check(cmd.email, cmd.termsAccepted, cmd.invitationCode)
         val lowered = cmd.password.lowercase()
         if (lowered.contains(cmd.email.trim().lowercase()) || lowered.contains(cmd.workspaceName.trim().lowercase())) {
             throw IdentityErrors.weakPassword()
@@ -82,11 +87,12 @@ internal class AuthService(
             }
             val userId = UUID.randomUUID()
             val workspaceId = UUID.randomUUID()
-            users.insert(userId, cmd.email, cmd.displayName, hash, cmd.locale)
+            users.insert(userId, cmd.email, cmd.displayName, hash, cmd.locale, signupPolicy.termsVersion)
             tenant.enterWorkspace(workspaceId)
             workspaces.insert(workspaceId, cmd.workspaceName)
             memberships.insert(workspaceId, userId, WorkspaceRole.OWNER)
             events.publishEvent(WorkspaceCreated(workspaceId, userId))
+            events.publishEvent(TermsAccepted(workspaceId, userId, signupPolicy.termsVersion))
 
             val token = Tokens.newToken()
             users.insertToken(Tokens.sha256(token), userId, VERIFY_EMAIL, props.verificationTokenValidity)

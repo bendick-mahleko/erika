@@ -89,6 +89,19 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
   Migration V5 stops with this hint if it's missing.
 - After pulling Stage 6, restart S3 so it reads the new bucket permissions: `docker compose -f infra/local/compose.yml restart s3`, then `up -d` (s3-init creates `erika-derived`).
 
+### Closed beta, feedback and the worker's metrics (Stage 7)
+
+- Sign-up is `OPEN` locally (`ERIKA_SIGNUP_MODE`); staging and production use `INVITE_ONLY` (ADR 0030). To try invitations locally, start the API with `ERIKA_SIGNUP_MODE=INVITE_ONLY ERIKA_INVITE_SECRET=<32+ characters>` and create a link with `ERIKA_INVITE_SECRET=… ERIKA_DOMAIN=localhost:3000 python infra/production/invite.py you@example.test` (change `https` to `http` in the printed link).
+- Sign-up needs `termsAccepted: true`; API tests send it via `Accounts.registered`.
+- In-app feedback is mailed to `ERIKA_FEEDBACK_TO` (`beta@erika.local` in the local stack, so it shows up in Mailpit).
+- The worker serves Prometheus metrics on port 8082 (`/metrics`); tests use a free port (`erika.worker.metrics-port=0`).
+
+## Operations (Stage 7)
+
+- Production layout, setup and routine work: [docs/ops/production.md](ops/production.md); backups and restore drills: [backup.md](ops/backup.md), [restore.md](ops/restore.md); alerts: [monitoring.md](ops/monitoring.md); beta: [beta.md](ops/beta.md).
+- Local restore drill (backup → change → restore → point-in-time restore), needs the local stack's `postgres`: `infra/backup/drill/run-local-drill.sh` (about a minute; leaves nothing behind).
+- Alert rule tests: `docker run --rm -v "$PWD/infra/monitoring:/m" -w /m --entrypoint promtool prom/prometheus:v3.5.0 test rules tests/alerts.test.yml`. CI job `infra` also validates Terraform, Ansible, Caddyfiles, Loki, Alloy and the shell scripts.
+
 ## Front end
 
 ```bash

@@ -1,0 +1,166 @@
+# Ops server (ADR 0029): monitoring, error tracking and the public status page, on a
+# separate small server so they keep working when the app server is down.
+#   https://grafana.<domain>  Grafana (own sign-in)       metrics + logs
+#   https://errors.<domain>   GlitchTip (own sign-in)     errors from API, worker (Sentry protocol)
+#   https://status.<domain>   Uptime Kuma status page     public (NF-06); admin UI via SSH tunnel only
+# Loki (3100) listens on the private IP for the Alloy agents; nothing else is published.
+# Deployed to /opt/erika-ops by Ansible (role erika_ops), which also writes
+# prometheus-targets/*.json, alertmanager.yml and secrets/.
+name: erika-ops
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      ERIKA_DOMAIN: ${ERIKA_DOMAIN:?}
+      ERIKA_ACME_EMAIL: ${ERIKA_ACME_EMAIL:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=45d
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./prometheus-targets:/etc/prometheus/targets:ro
+      - prometheus_data:/prometheus
+    logging: *logging
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets/alertmanager:/etc/alertmanager/secrets:ro
+      - alertmanager_data:/alertmanager
+    logging: *logging
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    restart: unless-stopped
+    environment:
+      GF_SERVER_ROOT_URL: https://grafana.${ERIKA_DOMAIN}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./secrets/grafana_admin_password:/run/secrets/grafana_admin_password:ro
+      - grafana_data:/var/lib/grafana
+    logging: *logging
+
+  loki:
+    image: grafana/loki:3.5.3
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    ports: ["${ERIKA_PRIVATE_IP:?}:3100:3100"]
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    logging: *logging
+
+  # Error tracking (Sentry-compatible), self-hosted: no error data leaves our servers.
+  glitchtip-db:
+    image: postgres:16.15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: glitchtip
+      POSTGRES_USER: glitchtip
+      POSTGRES_PASSWORD: ${GLITCHTIP_DB_PASSWORD:?}
+    volumes: [glitchtip_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glitchtip -d glitchtip"]
+      interval: 10s
+      retries: 10
+    logging: *logging
+
+  glitchtip-valkey:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    logging: *logging
+
+  glitchtip-web: &glitchtip
+    image: glitchtip/glitchtip:v5.1.1
+    restart: unless-stopped
+    environment: &glitchtip-env
+      DATABASE_URL: postgres://glitchtip:${GLITCHTIP_DB_PASSWORD}@glitchtip-db:5432/glitchtip
+      REDIS_URL: redis://glitchtip-valkey:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?}
+      GLITCHTIP_DOMAIN: https://errors.${ERIKA_DOMAIN}
+      DEFAULT_FROM_EMAIL: ${ERIKA_ALERT_MAIL_FROM:?}
+      EMAIL_URL: ${GLITCHTIP_EMAIL_URL:?}
+      ENABLE_USER_REGISTRATION: "false"
+      ENABLE_ORGANIZATION_CREATION: "false"
+      # Error events: 30 days (no invoice content; IPs are not stored, send-default-pii=false).
+      GLITCHTIP_MAX_EVENT_LIFE_DAYS: "30"
+      PORT: "8000"
+    depends_on:
+      glitchtip-db: { condition: service_healthy }
+      glitchtip-valkey: { condition: service_started }
+    logging: *logging
+
+  glitchtip-worker:
+    <<: *glitchtip
+    command: ./bin/run-celery-with-beat.sh
+
+  glitchtip-migrate:
+    <<: *glitchtip
+    restart: "no"
+    command: ./bin/run-migrate.sh
+
+  # Public status page (NF-06) and uptime checks from a second vantage point.
+  uptime-kuma:
+    image: louislam/uptime-kuma:2.0.2
+    restart: unless-stopped
+    volumes: [uptime_kuma_data:/app/data]
+    ports: ["127.0.0.1:3001:3001"] # admin UI: ssh -L 3001:127.0.0.1:3001 ops
+    logging: *logging
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    command: ["--path.rootfs=/host"]
+    pid: host
+    volumes: ["/:/host:ro,rslave"]
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
+  loki_data:
+  glitchtip_db:
+  uptime_kuma_data:

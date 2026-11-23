@@ -1,0 +1,44 @@
+#cloud-config
+# First boot only: admin user with SSH keys, no root or password login. Everything else is
+# done by Ansible (infra/ansible), which can be re-run at any time.
+hostname: ${hostname}
+users:
+  - name: erika
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+%{ for key in admin_keys ~}
+      - ${key}
+%{ endfor ~}
+ssh_pwauth: false
+disable_root: true
+package_update: false
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-erika.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      AllowUsers erika
+%{ if private_only ~}
+  # No public interface: default route through the Hetzner network gateway (10.0.0.1),
+  # which forwards to the app server's NAT (hcloud_network_route). Hetzner's resolvers.
+  - path: /etc/systemd/network/10-erika-private-default.network
+    content: |
+      [Match]
+      Name=en* eth*
+      [Network]
+      DHCP=yes
+      DNS=185.12.64.1
+      DNS=185.12.64.2
+      [Route]
+      Gateway=10.0.0.1
+      GatewayOnLink=yes
+%{ endif ~}
+runcmd:
+  - systemctl restart ssh
+%{ if private_only ~}
+  - ip route replace default via 10.0.0.1 onlink || true
+%{ endif ~}

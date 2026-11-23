@@ -1,0 +1,58 @@
+name: PostgreSQL image
+
+# PostgreSQL 16 + pgBackRest (ADR 0028). Built separately from the app images and pinned
+# separately on the servers (ERIKA_POSTGRES_IMAGE_TAG), because a new tag restarts the
+# database. Tag: 16.15-<short sha>.
+on:
+  push:
+    branches: [main]
+    paths:
+      - infra/docker/postgres.Dockerfile
+      - infra/postgres/**
+      - .github/workflows/postgres-image.yml
+  pull_request:
+    paths:
+      - infra/docker/postgres.Dockerfile
+      - infra/postgres/**
+      - infra/backup/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/postgres.Dockerfile
+          load: true
+          tags: erika-postgres:local
+          cache-from: type=gha,scope=postgres
+          cache-to: type=gha,mode=max,scope=postgres
+      # The restore drill (backup → change → restore → point-in-time restore) on every change.
+      - name: Restore drill
+        run: |
+          docker compose -f infra/local/compose.yml up -d --wait postgres
+          # The real schema (all migrations are plain SQL) as the source of the drill.
+          docker run --rm --network erika_default -v "$PWD/backend/src/main/resources/db/migration:/flyway/sql:ro" \
+            flyway/flyway:11 -url=jdbc:postgresql://postgres:5432/erika -user=erika_owner -password=erika_owner_dev \
+            -schemas=erika -defaultSchema=erika -createSchemas=false migrate
+          ERIKA_DRILL_WORK="$RUNNER_TEMP/drill" infra/backup/drill/run-local-drill.sh
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/postgres"
+          TAG="16.15-${GITHUB_SHA::7}"
+          docker tag erika-postgres:local "$IMAGE:$TAG"
+          docker push "$IMAGE:$TAG"
+          echo "Pushed $IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"

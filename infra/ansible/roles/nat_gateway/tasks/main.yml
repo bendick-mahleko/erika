@@ -1,0 +1,42 @@
+# The app server forwards the private network's outgoing traffic (the database server has
+# no public IP; hcloud_network_route 0.0.0.0/0 → 10.0.1.10). Only outbound: nothing on the
+# internet can open a connection to the private network.
+- name: Enable IPv4 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+
+- name: NAT script
+  ansible.builtin.template:
+    src: erika-nat.sh.j2
+    dest: /usr/local/sbin/erika-nat.sh
+    mode: "0755"
+  register: nat_gateway_script
+
+- name: NAT unit (survives reboots and Docker restarts)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/erika-nat.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=NAT for the ERIKA private network (10.0.0.0/16)
+      After=network-online.target docker.service
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/sbin/erika-nat.sh
+
+      [Install]
+      WantedBy=multi-user.target
+  register: nat_gateway_unit
+
+- name: Start the NAT unit
+  ansible.builtin.systemd_service:
+    name: erika-nat
+    enabled: true
+    state: "{{ 'restarted' if (nat_gateway_unit.changed or nat_gateway_script.changed) else 'started' }}"
+    daemon_reload: true

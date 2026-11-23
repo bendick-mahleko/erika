@@ -15,6 +15,16 @@ data class WorkspaceCreated(
     override val action = "identity.workspace.created"
 }
 
+/** The user accepted the terms incl. the data-processing agreement (ADR 0030). */
+data class TermsAccepted(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val version: String,
+) : AuditableEvent {
+    override val action = "identity.terms.accepted"
+    override val details get() = mapOf("version" to version)
+}
+
 data class EmailVerified(
     override val workspaceId: UUID,
     override val actorId: UUID,

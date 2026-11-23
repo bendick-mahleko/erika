@@ -1,0 +1,11 @@
+# Managed by Ansible (role erika_db).
+[Unit]
+Description=Timer: Monthly restore drill into a temporary volume (docs/ops/restore.md)
+
+[Timer]
+OnCalendar={{ erika_restore_drill_calendar }}
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

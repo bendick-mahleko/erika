@@ -1,0 +1,59 @@
+{
+	email {$ERIKA_ACME_EMAIL}
+	servers {
+		protocols h1 h2
+		# Per-request metrics (status code, duration) for the 5xx alert, ADR 0029.
+		metrics
+	}
+}
+
+{$ERIKA_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# The mail server's endpoints (ADR 0024) are internal only.
+	handle /internal/* {
+		respond 404
+	}
+
+	handle /api/* {
+		reverse_proxy api:8080 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	# Access log without query strings (they may contain search terms) and with the client
+	# IP; Alloy keeps the full IP 7 days and a masked copy 14 days (ADR 0029).
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?…"
+				request>headers delete
+				resp_headers delete
+			}
+		}
+	}
+}
+
+# Certificate for the inbound mail server's STARTTLS (Postfix reads it from Caddy's store).
+{$ERIKA_MAIL_HOSTNAME} {
+	respond 404
+}
+
+# Prometheus metrics, reachable only on the private network (bound to the private IP in compose.yml).
+:9180 {
+	metrics /metrics
+}

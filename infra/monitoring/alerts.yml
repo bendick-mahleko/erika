@@ -1,9 +1,71 @@
-# Prometheus alert rules (Software Design §8). Loaded by the monitoring stack (Stage 7).
-# Metrics come from the API's actuator (/actuator/prometheus on the management port). The
-# worker has no web server; its own counters (erika_documents_processing_failed_total,
-# erika_archive_integrity_failures_total) need a metrics endpoint or push gateway for the
-# worker (Stage 7). Until then those failures alert through GlitchTip (logged at ERROR).
+# Prometheus alert rules (Software Design §8, ADR 0029). Runbooks: docs/ops/monitoring.md.
+# Unit tests: infra/monitoring/tests/alerts.test.yml (promtool test rules, run in CI).
+#
+# Design §8 asks for: site down, 5xx rate > 1 %, intake queue older than 5 minutes, backup
+# failed, audit-chain check failed, certificate due to expire. Everything else here keeps
+# those alerts trustworthy (targets down, missing backup metrics, disks, the dead man's switch).
+#
+# severity: page   → email + push, any time (affects customers or data safety now)
+#           ticket → email, look at it the same working day
 groups:
+  - name: erika-availability
+    rules:
+      # NF-06: probed from the ops server through the public internet, like a customer.
+      - alert: ErikaSiteDown
+        expr: probe_success{job="blackbox-https"} == 0
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.instance }} is not reachable or not healthy"
+          runbook: docs/ops/monitoring.md#erikasitedown
+
+      - alert: ErikaHighErrorRate
+        expr: |
+          (
+            sum(rate(caddy_http_request_duration_seconds_count{code=~"5.."}[5m]))
+              / sum(rate(caddy_http_request_duration_seconds_count[5m]))
+          ) > 0.01
+          and sum(rate(caddy_http_request_duration_seconds_count[5m])) > 0.05
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "More than 1 % of requests fail with 5xx ({{ $value | humanizePercentage }})"
+          runbook: docs/ops/monitoring.md#erikahigherrorrate
+
+      # Caddy renews 30 days before expiry; under 14 days means renewal keeps failing.
+      - alert: ErikaCertificateExpiresSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels: { severity: ticket }
+        annotations:
+          summary: "TLS certificate of {{ $labels.instance }} expires in {{ $value | humanize }} days"
+          runbook: docs/ops/monitoring.md#erikacertificateexpiressoon
+
+      # IN-01: suppliers' mail servers retry for days, but invoices arrive late.
+      - alert: ErikaMailServerDown
+        expr: probe_success{job="blackbox-smtp"} == 0
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "Inbound mail server {{ $labels.instance }} does not answer with STARTTLS"
+          runbook: docs/ops/monitoring.md#erikamailserverdown
+
+      - alert: ErikaApplicationDown
+        expr: up{job=~"erika-api|erika-worker"} == 0
+        for: 3m
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.instance }} cannot be scraped"
+          runbook: docs/ops/monitoring.md#erikaapplicationdown
+
+      - alert: ErikaTargetDown
+        expr: up{job!~"erika-api|erika-worker"} == 0
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Monitoring target {{ $labels.job }} on {{ $labels.instance }} is down"
+          runbook: docs/ops/monitoring.md#erikatargetdown
+
   - name: erika-intake
     rules:
       # IN-01: an email must be in the inbox within 2 minutes; alert well before that is at risk.
@@ -16,7 +78,7 @@ groups:
           runbook: docs/ops/intake.md#intake-queue-older-than-5-minutes-erikaintakequeuestuck
 
       - alert: ErikaJobsFailed
-        expr: max by (type) (erika_jobs_failed_recent) > 0
+        expr: max by (type) (erika_jobs_failed_recent{type!="audit.verify-chains"}) > 0
         for: 5m
         labels: { severity: ticket }
         annotations:
@@ -38,3 +100,104 @@ groups:
         annotations:
           summary: "An archived original failed its integrity check"
           runbook: docs/ops/archive-integrity.md
+
+      # NF-10: the daily check found a broken hash chain (gauge from the worker) ...
+      - alert: ErikaAuditChainBroken
+        expr: max(erika_audit_chain_broken) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "Audit log hash chain broken in {{ $value }} workspace(s)"
+          runbook: docs/ops/audit-chain.md
+
+      # ... or the check itself could not run to the end.
+      - alert: ErikaAuditChainCheckFailed
+        expr: max(erika_jobs_failed_recent{type="audit.verify-chains"}) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "The daily audit chain check failed"
+          runbook: docs/ops/audit-chain.md
+
+  - name: erika-backup
+    rules:
+      # Written by infra/backup/*.sh through node_exporter's textfile collector.
+      - alert: ErikaBackupFailed
+        expr: erika_backup_last_status == 0
+        labels: { severity: page }
+        annotations:
+          summary: "Backup job {{ $labels.kind }}/{{ $labels.type }} failed"
+          runbook: docs/ops/backup.md#erikabackupfailed
+
+      - alert: ErikaBackupMissing
+        expr: |
+          time() - erika_backup_last_success_timestamp_seconds{kind=~"postgres|originals"} > 26 * 3600
+          or time() - erika_backup_last_success_timestamp_seconds{kind="postgres-archive"} > 2 * 3600
+        labels: { severity: page }
+        annotations:
+          summary: "No successful {{ $labels.kind }}/{{ $labels.type }} backup for {{ $value | humanizeDuration }}"
+          runbook: docs/ops/backup.md#erikabackupmissing
+
+      # The backup scripts never wrote a result (timer missing, textfile collector broken).
+      - alert: ErikaBackupMetricsAbsent
+        expr: absent(erika_backup_last_success_timestamp_seconds{kind="postgres",type="full"})
+        for: 2h
+        labels: { severity: ticket }
+        annotations:
+          summary: "No backup results are reported at all"
+          runbook: docs/ops/backup.md#erikabackupmissing
+
+      # Continuous WAL archiving (RPO 15 min) fails between the hourly checks.
+      - alert: ErikaWalArchivingFailing
+        expr: increase(pg_stat_archiver_failed_count[15m]) > 0
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "PostgreSQL cannot archive WAL segments"
+          runbook: docs/ops/backup.md#erikawalarchivingfailing
+
+      # Design §8: monthly restore drill.
+      - alert: ErikaRestoreDrillOverdue
+        expr: time() - erika_restore_drill_last_success_timestamp_seconds > 35 * 86400
+        labels: { severity: ticket }
+        annotations:
+          summary: "The last successful restore drill was {{ $value | humanizeDuration }} ago"
+          runbook: docs/ops/restore.md
+
+  - name: erika-hosts
+    rules:
+      - alert: ErikaHostDown
+        expr: up{job="node"} == 0
+        for: 3m
+        labels: { severity: page }
+        annotations:
+          summary: "Server {{ $labels.instance }} cannot be reached"
+          runbook: docs/ops/monitoring.md#erikahostdown
+
+      - alert: ErikaDiskFilling
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} < 0.15
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "{{ $labels.instance }} {{ $labels.mountpoint }}: less than 15 % free"
+          runbook: docs/ops/monitoring.md#erikadiskfilling
+
+      - alert: ErikaDiskAlmostFull
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} < 0.05
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.instance }} {{ $labels.mountpoint }}: less than 5 % free"
+          runbook: docs/ops/monitoring.md#erikadiskfilling
+
+  - name: erika-meta
+    rules:
+      # Always firing. Alertmanager forwards it to an external heartbeat check; if the
+      # heartbeat stops, the monitoring itself is down (dead man's switch).
+      - alert: Watchdog
+        expr: vector(1)
+        labels: { severity: none }
+        annotations:
+          summary: "Alerting pipeline is alive"

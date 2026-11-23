@@ -1,0 +1,93 @@
+# App server (ADR 0027): files and configuration. Releases (image tags) are deployed by
+# CI with deploy.sh, not here.
+- name: Directory /opt/erika
+  ansible.builtin.file:
+    path: /opt/erika
+    state: directory
+    owner: erika
+    group: erika
+    mode: "0750"
+
+- name: Compose file, Caddyfile, log shipping config
+  ansible.builtin.copy:
+    src: "{{ erika_repo_root }}/{{ item.src }}"
+    dest: "/opt/erika/{{ item.dest }}"
+    owner: erika
+    group: erika
+    mode: "0644"
+  loop:
+    - { src: infra/production/app/compose.yml, dest: compose.yml }
+    - { src: infra/production/app/Caddyfile, dest: Caddyfile }
+    - { src: infra/monitoring/alloy/config.alloy, dest: config.alloy }
+
+- name: Release and beta tools
+  ansible.builtin.copy:
+    src: "{{ erika_repo_root }}/{{ item.src }}"
+    dest: "/opt/erika/{{ item.dest }}"
+    owner: erika
+    group: erika
+    mode: "0750"
+  loop:
+    - { src: infra/production/app/deploy.sh, dest: deploy.sh }
+    - { src: infra/production/invite.py, dest: invite.py }
+
+- name: Environment from the SOPS secrets
+  ansible.builtin.template:
+    src: dotenv.j2
+    dest: /opt/erika/.env
+    owner: erika
+    group: erika
+    mode: "0600"
+
+- name: Registry login for the private images (read:packages token)
+  ansible.builtin.shell: |
+    set -o pipefail
+    printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+  args:
+    executable: /bin/bash
+  environment:
+    GHCR_TOKEN: "{{ erika_ghcr_token }}"
+    GHCR_USER: "{{ erika_ghcr_user }}"
+    HOME: /home/erika
+  become: true
+  become_user: erika
+  when: erika_ghcr_token | default('') | length > 0
+  changed_when: false
+  no_log: true
+
+# deploy.sh runs "pg-backup.sh check" on the database server before every release.
+- name: SSH key of the app server for the WAL check on the database server
+  community.crypto.openssh_keypair:
+    path: /home/erika/.ssh/id_ed25519
+    type: ed25519
+    owner: erika
+    group: erika
+    comment: erika-app deploy check
+
+- name: Read the public key
+  ansible.builtin.slurp:
+    src: /home/erika/.ssh/id_ed25519.pub
+  register: erika_app_pubkey
+
+# Forced command: this key can run the WAL check and nothing else, so a compromised app
+# server gains no shell on the database server.
+- name: Authorize it on the database server for the WAL check only
+  ansible.posix.authorized_key:
+    user: erika
+    key: "{{ erika_app_pubkey.content | b64decode }}"
+    key_options: 'from="{{ erika_private_ip.app }}",restrict,command="sudo /opt/erika/backup/pg-backup.sh check"'
+  delegate_to: "{{ groups['db'][0] }}"
+
+- name: Know the database server's host key (private network)
+  ansible.builtin.shell: ssh-keyscan -t ed25519 {{ erika_private_ip.db }} 2>/dev/null
+  register: erika_app_db_hostkey
+  changed_when: false
+
+- name: Add it to known_hosts
+  ansible.builtin.known_hosts:
+    path: /home/erika/.ssh/known_hosts
+    name: "{{ erika_private_ip.db }}"
+    key: "{{ erika_app_db_hostkey.stdout }}"
+  become: true
+  become_user: erika
+  when: erika_app_db_hostkey.stdout | length > 0

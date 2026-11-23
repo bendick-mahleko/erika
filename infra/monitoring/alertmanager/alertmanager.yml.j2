@@ -1,0 +1,59 @@
+# Alertmanager (ADR 0029). Rendered by Ansible (role erika_ops) from group_vars/secrets.
+# Secrets are read from files next to this one, never written into it.
+#   page   → email + push (Pushover, optional), repeated hourly while firing
+#   ticket → email, repeated every 12 hours
+#   Watchdog → external heartbeat URL every minute (dead man's switch)
+global:
+  smtp_smarthost: "{{ erika_alert_smtp_host }}:{{ erika_alert_smtp_port | default(587) }}"
+  smtp_from: "{{ erika_alert_mail_from }}"
+  smtp_auth_username: "{{ erika_alert_smtp_user }}"
+  smtp_auth_password_file: /etc/alertmanager/secrets/smtp_password
+  smtp_require_tls: true
+
+route:
+  receiver: ticket
+  group_by: [alertname, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - matchers: ['alertname="Watchdog"']
+      receiver: deadmans-switch
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 1m
+    - matchers: ['severity="page"']
+      receiver: page
+      repeat_interval: 1h
+
+inhibit_rules:
+  # The disk-almost-full page makes the disk-filling ticket redundant.
+  - source_matchers: ['alertname="ErikaDiskAlmostFull"']
+    target_matchers: ['alertname="ErikaDiskFilling"']
+    equal: [instance, mountpoint]
+  # When the site is down, the 5xx rate and the certificate alert add nothing.
+  - source_matchers: ['alertname="ErikaSiteDown"']
+    target_matchers: ['alertname=~"ErikaHighErrorRate|ErikaApplicationDown"']
+
+receivers:
+  - name: ticket
+    email_configs:
+      - to: "{{ erika_alert_email_to }}"
+        send_resolved: true
+
+  - name: page
+    email_configs:
+      - to: "{{ erika_alert_email_to }}"
+        send_resolved: true
+{% if erika_alert_pushover_enabled | default(false) %}
+    pushover_configs:
+      - user_key_file: /etc/alertmanager/secrets/pushover_user_key
+        token_file: /etc/alertmanager/secrets/pushover_token
+        priority: '{{ "{{" }} if eq .Status "firing" {{ "}}" }}1{{ "{{" }} else {{ "}}" }}0{{ "{{" }} end {{ "}}" }}'
+        send_resolved: true
+{% endif %}
+
+  - name: deadmans-switch
+    webhook_configs:
+      - url_file: /etc/alertmanager/secrets/deadmans_switch_url
+        send_resolved: false

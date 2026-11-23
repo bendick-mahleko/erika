@@ -41,6 +41,27 @@ class WorkspaceContacts(
             .toMap()
     }
 
+    /** A member of the current workspace, or null if [userId] is not a member. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun member(userId: UUID): Contact? =
+        jdbc
+            .sql(
+                """
+                SELECT u.id, u.email, u.display_name, u.locale
+                  FROM membership m JOIN app_user u ON u.id = m.user_id
+                 WHERE m.workspace_id = current_workspace_id() AND u.id = :id
+                """.trimIndent(),
+            ).param("id", userId)
+            .query { rs, _ ->
+                Contact(
+                    userId = rs.getObject("id", UUID::class.java),
+                    email = rs.getString("email"),
+                    displayName = rs.getString("display_name"),
+                    locale = rs.getString("locale"),
+                )
+            }.optional()
+            .orElse(null)
+
     /** Verified members who asked for an email when new documents arrive. */
     @Transactional(propagation = Propagation.MANDATORY)
     fun newDocumentRecipients(workspaceId: UUID): List<Contact> =

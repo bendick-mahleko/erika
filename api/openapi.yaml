@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.3.0
+  version: 0.4.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -37,6 +37,8 @@ tags:
     description: Receiving files by upload and email (IN-01, IN-02, IN-05, NF-04)
   - name: documents
     description: Received documents, the viewer, status, tags and search (IN-04, IN-05, VW-01..06, AR-01..04)
+  - name: feedback
+    description: Feedback from users to the ERIKA team (closed beta)
 paths:
   /health:
     get:
@@ -77,6 +79,22 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Session" }
         default: { $ref: "#/components/responses/Problem" }
+  /auth/signup-policy:
+    get:
+      tags: [auth]
+      operationId: getSignupPolicy
+      summary: Whether sign-up needs an invitation, and the current terms version
+      description: |
+        During the closed beta (ADR 0030) sign-up needs a personal invitation link. The
+        sign-up form uses this to explain that instead of showing a form that will fail.
+      security: []
+      responses:
+        "200":
+          description: The sign-up rules of this installation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignupPolicy" }
+        default: { $ref: "#/components/responses/Problem" }
   /auth/signup:
     post:
       tags: [auth]
@@ -86,13 +104,19 @@ paths:
         Creates the user (role OWNER) and the workspace and sends a verification email.
         Always answers 202, also when the email address is already registered (that
         address gets a notice instead), so the endpoint doesn't reveal accounts.
+
+        The user must accept the terms, including the data-processing agreement
+        (`termsAccepted: true`, else 400 `TERMS_NOT_ACCEPTED`); the accepted version is
+        recorded and audited. While sign-up is invite-only, `invitationCode` must be a
+        valid, unexpired invitation for exactly this email address (else 403
+        `INVITATION_REQUIRED` or `INVITATION_INVALID`).
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/SignupRequest" }
-            example: { email: "erika@example.de", password: "correct horse battery staple", displayName: "Erika Mustermann", workspaceName: "Mustermann Malerbetrieb", locale: "de" }
+            example: { email: "erika@example.de", password: "correct horse battery staple", displayName: "Erika Mustermann", workspaceName: "Mustermann Malerbetrieb", locale: "de", termsAccepted: true }
       responses:
         "202": { description: Accepted; check your email. }
         default: { $ref: "#/components/responses/Problem" }
@@ -568,6 +592,23 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Document" }
         default: { $ref: "#/components/responses/Problem" }
+  /feedback:
+    post:
+      tags: [feedback]
+      operationId: sendFeedback
+      summary: Send feedback to the ERIKA team (closed beta)
+      description: |
+        Stored and forwarded to the team by email. Every role may send feedback, tax
+        advisors included: it doesn't change any workspace data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeedbackRequest" }
+            example: { category: "IDEA", message: "Eine Sortierung nach Fälligkeit wäre praktisch.", page: "/inbox" }
+      responses:
+        "202": { description: Received; thank you. }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     session:
@@ -610,9 +651,20 @@ components:
     Role:
       type: string
       enum: [OWNER, MEMBER, ADVISOR]
+    SignupPolicy:
+      type: object
+      required: [inviteOnly, termsVersion]
+      properties:
+        inviteOnly:
+          type: boolean
+          description: True during the closed beta; sign-up then needs an invitation link.
+        termsVersion:
+          type: string
+          description: Version of the terms (incl. data-processing agreement) a new user accepts.
+          examples: ["beta-2026-12"]
     SignupRequest:
       type: object
-      required: [email, password, displayName, workspaceName]
+      required: [email, password, displayName, workspaceName, termsAccepted]
       properties:
         email: { type: string, format: email, maxLength: 254 }
         password:
@@ -623,6 +675,26 @@ components:
         displayName: { type: string, minLength: 1, maxLength: 100 }
         workspaceName: { type: string, minLength: 1, maxLength: 200 }
         locale: { $ref: "#/components/schemas/Locale" }
+        termsAccepted:
+          type: boolean
+          description: The user accepts the terms and the data-processing agreement (must be true).
+        invitationCode:
+          type: string
+          maxLength: 1000
+          description: The `invite` parameter of the invitation link (closed beta).
+    FeedbackCategory:
+      type: string
+      enum: [PROBLEM, IDEA, PRAISE, OTHER]
+    FeedbackRequest:
+      type: object
+      required: [category, message]
+      properties:
+        category: { $ref: "#/components/schemas/FeedbackCategory" }
+        message: { type: string, minLength: 1, maxLength: 4000 }
+        page:
+          type: string
+          maxLength: 300
+          description: Path of the page the user was on (no query string), e.g. /inbox.
     VerifyEmailRequest:
       type: object
       required: [token]

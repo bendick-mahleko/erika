@@ -1,0 +1,87 @@
+# Prometheus on the ops server (ADR 0029). Scrapes the app and database servers over the
+# private network and probes the public endpoints through the internet like a customer.
+# Target lists: /etc/prometheus/targets/*.json, written by Ansible (role erika_ops) from the
+# inventory, so this file is the same in every installation.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    environment: production
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  # Spring Boot actuator on the API's management port (JVM, HTTP latency, job queue gauges).
+  - job_name: erika-api
+    metrics_path: /actuator/prometheus
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/erika-api.json]
+
+  # The worker's own endpoint (audit chain, integrity checks, processing failures).
+  - job_name: erika-worker
+    metrics_path: /metrics
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/erika-worker.json]
+
+  # Caddy: requests by status code for the 5xx rate.
+  - job_name: caddy
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/caddy.json]
+
+  # Hosts: CPU, memory, disks, and the backup results (textfile collector).
+  - job_name: node
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/node.json]
+
+  # PostgreSQL: connections, locks, WAL archiver (pg_stat_archiver_*).
+  - job_name: postgres
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/postgres.json]
+
+  # NF-06 site down + certificate expiry, from outside (public DNS and TLS).
+  - job_name: blackbox-https
+    metrics_path: /probe
+    params:
+      module: [https_health]
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/blackbox-https.json]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # IN-01: the inbound mail server answers and offers STARTTLS with a valid certificate.
+  - job_name: blackbox-smtp
+    metrics_path: /probe
+    params:
+      module: [smtp_starttls]
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/blackbox-smtp.json]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

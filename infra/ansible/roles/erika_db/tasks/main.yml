@@ -1,0 +1,125 @@
+# Database server (ADR 0027, 0028): PostgreSQL + pgBackRest, exporters, backup timers.
+- name: Directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop: [/opt/erika, /opt/erika/postgres-init, /opt/erika/backup]
+
+- name: Compose file, client authentication and log shipping config
+  ansible.builtin.copy:
+    src: "{{ erika_repo_root }}/{{ item.src }}"
+    dest: "/opt/erika/{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - { src: infra/production/db/compose.yml, dest: compose.yml }
+    - { src: infra/production/db/pg_hba.conf, dest: pg_hba.conf }
+    - { src: infra/monitoring/alloy/config.alloy, dest: config.alloy }
+    - { src: infra/postgres/init/01-roles.sh, dest: postgres-init/01-roles.sh }
+  notify: Restart database stack
+
+- name: Backup and drill scripts
+  ansible.builtin.copy:
+    src: "{{ erika_repo_root }}/infra/backup/{{ item }}"
+    dest: "/opt/erika/backup/{{ item }}"
+    mode: "0750"
+  loop: [metrics.sh, pg-backup.sh, replicate-originals.sh, restore-drill.sh]
+
+- name: Environment (.env, pgbackrest.env, rclone.env) from the SOPS secrets
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/opt/erika/{{ item.dest }}"
+    mode: "0600"
+  loop:
+    - { src: dotenv.j2, dest: .env }
+    - { src: pgbackrest.env.j2, dest: pgbackrest.env }
+    - { src: rclone.env.j2, dest: rclone.env }
+  notify: Restart database stack
+
+# TLS for the app's connections (pg_hba: hostssl). Self-signed: the connection is
+# encrypted; the app pins nothing (sslmode=require), the private network limits who connects.
+- name: TLS key for PostgreSQL
+  community.crypto.openssl_privatekey:
+    path: /mnt/pgdata/tls/server.key
+    type: ECC
+    curve: secp384r1
+    owner: "999"
+    group: "999"
+    mode: "0600"
+
+- name: TLS certificate signing request
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: /mnt/pgdata/tls/server.key
+    common_name: erika-db
+    subject_alt_name: ["IP:{{ private_ip }}", "DNS:erika-db"]
+  register: erika_db_csr
+  changed_when: false
+
+- name: Self-signed TLS certificate, 10 years (to renew, delete it and re-run)
+  community.crypto.x509_certificate:
+    path: /mnt/pgdata/tls/server.crt
+    csr_content: "{{ erika_db_csr.csr }}"
+    privatekey_path: /mnt/pgdata/tls/server.key
+    provider: selfsigned
+    selfsigned_not_after: "+3650d"
+    owner: "999"
+    group: "999"
+    mode: "0644"
+
+- name: Registry login for the private PostgreSQL image (read:packages token)
+  ansible.builtin.shell: |
+    set -o pipefail
+    printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+  args:
+    executable: /bin/bash
+  environment:
+    GHCR_TOKEN: "{{ erika_ghcr_token }}"
+    GHCR_USER: "{{ erika_ghcr_user }}"
+  when: erika_ghcr_token | default('') | length > 0
+  changed_when: false
+  no_log: true
+
+- name: Start the database stack
+  ansible.builtin.command: docker compose up -d --remove-orphans
+  args:
+    chdir: /opt/erika
+  register: erika_db_compose_up
+  changed_when: "'Started' in erika_db_compose_up.stderr or 'Recreated' in erika_db_compose_up.stderr"
+
+- name: Systemd units for backups, replication and the restore drill
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - erika-pg-backup-full.service
+    - erika-pg-backup-full.timer
+    - erika-pg-check.service
+    - erika-pg-check.timer
+    - erika-replicate-originals.service
+    - erika-replicate-originals.timer
+    - erika-restore-drill.service
+    - erika-restore-drill.timer
+  register: erika_db_units
+
+- name: Enable the timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: "{{ erika_db_units.changed }}"
+  loop:
+    - erika-pg-backup-full.timer
+    - erika-pg-check.timer
+    - erika-replicate-originals.timer
+    - erika-restore-drill.timer
+
+- name: SSH key of the app server's deploy user may run the WAL check before a release
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/erika-deploy-check
+    mode: "0440"
+    validate: visudo -cf %s
+    content: |
+      erika ALL=(root) NOPASSWD: /opt/erika/backup/pg-backup.sh check

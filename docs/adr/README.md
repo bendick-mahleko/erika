@@ -32,3 +32,7 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0024](0024-email-intake.md) | Email intake: Postfix, policy lookup and pipe to the API | Accepted (production DNS pending S5-a) |
 | [0025](0025-viewer-and-derived-objects.md) | Viewer, PDF view copy and derived objects | Accepted |
 | [0026](0026-document-status-and-search.md) | Document status, history and search | Accepted |
+| [0027](0027-production-environment.md) | Production environment as code (Terraform, Ansible, three servers) | Accepted |
+| [0028](0028-backups-and-restore.md) | Backups, replication and restore drills | Accepted |
+| [0029](0029-monitoring-logs-alerts.md) | Monitoring, logs, error tracking and the status page | Accepted |
+| [0030](0030-closed-beta.md) | Closed beta: invitations, terms, feedback, legal pages | Accepted |

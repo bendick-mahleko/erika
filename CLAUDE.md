@@ -7,6 +7,7 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - Front end (from `frontend/`): `pnpm lint`, `pnpm typecheck`, `pnpm format`, `pnpm build`, `pnpm test:e2e`.
 - invoice-core (from `invoice-core/`): `./gradlew check`, `./gradlew publishToMavenLocal`; own rules in `invoice-core/CLAUDE.md`.
 - Local stack: `docker compose -f infra/local/compose.yml [--profile app] up -d [--build]`.
+- Infrastructure (Stage 7): alert tests `promtool test rules infra/monitoring/tests/alerts.test.yml` (Docker, see dev-setup); local restore drill `infra/backup/drill/run-local-drill.sh`; production runbooks in `docs/ops/`.
 
 ## Rules
 - Contract first: change `api/openapi.yaml` before code; never edit generated code (`backend/build/generated`, `frontend/src/lib/api/schema.d.ts`).
@@ -24,6 +25,9 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - Never commit the EICAR test string; tests assemble it at run time.
 - Viewer data (view JSON, PDF view copy, attachments) is built by the worker; the API never parses or renders files (ADR 0025). Downloads go through the `download` helper (attachment disposition, nosniff, strict CSP).
 - Status changes only via `documents.Documents.changeStatus` (history + audit); the original never changes.
+- Sign-up needs accepted terms and, while `erika.signup.mode=INVITE_ONLY`, a valid invitation (ADR 0030). The only write endpoint open to ADVISOR is `POST /feedback`; don't add others.
+- Infrastructure is code (ADR 0027–0029): change `infra/` and run the checks of CI job `infra`; never put secrets in plain text (SOPS: `infra/production/secrets.sops.yaml`). New alerts need a promtool test and a runbook section.
+- Legal texts are German content modules in `frontend/src/content/legal/` (not messages); keep `draft: true` until a lawyer has reviewed them.
 - Errors: RFC 9457 problem details with a stable `code` (`ErikaException`).
 - No invoice content in logs or exception messages.
 - UI texts in `frontend/messages/{de,en}.json`; German first.
