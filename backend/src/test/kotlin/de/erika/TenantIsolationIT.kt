@@ -70,8 +70,10 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 "memberId" to memberB.path("id").asString(),
                 "uploadId" to uploadB,
                 "documentId" to documentOf(userB.workspaceId).toString(),
+                "attachmentIndex" to "0",
             )
-        markersB = setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH") + fixturesB.values
+        markersB =
+            setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH") + fixturesB.values - "0"
     }
 
     @TestFactory

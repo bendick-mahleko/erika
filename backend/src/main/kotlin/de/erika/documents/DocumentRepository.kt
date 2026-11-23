@@ -30,6 +30,34 @@ internal data class DocumentRow(
     val receivedVia: String,
     val duplicateOf: UUID?,
     val createdAt: OffsetDateTime,
+    val tags: List<String>,
+    val note: String?,
+)
+
+/** Filters of the document list (AR-04). Null means "no filter". */
+internal data class DocumentFilter(
+    val status: String? = null,
+    val direction: String? = null,
+    val from: LocalDate? = null,
+    val to: LocalDate? = null,
+    val q: String? = null,
+    val tag: String? = null,
+)
+
+internal data class StatusEventRow(
+    val fromStatus: String?,
+    val toStatus: String,
+    val note: String?,
+    val userId: UUID?,
+    val at: OffsetDateTime,
+)
+
+internal data class DerivedRow(
+    val storageKey: String,
+    val sha256: String,
+    val mediaType: String,
+    val fileName: String?,
+    val sizeBytes: Long,
 )
 
 /** Indexed columns of `parsed_invoice` (the full model is in `data`). */
@@ -109,13 +137,58 @@ internal class DocumentRepository(
             .optional()
             .orElse(null)
 
-    /** Newest first; keyset pagination on (created_at, id). */
+    /**
+     * Newest first; keyset pagination on (created_at, id). Search (AR-04): German full text
+     * over `parsed_invoice.search_text`, trigram similarity and substring on the supplier name
+     * (pg_trgm index), invoice-number prefix, and the file name.
+     */
     fun list(
         limit: Int,
         after: Pair<OffsetDateTime, UUID>?,
-    ): List<ListedDocument> =
-        jdbc
-            .sql(
+        filter: DocumentFilter = DocumentFilter(),
+    ): List<ListedDocument> {
+        val where = mutableListOf("d.workspace_id = current_workspace_id()")
+        val params = mutableMapOf<String, Any?>("limit" to limit)
+        if (after != null) {
+            where += "(d.created_at, d.id) < (:afterAt, :afterId)"
+            params["afterAt"] = after.first
+            params["afterId"] = after.second
+        }
+        filter.status?.let {
+            where += "d.status = :status"
+            params["status"] = it
+        }
+        filter.direction?.let {
+            where += "d.direction = :direction"
+            params["direction"] = it
+        }
+        val day = "coalesce(p.issue_date, CAST(timezone('Europe/Berlin', d.created_at) AS date))"
+        filter.from?.let {
+            where += "$day >= :from"
+            params["from"] = it
+        }
+        filter.to?.let {
+            where += "$day <= :to"
+            params["to"] = it
+        }
+        filter.tag?.let {
+            where += ":tag = ANY (d.tags)"
+            params["tag"] = it
+        }
+        filter.q?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            where +=
+                """
+                (p.search @@ websearch_to_tsquery('german', :q)
+                 OR p.seller_name ILIKE :like OR p.seller_name % :q
+                 OR p.invoice_no ILIKE :prefix
+                 OR d.file_name ILIKE :like)
+                """.trimIndent()
+            params["q"] = it
+            params["like"] = "%${escapeLike(it)}%"
+            params["prefix"] = "${escapeLike(it)}%"
+        }
+        var spec =
+            jdbc.sql(
                 """
                 SELECT d.*, p.invoice_no, p.issue_date, p.due_date, p.currency, p.seller_name, p.seller_tax_id, p.buyer_name,
                        p.net, p.tax, p.gross, p.document_id AS parsed_id,
@@ -124,14 +197,13 @@ internal class DocumentRepository(
                          ORDER BY v.checked_at DESC LIMIT 1) AS validation_level
                   FROM document d
                   LEFT JOIN parsed_invoice p ON p.workspace_id = d.workspace_id AND p.document_id = d.id
-                 WHERE d.workspace_id = current_workspace_id()
-                   AND (CAST(:afterAt AS timestamptz) IS NULL OR (d.created_at, d.id) < (CAST(:afterAt AS timestamptz), :afterId))
+                 WHERE ${where.joinToString("\n   AND ")}
                  ORDER BY d.created_at DESC, d.id DESC
                  LIMIT :limit
                 """.trimIndent(),
-            ).param("afterAt", after?.first, Types.TIMESTAMP_WITH_TIMEZONE)
-            .param("afterId", after?.second ?: NO_ID)
-            .param("limit", limit)
+            )
+        params.forEach { (k, v) -> spec = spec.param(k, v) }
+        return spec
             .query { rs, row ->
                 ListedDocument(
                     document = mapDocument(rs, row),
@@ -139,6 +211,7 @@ internal class DocumentRepository(
                     validationLevel = rs.getString("validation_level"),
                 )
             }.list()
+    }
 
     fun invoiceColumns(documentId: UUID): InvoiceColumns? =
         jdbc
@@ -194,18 +267,21 @@ internal class DocumentRepository(
         workspaceId: UUID,
         columns: InvoiceColumns,
         dataJson: String,
+        viewJson: String,
+        searchText: String,
     ) {
         jdbc
             .sql(
                 """
                 INSERT INTO parsed_invoice (document_id, workspace_id, invoice_no, issue_date, due_date, currency, seller_name,
-                                            seller_tax_id, buyer_name, net, tax, gross, data)
-                VALUES (:id, :ws, :no, :issue, :due, :currency, :seller, :taxId, :buyer, :net, :tax, :gross, CAST(:data AS jsonb))
+                                            seller_tax_id, buyer_name, net, tax, gross, data, view, search_text)
+                VALUES (:id, :ws, :no, :issue, :due, :currency, :seller, :taxId, :buyer, :net, :tax, :gross, CAST(:data AS jsonb),
+                        CAST(:view AS jsonb), :searchText)
                 ON CONFLICT (document_id) DO UPDATE
                    SET invoice_no = EXCLUDED.invoice_no, issue_date = EXCLUDED.issue_date, due_date = EXCLUDED.due_date,
                        currency = EXCLUDED.currency, seller_name = EXCLUDED.seller_name, seller_tax_id = EXCLUDED.seller_tax_id,
                        buyer_name = EXCLUDED.buyer_name, net = EXCLUDED.net, tax = EXCLUDED.tax, gross = EXCLUDED.gross,
-                       data = EXCLUDED.data, parsed_at = now()
+                       data = EXCLUDED.data, view = EXCLUDED.view, search_text = EXCLUDED.search_text, parsed_at = now()
                 """.trimIndent(),
             ).param("id", documentId)
             .param("ws", workspaceId)
@@ -220,8 +296,163 @@ internal class DocumentRepository(
             .param("tax", columns.tax)
             .param("gross", columns.gross)
             .param("data", dataJson)
+            .param("view", viewJson)
+            .param("searchText", searchText)
             .update()
     }
+
+    /** The stored invoice view (JSON), or null if there is none. */
+    fun viewJson(documentId: UUID): String? =
+        jdbc
+            .sql("SELECT view::text FROM parsed_invoice WHERE document_id = :id AND workspace_id = current_workspace_id()")
+            .param("id", documentId)
+            .query(String::class.java)
+            .optional()
+            .orElse(null)
+
+    /** Sets the status; returns the previous one, or null if unchanged or not found. */
+    fun updateStatus(
+        documentId: UUID,
+        status: String,
+    ): String? =
+        jdbc
+            .sql(
+                """
+                UPDATE document d SET status = :status
+                  FROM document old
+                 WHERE d.id = :id AND d.workspace_id = current_workspace_id()
+                   AND old.workspace_id = d.workspace_id AND old.id = d.id AND d.status <> :status
+                RETURNING old.status
+                """.trimIndent(),
+            ).param("status", status)
+            .param("id", documentId)
+            .query(String::class.java)
+            .optional()
+            .orElse(null)
+
+    fun insertStatusEvent(
+        workspaceId: UUID,
+        documentId: UUID,
+        from: String?,
+        to: String,
+        note: String?,
+        userId: UUID?,
+    ) {
+        jdbc
+            .sql(
+                """
+                INSERT INTO status_event (id, workspace_id, document_id, from_status, to_status, note, user_id)
+                VALUES (:id, :ws, :doc, :from, :to, :note, :user)
+                """.trimIndent(),
+            ).param("id", UUID.randomUUID())
+            .param("ws", workspaceId)
+            .param("doc", documentId)
+            .param("from", from)
+            .param("to", to)
+            .param("note", note)
+            .param("user", userId)
+            .update()
+    }
+
+    fun history(documentId: UUID): List<StatusEventRow> =
+        jdbc
+            .sql(
+                """
+                SELECT from_status, to_status, note, user_id, at FROM status_event
+                 WHERE document_id = :id AND workspace_id = current_workspace_id() ORDER BY at, id
+                """.trimIndent(),
+            ).param("id", documentId)
+            .query { rs, _ ->
+                StatusEventRow(
+                    fromStatus = rs.getString("from_status"),
+                    toStatus = rs.getString("to_status"),
+                    note = rs.getString("note"),
+                    userId = rs.getObject("user_id", UUID::class.java),
+                    at = rs.getObject("at", OffsetDateTime::class.java),
+                )
+            }.list()
+
+    fun updateTags(
+        documentId: UUID,
+        tags: List<String>,
+    ) {
+        jdbc
+            .sql("UPDATE document SET tags = :tags WHERE id = :id AND workspace_id = current_workspace_id()")
+            .param("tags", tags.toTypedArray(), Types.ARRAY)
+            .param("id", documentId)
+            .update()
+    }
+
+    fun updateNote(
+        documentId: UUID,
+        note: String?,
+    ) {
+        jdbc
+            .sql("UPDATE document SET note = :note WHERE id = :id AND workspace_id = current_workspace_id()")
+            .param("note", note)
+            .param("id", documentId)
+            .update()
+    }
+
+    fun markPending(documentId: UUID) {
+        jdbc
+            .sql("UPDATE document SET processing = 'PENDING' WHERE id = :id AND workspace_id = current_workspace_id()")
+            .param("id", documentId)
+            .update()
+    }
+
+    fun upsertDerived(
+        workspaceId: UUID,
+        documentId: UUID,
+        kind: String,
+        idx: Int,
+        row: DerivedRow,
+    ) {
+        jdbc
+            .sql(
+                """
+                INSERT INTO derived_object (workspace_id, document_id, kind, idx, storage_key, sha256, media_type, file_name, size_bytes)
+                VALUES (:ws, :doc, :kind, :idx, :key, :sha, :mediaType, :fileName, :size)
+                ON CONFLICT (workspace_id, document_id, kind, idx) DO UPDATE
+                   SET storage_key = EXCLUDED.storage_key, sha256 = EXCLUDED.sha256, media_type = EXCLUDED.media_type,
+                       file_name = EXCLUDED.file_name, size_bytes = EXCLUDED.size_bytes, created_at = now()
+                """.trimIndent(),
+            ).param("ws", workspaceId)
+            .param("doc", documentId)
+            .param("kind", kind)
+            .param("idx", idx)
+            .param("key", row.storageKey)
+            .param("sha", row.sha256)
+            .param("mediaType", row.mediaType)
+            .param("fileName", row.fileName)
+            .param("size", row.sizeBytes)
+            .update()
+    }
+
+    fun derived(
+        documentId: UUID,
+        kind: String,
+        idx: Int,
+    ): DerivedRow? =
+        jdbc
+            .sql(
+                """
+                SELECT storage_key, sha256, media_type, file_name, size_bytes FROM derived_object
+                 WHERE document_id = :doc AND kind = :kind AND idx = :idx AND workspace_id = current_workspace_id()
+                """.trimIndent(),
+            ).param("doc", documentId)
+            .param("kind", kind)
+            .param("idx", idx)
+            .query { rs, _ ->
+                DerivedRow(
+                    storageKey = rs.getString("storage_key"),
+                    sha256 = rs.getString("sha256"),
+                    mediaType = rs.getString("media_type"),
+                    fileName = rs.getString("file_name"),
+                    sizeBytes = rs.getLong("size_bytes"),
+                )
+            }.optional()
+            .orElse(null)
 
     /**
      * Business duplicate (IN-05): the earliest other incoming document with the same supplier
@@ -333,6 +564,8 @@ internal class DocumentRepository(
         receivedVia = rs.getString("received_via"),
         duplicateOf = rs.getObject("duplicate_of", UUID::class.java),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+        tags = (rs.getArray("tags")?.array as? Array<*>)?.map { it.toString() }.orEmpty(),
+        note = rs.getString("note"),
     )
 
     private fun mapInvoice(rs: ResultSet) =
@@ -349,10 +582,9 @@ internal class DocumentRepository(
             gross = rs.getBigDecimal("gross"),
         )
 
+    private fun escapeLike(text: String) = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
     private companion object {
         const val SELECT_DOCUMENT = "SELECT d.* FROM document d"
-
-        /** Placeholder for the keyset parameter on the first page (never compared then). */
-        val NO_ID: UUID = UUID(0, 0)
     }
 }

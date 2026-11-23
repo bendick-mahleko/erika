@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { fetchDocument, fetchSession } from "@/lib/api/client";
+import { fetchDocument, fetchDocumentView, fetchSession, type ViewSection } from "@/lib/api/client";
+import { CorrectionRequest } from "./CorrectionRequest";
+import { DocumentActions } from "./DocumentActions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Document");
@@ -12,8 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 /**
- * One document: what was received, how it was classified (IN-04), and the validation
- * result with plain-language reasons (VW-04). The full invoice viewer follows in Stage 6.
+ * The viewer (VW-01, VW-04, VW-06): the invoice with a German label for every business term,
+ * the validation result with plain-language reasons, downloads of the original, the PDF
+ * view copy and embedded attachments, and the status with its history (AR-03).
  */
 export default async function DocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
   const session = await fetchSession();
@@ -21,30 +24,11 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
   const { documentId } = await params;
   const doc = await fetchDocument(documentId);
   if (!doc) notFound();
+  const view = doc.viewAvailable ? await fetchDocumentView(documentId) : null;
   const t = await getTranslations("Document");
   const ti = await getTranslations("Inbox");
   const format = await getFormatter();
-  const money = (value?: string) =>
-    value ? format.number(Number(value), { style: "currency", currency: doc.invoice?.currency ?? "EUR" }) : undefined;
-  const date = (value?: string) => (value ? format.dateTime(new Date(value), { dateStyle: "medium" }) : undefined);
-
-  const facts: [string, string | undefined][] = [
-    [t("facts.supplier"), doc.invoice?.sellerName],
-    [t("facts.supplierTaxId"), doc.invoice?.sellerTaxId],
-    [t("facts.buyer"), doc.invoice?.buyerName],
-    [t("facts.number"), doc.invoice?.invoiceNumber],
-    [t("facts.issueDate"), date(doc.invoice?.issueDate)],
-    [t("facts.dueDate"), date(doc.invoice?.dueDate)],
-    [t("facts.net"), money(doc.invoice?.netAmount)],
-    [t("facts.tax"), money(doc.invoice?.taxAmount)],
-    [t("facts.gross"), money(doc.invoice?.grossAmount)],
-    [t("facts.file"), doc.fileName],
-    [t("facts.received"), format.dateTime(new Date(doc.receivedAt), { dateStyle: "medium", timeStyle: "short" })],
-    [t("facts.via"), ti(`via.${doc.receivedVia}`)],
-    [t("facts.format"), t(`format.${doc.format}`)],
-    [t("facts.profile"), doc.profile],
-    [t("facts.sha256"), doc.sha256],
-  ];
+  const api = `/api/v1/documents/${doc.id}`;
 
   const validation = doc.validation;
   const levelStyle =
@@ -53,19 +37,37 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
       : validation?.level === "WARNING"
         ? "border-amber-700 bg-amber-50 text-amber-900"
         : "border-red-700 bg-red-50 text-red-900";
+  const sellerEmail = view ? findValue(view.sections, ["BT-43", "BT-34"]) : undefined;
+  const canChange = session.role !== "ADVISOR";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <p>
         <Link href="/inbox" className="text-brand-700 underline">
           {t("back")}
         </Link>
       </p>
-      <h1 className="text-2xl font-semibold break-all">{doc.invoice?.sellerName ?? doc.fileName ?? t("title")}</h1>
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold break-words">
+          {view?.title ?? doc.invoice?.sellerName ?? doc.fileName ?? t("title")}
+        </h1>
+        <p className="text-slate-700">
+          {[doc.invoice?.sellerName, t(`format.${doc.format}`), ti(`via.${doc.receivedVia}`)]
+            .filter(Boolean)
+            .join(" · ")}
+          {" · "}
+          {format.dateTime(new Date(doc.receivedAt), { dateStyle: "medium", timeStyle: "short" })}
+        </p>
+      </header>
 
-      {doc.processing === "PENDING" && <p role="status">{t("processing")}</p>}
+      {doc.processing === "PENDING" && (
+        <p role="status" className="rounded border border-slate-300 bg-slate-50 px-4 py-3">
+          {t("processing")}
+        </p>
+      )}
       {doc.processing === "FAILED" && <p className="text-red-800">{t("processingFailed")}</p>}
 
+      {/* VW-04: the validation panel, green / amber / red, with the reasons in plain German. */}
       {doc.notEInvoiceReason ? (
         <section className="rounded border border-slate-400 bg-slate-50 p-4" data-testid="not-einvoice">
           <h2 className="font-semibold">{t("notEInvoice")}</h2>
@@ -73,64 +75,163 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
         </section>
       ) : (
         validation && (
-          <p className={`rounded border px-4 py-3 font-medium ${levelStyle}`} data-testid="validation-level">
-            {t(`level.${validation.level}`)}
-          </p>
+          <section aria-labelledby="validation-heading" className={`space-y-3 rounded border p-4 ${levelStyle}`}>
+            <h2 id="validation-heading" className="text-lg font-semibold" data-testid="validation-level">
+              {t(`level.${validation.level}`)}
+            </h2>
+            <p className="text-sm">{t(`levelExplanation.${validation.level}`)}</p>
+            {validation.messages.length > 0 && (
+              <ul className="space-y-2">
+                {validation.messages.map((m, i) => (
+                  <li key={`${m.ruleId}-${i}`} className="rounded bg-white p-3 text-slate-900">
+                    <p>
+                      <span
+                        className={
+                          m.severity === "ERROR" ? "font-semibold text-red-800" : "font-semibold text-amber-800"
+                        }
+                      >
+                        {t(`severity.${m.severity}`)}
+                      </span>{" "}
+                      <span className="text-sm text-slate-600">({m.ruleId})</span>
+                    </p>
+                    <p className="mt-1">{m.text}</p>
+                    {m.originalText && (
+                      <details className="mt-1 text-sm text-slate-600">
+                        <summary>{t("originalRuleText")}</summary>
+                        <p lang="en">{m.originalText}</p>
+                      </details>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-sm">
+              {t("pack", {
+                pack: validation.packId,
+                date: format.dateTime(new Date(validation.checkedAt), { dateStyle: "medium" }),
+              })}
+            </p>
+            {validation.level === "ERROR" && canChange && (
+              <CorrectionRequest
+                sellerEmail={sellerEmail}
+                sellerName={doc.invoice?.sellerName}
+                invoiceNumber={doc.invoice?.invoiceNumber}
+                issueDate={doc.invoice?.issueDate}
+                errors={validation.messages.filter((m) => m.severity === "ERROR").map((m) => m.text)}
+              />
+            )}
+          </section>
         )
       )}
       {doc.duplicateOf && (
         <p className="rounded border border-amber-700 bg-amber-50 px-4 py-3 text-amber-900">
           <strong>{t("duplicate")}:</strong> {t("duplicateHint")}{" "}
           <Link href={`/documents/${doc.duplicateOf}`} className="underline">
-            {t("title")}
+            {t("openEarlier")}
           </Link>
         </p>
       )}
 
-      <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
-        {facts
-          .filter(([, value]) => value)
-          .map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="font-medium text-slate-700">{label}</dt>
-              <dd className="break-all">{value}</dd>
-            </div>
-          ))}
-      </dl>
-
-      {validation && !doc.notEInvoiceReason && (
-        <section aria-labelledby="validation-heading" className="space-y-3">
-          <h2 id="validation-heading" className="text-lg font-semibold">
-            {t("validationHeading")}
-          </h2>
-          <p className="text-sm text-slate-600">
-            {t("pack", {
-              pack: validation.packId,
-              date: format.dateTime(new Date(validation.checkedAt), { dateStyle: "medium" }),
-            })}
-          </p>
-          {validation.messages.length === 0 ? (
-            <p>{t("noMessages")}</p>
-          ) : (
-            <ul className="space-y-2">
-              {validation.messages.map((m, i) => (
-                <li key={`${m.ruleId}-${i}`} className="rounded border border-slate-200 p-3">
-                  <p>
-                    <span
-                      className={m.severity === "ERROR" ? "font-semibold text-red-800" : "font-semibold text-amber-800"}
-                    >
-                      {t(`severity.${m.severity}`)}
-                    </span>{" "}
-                    <span className="text-sm text-slate-600">({m.ruleId})</span>
-                  </p>
-                  <p className="mt-1">{m.text}</p>
-                </li>
-              ))}
-            </ul>
+      <section aria-labelledby="downloads-heading" className="space-y-2">
+        <h2 id="downloads-heading" className="text-lg font-semibold">
+          {t("downloads")}
+        </h2>
+        <ul className="flex flex-wrap gap-3">
+          <li>
+            <a
+              href={`${api}/original`}
+              className="inline-block rounded border border-brand-700 px-3 py-1 text-brand-700"
+              download
+            >
+              {t("downloadOriginal")}
+            </a>
+          </li>
+          {doc.viewAvailable && (
+            <li>
+              <a
+                href={`${api}/view-pdf`}
+                className="inline-block rounded border border-brand-700 px-3 py-1 text-brand-700"
+                download
+              >
+                {t("downloadViewPdf")}
+              </a>
+            </li>
           )}
+          {view?.attachments.map((a) => (
+            <li key={a.index}>
+              <a
+                href={`${api}/attachments/${a.index}`}
+                className="inline-block rounded border border-slate-400 px-3 py-1"
+                download
+                data-testid="attachment-link"
+              >
+                {t("downloadAttachment", { name: a.fileName ?? `${a.index + 1}` })}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-slate-600 break-all">
+          {t("facts.sha256")}: <code>{doc.sha256}</code>
+        </p>
+      </section>
+
+      <DocumentActions doc={doc} canChange={canChange} />
+
+      {view ? (
+        <section aria-labelledby="invoice-heading" className="space-y-4">
+          <h2 id="invoice-heading" className="text-lg font-semibold">
+            {t("invoiceHeading")}
+          </h2>
+          {view.sections.map((s, i) => (
+            <Section key={`${s.id}-${i}`} section={s} level={3} />
+          ))}
         </section>
+      ) : (
+        doc.processing === "DONE" && !doc.notEInvoiceReason && <p className="text-slate-700">{t("noView")}</p>
       )}
-      <p className="text-sm text-slate-600">{t("viewerNote")}</p>
     </div>
   );
+}
+
+/** One group of the invoice; nested groups (addresses, lines, VAT rates) get the next heading level. */
+function Section({ section, level }: { section: ViewSection; level: number }) {
+  const Heading = `h${Math.min(level, 6)}` as "h3" | "h4" | "h5" | "h6";
+  const top = level === 3;
+  return (
+    <section
+      className={top ? "rounded-lg border border-slate-200 p-4" : "mt-3 border-l-2 border-slate-200 pl-3"}
+      data-section={section.id}
+    >
+      <Heading className={top ? "text-base font-semibold" : "font-medium"}>{section.title}</Heading>
+      {section.fields.length > 0 && (
+        <dl className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[minmax(10rem,max-content)_1fr]">
+          {section.fields.map((f, i) => (
+            <div key={`${f.bt}-${i}`} className="contents">
+              <dt className="text-slate-700" title={f.bt}>
+                {f.label}
+              </dt>
+              <dd className="break-words" data-bt={f.bt}>
+                {f.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {section.sections.map((s, i) => (
+        <Section key={`${s.id}-${i}`} section={s} level={level + 1} />
+      ))}
+    </section>
+  );
+}
+
+function findValue(sections: ViewSection[], bts: string[]): string | undefined {
+  for (const bt of bts) {
+    const found = sections
+      .flatMap(function all(s): ViewSection["fields"] {
+        return [...s.fields, ...s.sections.flatMap(all)];
+      })
+      .find((f) => f.bt === bt && f.value.includes("@"));
+    if (found) return found.value.replace(/\s*\(Schema.*\)$/, "");
+  }
+  return undefined;
 }

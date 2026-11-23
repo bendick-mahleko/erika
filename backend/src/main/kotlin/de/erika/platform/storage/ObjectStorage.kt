@@ -53,6 +53,8 @@ data class StorageProperties(
      * Objects that are never processed expire through the bucket's lifecycle rule.
      */
     val uploadsBucket: String = "erika-uploads",
+    /** Objects rebuilt from originals (PDF view copies, decoded attachments): no Object Lock. */
+    val derivedBucket: String = "erika-derived",
     /**
      * Endpoint the browser uses for pre-signed upload URLs, when it differs from [endpoint]
      * (locally the API reaches S3 as `http://s3:8333`, the browser as `http://localhost:9000`).

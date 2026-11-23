@@ -76,7 +76,7 @@ export async function signedInAccount(page: Page, prefix: string): Promise<{ ema
 /** The ERIKA sample XRechnung with its own invoice number (a new file each time). */
 export function sampleInvoice(invoiceNumber: string): Buffer {
   const xml = readFileSync(new URL("./fixtures/xrechnung-beispiel.xml", import.meta.url), "utf-8");
-  return Buffer.from(xml.replace("RE-2026-0001", invoiceNumber), "utf-8");
+  return Buffer.from(xml.replace("<cbc:ID>RE-2026-0001</cbc:ID>", `<cbc:ID>${invoiceNumber}</cbc:ID>`), "utf-8");
 }
 
 /** A minimal valid one-page PDF without embedded XML ("not an e-invoice", IN-04). */

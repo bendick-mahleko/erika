@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.2.0
+  version: 0.3.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -36,7 +36,7 @@ tags:
   - name: intake
     description: Receiving files by upload and email (IN-01, IN-02, IN-05, NF-04)
   - name: documents
-    description: Received documents and their validation (IN-04, IN-05). Filters, status changes and the viewer follow in Stage 6.
+    description: Received documents, the viewer, status, tags and search (IN-04, IN-05, VW-01..06, AR-01..04)
 paths:
   /health:
     get:
@@ -387,6 +387,37 @@ paths:
           required: false
           description: "`nextCursor` from the previous page."
           schema: { type: string, maxLength: 200 }
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/DocumentStatus" }
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [IN, OUT]
+        - name: from
+          in: query
+          required: false
+          description: Invoice date (BT-2) from this day; documents without one count by their receipt date.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Invoice date (BT-2) up to this day, inclusive.
+          schema: { type: string, format: date }
+        - name: q
+          in: query
+          required: false
+          description: |
+            Search text (AR-04): German full-text search over supplier, buyer, invoice number,
+            item names and notes, plus fuzzy matching of supplier names and the file name.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: tag
+          in: query
+          required: false
+          schema: { type: string, maxLength: 50 }
       responses:
         "200":
           description: One page of documents.
@@ -398,15 +429,141 @@ paths:
     get:
       tags: [documents]
       operationId: getDocument
-      summary: One document with its invoice data and latest validation result
+      summary: One document with its invoice data, latest validation result and status history
       parameters:
-        - name: documentId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/DocumentId"
       responses:
         "200":
           description: The document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [documents]
+      operationId: updateDocument
+      summary: Change status, tags or note (metadata only; the original never changes)
+      description: |
+        A status change is recorded in the history with user, time and the optional
+        `statusNote` (AR-03), and audited (AR-02). Fields that are absent stay as they are.
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentUpdate" }
+            example: { status: "CHECKED", statusNote: "Rechnung geprüft, Betrag stimmt", tags: ["Material"] }
+      responses:
+        "200":
+          description: The changed document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/status:
+    post:
+      tags: [documents]
+      operationId: changeDocumentStatus
+      summary: Set the status of several documents at once
+      description: Each changed document gets its own history entry and audit entry. Unknown IDs are ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkStatusChange" }
+            example: { documentIds: ["7c9e6679-7425-40de-944b-e07fc1f90ae7"], status: "APPROVED", note: "Freigegeben" }
+      responses:
+        "200":
+          description: How many documents changed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BulkStatusResult" }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}/view:
+    get:
+      tags: [documents]
+      operationId: getDocumentView
+      summary: The invoice for reading, every business term with its German label (VW-01)
+      description: 404 `VIEW_NOT_AVAILABLE` for documents that aren't structured invoices or are still being read.
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: The invoice view.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceView" }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}/view-pdf:
+    get:
+      tags: [documents]
+      operationId: getDocumentViewPdf
+      summary: PDF view copy, marked "Ansichtskopie – Original ist die XML-Datei" on every page (VW-02)
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: The PDF view copy.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}/original:
+    get:
+      tags: [documents]
+      operationId: getDocumentOriginal
+      summary: The original file, unchanged (AR-01)
+      description: |
+        The SHA-256 is checked before the file is sent and returned in `Repr-Digest`
+        (RFC 9530) and `Digest` (RFC 3230), so the recipient can verify it.
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: The original, as a download.
+          headers:
+            Repr-Digest:
+              description: "`sha-256=:<base64>:`"
+              schema: { type: string }
+            Digest:
+              description: "`sha-256=<base64>`"
+              schema: { type: string }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}/attachments/{attachmentIndex}:
+    get:
+      tags: [documents]
+      operationId: getDocumentAttachment
+      summary: An attachment embedded in the invoice (BT-125), decoded, as a download (VW-06)
+      description: Always sent as a download with a strict Content Security Policy, never shown inline.
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+        - name: attachmentIndex
+          in: path
+          required: true
+          description: "`index` from the view's `attachments`."
+          schema: { type: integer, format: int32, minimum: 0, maximum: 999 }
+      responses:
+        "200":
+          description: The attachment in its original format.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}/revalidate:
+    post:
+      tags: [documents]
+      operationId: revalidateDocument
+      summary: Read and validate the document again with the current validation pack
+      description: Adds a new validation result; earlier results stay in the history (BR-07).
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "202":
+          description: Queued; the document shows processing PENDING until done.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Document" }
@@ -429,6 +586,11 @@ components:
       required: false
       description: ETag of the version being changed. Missing → 428, outdated → 412.
       schema: { type: string }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     UploadId:
       name: uploadId
       in: path
@@ -723,6 +885,9 @@ components:
           type: string
           format: uuid
           description: An earlier document with the same supplier tax ID, invoice number and gross amount ("possible duplicate", IN-05).
+        tags:
+          type: array
+          items: { type: string }
     DocumentList:
       type: object
       required: [items]
@@ -811,6 +976,98 @@ components:
           description: An earlier document with the same supplier tax ID, invoice number and gross amount ("possible duplicate", IN-05).
         invoice: { $ref: "#/components/schemas/InvoiceSummary" }
         validation: { $ref: "#/components/schemas/ValidationResult" }
+        tags:
+          type: array
+          items: { type: string }
+        note: { type: string }
+        viewAvailable:
+          type: boolean
+          description: The invoice view and PDF view copy exist (structured invoices, once read).
+        history:
+          type: array
+          description: Status changes, oldest first (AR-03).
+          items: { $ref: "#/components/schemas/StatusEvent" }
+    StatusEvent:
+      type: object
+      required: [toStatus, at]
+      properties:
+        fromStatus: { $ref: "#/components/schemas/DocumentStatus" }
+        toStatus: { $ref: "#/components/schemas/DocumentStatus" }
+        note: { type: string }
+        at: { type: string, format: date-time }
+        userId: { type: string, format: uuid }
+        userName: { type: string }
+    DocumentUpdate:
+      type: object
+      description: Absent fields stay unchanged.
+      properties:
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        statusNote:
+          type: string
+          maxLength: 500
+          description: Note for the history entry of this status change.
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, minLength: 1, maxLength: 50 }
+        note:
+          type: string
+          maxLength: 2000
+          description: Free note on the document; an empty string removes it.
+    BulkStatusChange:
+      type: object
+      required: [documentIds, status]
+      properties:
+        documentIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        note: { type: string, maxLength: 500 }
+    BulkStatusResult:
+      type: object
+      required: [changed]
+      properties:
+        changed: { type: integer, format: int32 }
+    ViewField:
+      type: object
+      required: [bt, label, value]
+      properties:
+        bt: { type: string, description: "Business term, e.g. BT-31", examples: ["BT-31"] }
+        label: { type: string, description: German label }
+        value: { type: string, description: Formatted for German readers }
+    ViewSection:
+      type: object
+      required: [id, title, fields, sections]
+      properties:
+        id: { type: string, description: "Business group (BG-4) or HEADER / REFERENCES" }
+        title: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/ViewField" }
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/ViewSection" }
+    ViewAttachment:
+      type: object
+      required: [index, sizeBytes]
+      properties:
+        index: { type: integer, format: int32 }
+        fileName: { type: string }
+        mimeCode: { type: string }
+        sizeBytes: { type: integer, format: int32 }
+    InvoiceView:
+      type: object
+      required: [title, sections, attachments]
+      properties:
+        title: { type: string }
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/ViewSection" }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/ViewAttachment" }
     HealthStatus:
       type: string
       enum: [UP, DEGRADED, DOWN]

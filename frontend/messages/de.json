@@ -116,6 +116,9 @@
     "UPLOAD_SIZE_MISMATCH": "Die Datei ist nicht vollständig angekommen. Bitte laden Sie sie erneut hoch.",
     "UPLOAD_NOT_FOUND": "Dieser Upload existiert nicht.",
     "DOCUMENT_NOT_FOUND": "Dieses Dokument existiert nicht.",
+    "VIEW_NOT_AVAILABLE": "Für dieses Dokument gibt es keine Rechnungsansicht.",
+    "ATTACHMENT_NOT_FOUND": "Dieser Anhang existiert nicht.",
+    "INVALID_CURSOR": "Bitte laden Sie die Liste neu.",
     "generic": "Etwas ist schiefgegangen. Bitte versuchen Sie es erneut."
   },
   "Inbox": {
@@ -141,7 +144,22 @@
       "EMAIL": "E-Mail",
       "CREATED": "Erstellt"
     },
-    "more": "Weitere laden"
+    "more": "Weitere laden",
+    "search": "Suche",
+    "searchHint": "Lieferant, Rechnungsnummer, Artikel, Dateiname – auch mit Tippfehlern beim Lieferanten.",
+    "filterStatus": "Status",
+    "allStatuses": "Alle",
+    "filterFrom": "Rechnungsdatum von",
+    "filterTo": "Rechnungsdatum bis",
+    "applyFilters": "Anzeigen",
+    "resetFilters": "Filter zurücksetzen",
+    "tagFilter": "Schlagwort: {tag}",
+    "noMatches": "Keine Dokumente passen zu diesen Filtern.",
+    "selected": "{count, plural, =0 {Keine Dokumente ausgewählt} one {# Dokument ausgewählt} other {# Dokumente ausgewählt}}",
+    "bulkLabel": "Status setzen auf",
+    "bulkApply": "Für Auswahl übernehmen",
+    "bulkDone": "{count, plural, one {# Dokument} other {# Dokumente}} auf „{status}“ gesetzt.",
+    "select": "{name} auswählen"
   },
   "Upload": {
     "heading": "Rechnungen hochladen",
@@ -229,11 +247,59 @@
       "WARNING": "Hinweis",
       "INFO": "Info"
     },
-    "viewerNote": "Die vollständige Rechnungsansicht folgt in Kürze."
+    "status": {
+      "NEW": "Neu",
+      "CHECKED": "Geprüft",
+      "APPROVED": "Freigegeben",
+      "PAID": "Bezahlt",
+      "DISPUTED": "Beanstandet",
+      "BOOKED": "Gebucht"
+    },
+    "levelExplanation": {
+      "VALID": "Die Rechnung erfüllt alle Regeln für E-Rechnungen.",
+      "WARNING": "Die Rechnung ist gültig. Die Hinweise unten sollten Sie trotzdem beachten.",
+      "ERROR": "Die Rechnung verstößt gegen Pflichtregeln. Sie sollten eine korrigierte Rechnung anfordern, bevor Sie zahlen oder den Vorsteuerabzug geltend machen."
+    },
+    "originalRuleText": "Originaltext der Regel",
+    "openEarlier": "Frühere Rechnung öffnen",
+    "downloads": "Dateien",
+    "downloadOriginal": "Original herunterladen",
+    "downloadViewPdf": "PDF-Ansichtskopie herunterladen",
+    "downloadAttachment": "Anhang: {name}",
+    "invoiceHeading": "Rechnungsinhalt",
+    "noView": "Für dieses Dokument gibt es keine Rechnungsansicht.",
+    "statusHeading": "Bearbeitungsstand",
+    "currentStatus": "Aktueller Status",
+    "newStatus": "Neuer Status",
+    "statusNote": "Notiz zur Änderung (optional)",
+    "changeStatus": "Status ändern",
+    "statusSaved": "Status geändert.",
+    "history": "Verlauf",
+    "noHistory": "Noch keine Änderungen.",
+    "historyEntry": "{at}: {user} – {from} → {to}",
+    "unknownUser": "Unbekannt",
+    "tags": "Schlagwörter",
+    "tagsHint": "Durch Kommas getrennt, z. B. Material, Büro",
+    "note": "Notiz",
+    "saveMetadata": "Schlagwörter und Notiz speichern",
+    "metadataSaved": "Gespeichert.",
+    "revalidate": "Erneut prüfen",
+    "revalidateQueued": "Die Rechnung wird erneut geprüft."
   },
   "Notifications": {
     "heading": "Benachrichtigungen",
     "emailOnNewDocuments": "E-Mail an mich, wenn neue Dokumente eingehen",
     "saved": "Gespeichert."
+  },
+  "Correction": {
+    "button": "Korrigierte Rechnung anfordern",
+    "intro": "Diesen Text können Sie an den Lieferanten schicken. ERIKA sendet ihn nicht selbst.",
+    "textLabel": "Vorbereiteter E-Mail-Text",
+    "subject": "Bitte um korrigierte Rechnung {number}",
+    "body": "Sehr geehrte Damen und Herren,\n\nIhre Rechnung {number} vom {date} können wir so nicht verarbeiten. Bei der Prüfung als E-Rechnung sind diese Fehler aufgefallen:\n\n{reasons}\n\nBitte senden Sie uns eine korrigierte Rechnung als E-Rechnung (XRechnung oder ZUGFeRD).\n\nVielen Dank und freundliche Grüße",
+    "defaultSeller": "Lieferant",
+    "openMail": "Im E-Mail-Programm öffnen",
+    "copy": "Text kopieren",
+    "copied": "Kopiert."
   }
 }

@@ -18,4 +18,7 @@ GRANT USAGE ON SCHEMA erika TO erika_app;
 
 ALTER ROLE erika_owner SET search_path = erika;
 ALTER ROLE erika_app   SET search_path = erika;
+-- Trigram search on supplier names (AR-04). Extensions need a superuser; the migration
+-- (V5) only checks that it exists.
+CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA erika;
 SQL

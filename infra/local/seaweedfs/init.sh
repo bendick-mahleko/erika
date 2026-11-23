@@ -3,6 +3,7 @@
 # can't create or delete buckets.
 #   $BUCKET          originals: Object Lock enabled (implies versioning), ADR 0013/0022
 #   $BACKUP_BUCKET   backup copies and audit head hashes: Object Lock enabled
+#   $DERIVED_BUCKET  PDF view copies and decoded attachments: no lock, rebuilt from originals
 #   $UPLOADS_BUCKET  quarantine for uploads before the virus scan: no lock, objects expire
 #                    after a day, CORS for the browser's pre-signed PUT (ADR 0023)
 set -eu
@@ -14,6 +15,14 @@ for b in "$BUCKET" "${BACKUP_BUCKET:-erika-backups}"; do
     echo "Bucket $b created with Object Lock"
   fi
 done
+
+DERIVED="${DERIVED_BUCKET:-erika-derived}"
+if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$DERIVED" 2>/dev/null; then
+  echo "Bucket $DERIVED exists"
+else
+  aws --endpoint-url "$S3_ENDPOINT" s3api create-bucket --bucket "$DERIVED"
+  echo "Bucket $DERIVED created"
+fi
 
 UPLOADS="${UPLOADS_BUCKET:-erika-uploads}"
 if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$UPLOADS" 2>/dev/null; then

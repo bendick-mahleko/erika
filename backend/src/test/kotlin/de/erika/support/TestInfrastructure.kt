@@ -23,6 +23,7 @@ object TestInfrastructure {
     const val BUCKET = "erika-originals"
     const val BACKUP_BUCKET = "erika-backups"
     const val UPLOADS_BUCKET = "erika-uploads"
+    const val DERIVED_BUCKET = "erika-derived"
 
     private val postgres =
         PostgreSQLContainer("postgres:16.15-alpine")
@@ -89,6 +90,7 @@ object TestInfrastructure {
             "spring.mail.host" to mailpit.host,
             "spring.mail.port" to mailpit.getMappedPort(SMTP_PORT).toString(),
             "erika.storage.uploads-bucket" to UPLOADS_BUCKET,
+            "erika.storage.derived-bucket" to DERIVED_BUCKET,
             "erika.intake.clamav.host" to clamav.host,
             "erika.intake.clamav.port" to clamav.getMappedPort(CLAMAV_PORT).toString(),
         )
@@ -118,6 +120,7 @@ object TestInfrastructure {
                 }
                 // Quarantine for uploads: no Object Lock (infra/local/seaweedfs/init.sh).
                 s3.createBucket(CreateBucketRequest.builder().bucket(UPLOADS_BUCKET).build())
+                s3.createBucket(CreateBucketRequest.builder().bucket(DERIVED_BUCKET).build())
             }
     }
 

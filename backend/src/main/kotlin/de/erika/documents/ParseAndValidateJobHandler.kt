@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import de.erika.archive.Archive
 import de.erika.invoicecore.model.Attachment
 import de.erika.invoicecore.model.Invoice
+import de.erika.invoicecore.view.InvoiceView
+import de.erika.invoicecore.view.ViewRenderer
 import de.erika.platform.jobs.JobContext
 import de.erika.platform.jobs.JobHandler
 import de.erika.validation.InvoiceValidator
@@ -39,6 +41,7 @@ class ParseAndValidateJobHandler internal constructor(
     private val archive: Archive,
     private val validator: ObjectProvider<InvoiceValidator>,
     private val events: ApplicationEventPublisher,
+    private val derived: DerivedObjects,
     json: JsonMapper,
     meters: MeterRegistry,
     transactionManager: PlatformTransactionManager,
@@ -93,7 +96,23 @@ class ParseAndValidateJobHandler internal constructor(
         val outcome = validator.getObject().check(content.bytes, LocalDate.now(clock))
         val invoice = outcome.parsed?.invoice
         val columns = invoice?.let(::columnsOf)
-        if (invoice != null) repository.upsertParsed(document.id, document.workspaceId, columns!!, modelJson.writeValueAsString(invoice))
+        if (invoice != null) {
+            // VW-01/02/06: the reading view, its PDF copy and the decoded attachments are built
+            // here, in the worker, so the API never parses or renders files.
+            val view = InvoiceView.of(invoice)
+            repository.upsertParsed(
+                document.id,
+                document.workspaceId,
+                columns!!,
+                modelJson.writeValueAsString(invoice),
+                modelJson.writeValueAsString(view),
+                searchTextOf(invoice),
+            )
+            derived.storeViewPdf(document.workspaceId, document.id, ViewRenderer.pdf(view), view.title)
+            invoice.supportingDocuments.forEachIndexed { i, doc ->
+                doc.attachment?.let { derived.storeAttachment(document.workspaceId, document.id, i, it) }
+            }
+        }
         val duplicateOf = columns?.let { repository.findBusinessDuplicate(document.id, it) }
         val format = formatOf(outcome)
         repository.markProcessed(
@@ -167,6 +186,23 @@ class ParseAndValidateJobHandler internal constructor(
                 tax = invoice.totals.totalVat,
                 gross = invoice.totals.totalWithVat,
             )
+
+        /** Words for the full-text search (AR-04): parties, numbers, items, notes, references. */
+        internal fun searchTextOf(invoice: Invoice): String =
+            listOfNotNull(
+                invoice.number,
+                invoice.seller.name,
+                invoice.seller.tradingName,
+                invoice.buyer.name,
+                invoice.buyerReference,
+                invoice.purchaseOrderReference,
+                invoice.projectReference,
+            ).plus(invoice.lines.mapNotNull { it.item.name })
+                .plus(invoice.notes.map { it.text })
+                .joinToString(" ")
+                .take(MAX_SEARCH_TEXT)
+
+        private const val MAX_SEARCH_TEXT = 100_000
 
         /** "DE 123 456 789" and "de123456789" are the same tax ID. */
         internal fun normaliseTaxId(value: String): String? =

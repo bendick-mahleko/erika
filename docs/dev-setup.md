@@ -81,6 +81,14 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - Integration tests: `IntakeIT` drives both roles: API requests in the test's context, background jobs in a worker context in the same JVM (`support/WorkerContext.kt`, `drain()`).
 - EICAR test files are assembled at run time (`Samples.eicar()`, `e2e/support.ts`); don't commit the EICAR string, local virus scanners would quarantine the file.
 
+### Documents, viewer and search
+
+- The worker builds the invoice view (`parsed_invoice.view`), the PDF view copy and decoded attachments (bucket `erika-derived`) when it reads a document (ADR 0025); the API only serves them. `POST /documents/{id}/revalidate` rebuilds them.
+- Search uses PostgreSQL full text (`german`) and `pg_trgm` (ADR 0026). The extension needs a superuser. Fresh databases get it from `infra/local/postgres/01-roles.sql`. For a database created before Stage 6, run once:
+  `docker compose -f infra/local/compose.yml exec postgres psql -U postgres -d erika -c "CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA erika;"`
+  Migration V5 stops with this hint if it's missing.
+- After pulling Stage 6, restart S3 so it reads the new bucket permissions: `docker compose -f infra/local/compose.yml restart s3`, then `up -d` (s3-init creates `erika-derived`).
+
 ## Front end
 
 ```bash

@@ -53,6 +53,40 @@ data class DocumentValidated(
             }
 }
 
+/** AR-03: the processing status of an incoming invoice. */
+enum class DocumentStatus { NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED }
+
+data class DocumentStatusChanged(
+    override val workspaceId: UUID,
+    override val actorId: UUID?,
+    val documentId: UUID,
+    val from: String,
+    val to: String,
+) : AuditableEvent {
+    override val action = "document.status.changed"
+    override val details get() = mapOf("documentId" to documentId.toString(), "from" to from, "to" to to)
+}
+
+/** Tags or note changed; the values themselves are not audited (they may contain invoice content). */
+data class DocumentMetadataChanged(
+    override val workspaceId: UUID,
+    override val actorId: UUID?,
+    val documentId: UUID,
+    val fields: List<String>,
+) : AuditableEvent {
+    override val action = "document.metadata.changed"
+    override val details get() = mapOf("documentId" to documentId.toString(), "fields" to fields.sorted().joinToString(","))
+}
+
+data class RevalidationRequested(
+    override val workspaceId: UUID,
+    override val actorId: UUID?,
+    val documentId: UUID,
+) : AuditableEvent {
+    override val action = "document.revalidation.requested"
+    override val details get() = mapOf("documentId" to documentId.toString())
+}
+
 /**
  * Published API of the `documents` module: registers received originals as documents.
  * Reading and validating happens in the background ([ParseAndValidateJobHandler]).
@@ -90,5 +124,61 @@ class Documents internal constructor(
         )
         events.publishEvent(DocumentReceived(stored.workspaceId, actorId, id, via, stored.sha256))
         return DocumentRegistration(id, created = true)
+    }
+
+    /**
+     * Sets the status and records who did it, when, and why (AR-03), audited (AR-02).
+     * Returns false if the document doesn't exist or already has this status.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun changeStatus(
+        workspaceId: UUID,
+        documentId: UUID,
+        status: DocumentStatus,
+        note: String?,
+        actorId: UUID,
+    ): Boolean {
+        val previous = repository.updateStatus(documentId, status.name) ?: return false
+        repository.insertStatusEvent(workspaceId, documentId, previous, status.name, note?.trim()?.ifEmpty { null }, actorId)
+        events.publishEvent(DocumentStatusChanged(workspaceId, actorId, documentId, previous, status.name))
+        return true
+    }
+
+    /** Tags (trimmed, unique, in the given order) and the free note; null leaves a field unchanged. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun updateMetadata(
+        workspaceId: UUID,
+        documentId: UUID,
+        tags: List<String>?,
+        note: String?,
+        actorId: UUID,
+    ) {
+        val changed = mutableListOf<String>()
+        tags?.let {
+            repository.updateTags(documentId, it.map(String::trim).filter(String::isNotEmpty).distinct())
+            changed += "tags"
+        }
+        note?.let {
+            repository.updateNote(documentId, it.trim().ifEmpty { null })
+            changed += "note"
+        }
+        if (changed.isNotEmpty()) events.publishEvent(DocumentMetadataChanged(workspaceId, actorId, documentId, changed))
+    }
+
+    /** Reads and validates the document again with the current pack (a new result; history stays). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun revalidate(
+        workspaceId: UUID,
+        documentId: UUID,
+        actorId: UUID,
+    ) {
+        repository.markPending(documentId)
+        jobs.enqueue(
+            ParseAndValidateJobHandler.TYPE,
+            ParseAndValidateJobHandler.Payload(documentId),
+            workspaceId = workspaceId,
+            maxAttempts = ParseAndValidateJobHandler.MAX_ATTEMPTS,
+        )
+        events.publishEvent(RevalidationRequested(workspaceId, actorId, documentId))
     }
 }

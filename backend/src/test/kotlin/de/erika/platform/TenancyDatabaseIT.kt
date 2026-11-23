@@ -88,6 +88,19 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.workspaceId,
         )
         TestDatabase.update(
+            "INSERT INTO status_event (id, workspace_id, document_id, to_status) VALUES (gen_random_uuid(), ?, ?, 'CHECKED')",
+            user.workspaceId,
+            doc,
+        )
+        TestDatabase.update(
+            """
+            INSERT INTO derived_object (workspace_id, document_id, kind, idx, storage_key, sha256, media_type, size_bytes)
+            VALUES (?, ?, 'VIEW_PDF', 0, 'k', repeat('b', 64), 'application/pdf', 1)
+            """.trimIndent(),
+            user.workspaceId,
+            doc,
+        )
+        TestDatabase.update(
             "INSERT INTO intake_item (id, workspace_id, intake_id, seq, file_name, outcome) VALUES (gen_random_uuid(), ?, ?, 0, 'x.xml', 'IMPORTED')",
             user.workspaceId,
             intake,

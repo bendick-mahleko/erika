@@ -22,6 +22,25 @@ data class Contact(
 class WorkspaceContacts(
     private val jdbc: JdbcClient,
 ) {
+    /**
+     * Display names of the given users, for history entries. Only members of the current
+     * workspace are named; others (e.g. removed members) are left out.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun displayNames(userIds: Collection<UUID>): Map<UUID, String> {
+        if (userIds.isEmpty()) return emptyMap()
+        return jdbc
+            .sql(
+                """
+                SELECT u.id, u.display_name FROM membership m JOIN app_user u ON u.id = m.user_id
+                 WHERE m.workspace_id = current_workspace_id() AND u.id IN (:ids)
+                """.trimIndent(),
+            ).param("ids", userIds.toList())
+            .query { rs, _ -> rs.getObject("id", UUID::class.java) to rs.getString("display_name") }
+            .list()
+            .toMap()
+    }
+
     /** Verified members who asked for an email when new documents arrive. */
     @Transactional(propagation = Propagation.MANDATORY)
     fun newDocumentRecipients(workspaceId: UUID): List<Contact> =

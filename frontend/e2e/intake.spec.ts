@@ -43,7 +43,7 @@ test.describe("intake (full stack)", () => {
     await expect(page.getByTestId("inbox-badge")).toHaveText("1");
     await list.getByRole("link", { name: "Farbwerk Beispiel" }).click();
     await expect(page.getByTestId("validation-level")).toHaveText("Gültige E-Rechnung");
-    await expect(page.getByText("1.785,00 €").first()).toBeVisible();
+    await expect(page.locator('[data-bt="BT-112"]')).toHaveText("1.785,00 EUR");
     await expectAccessible(page);
   });
 

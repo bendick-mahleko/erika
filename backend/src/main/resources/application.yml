@@ -99,6 +99,8 @@ erika:
     path-style: ${ERIKA_S3_PATH_STYLE:true}
     # Quarantine for uploads until they are virus-scanned (no Object Lock; lifecycle expiry 1 day).
     uploads-bucket: ${ERIKA_S3_UPLOADS_BUCKET:erika-uploads}
+    # PDF view copies and decoded attachments, rebuilt from originals when needed.
+    derived-bucket: ${ERIKA_S3_DERIVED_BUCKET:erika-derived}
     # Endpoint for pre-signed upload URLs as the browser sees it; empty = same as endpoint.
     public-endpoint: ${ERIKA_S3_PUBLIC_ENDPOINT:}
   jobs:

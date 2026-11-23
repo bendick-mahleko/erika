@@ -16,6 +16,9 @@ export type WorkspaceUpdate = components["schemas"]["WorkspaceUpdate"];
 export type Upload = components["schemas"]["Upload"];
 export type IntakeItem = components["schemas"]["IntakeItem"];
 export type DocumentSummary = components["schemas"]["DocumentSummary"];
+export type Document = components["schemas"]["Document"];
+export type DocumentStatus = components["schemas"]["DocumentStatus"];
+export type DocumentFilter = Omit<NonNullable<paths["/documents"]["get"]["parameters"]["query"]>, "limit" | "cursor">;
 
 function readCookie(name: string): string | undefined {
   return document.cookie

@@ -86,9 +86,18 @@ async function authed<T>(
   }
 }
 
-/** First page of documents, newest first (null if not signed in). */
-export async function fetchDocuments(): Promise<DocumentList | null> {
-  return authed((init) => api.GET("/documents", { ...init, params: { query: { limit: 50 } } }));
+export type DocumentFilter = Omit<NonNullable<paths["/documents"]["get"]["parameters"]["query"]>, "limit" | "cursor">;
+export type InvoiceView = components["schemas"]["InvoiceView"];
+export type ViewSection = components["schemas"]["ViewSection"];
+
+/** First page of documents, newest first, with optional filters (null if not signed in). */
+export async function fetchDocuments(filter: DocumentFilter = {}): Promise<DocumentList | null> {
+  return authed((init) => api.GET("/documents", { ...init, params: { query: { ...filter, limit: 50 } } }));
+}
+
+/** The invoice view (VW-01), or null if there is none (not an e-invoice, or still being read). */
+export async function fetchDocumentView(documentId: string): Promise<InvoiceView | null> {
+  return authed((init) => api.GET("/documents/{documentId}/view", { ...init, params: { path: { documentId } } }));
 }
 
 export async function fetchDocument(documentId: string): Promise<Document | null> {

@@ -293,6 +293,8 @@ object TestDatabase {
             "SELECT d.id FROM document d JOIN stored_object s ON s.workspace_id = d.workspace_id AND s.sha256 = d.sha256 " +
                 "WHERE s.size_bytes = 1"
         update("DELETE FROM validation_result WHERE document_id IN ($forged)")
+        update("DELETE FROM status_event WHERE document_id IN ($forged)")
+        update("DELETE FROM derived_object WHERE document_id IN ($forged)")
         update("DELETE FROM parsed_invoice WHERE document_id IN ($forged)")
         update("UPDATE document SET duplicate_of = NULL WHERE duplicate_of IN ($forged)")
         update("DELETE FROM document WHERE id IN ($forged)")

@@ -3,7 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { browserApi, type DocumentSummary, type IntakeItem, type Upload } from "@/lib/api/browser";
+import {
+  browserApi,
+  problemCode,
+  type DocumentFilter,
+  type DocumentStatus,
+  type DocumentSummary,
+  type IntakeItem,
+  type Upload,
+} from "@/lib/api/browser";
+import { useErrorText } from "@/lib/useErrorText";
+
+const STATUSES: DocumentStatus[] = ["NEW", "CHECKED", "APPROVED", "PAID", "DISPUTED", "BOOKED"];
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const FINISHED = new Set(["DONE", "REJECTED", "FAILED"]);
@@ -22,10 +33,13 @@ export function InboxClient({
   initial,
   nextCursor,
   canUpload,
+  filter,
 }: {
   initial: DocumentSummary[];
   nextCursor?: string;
   canUpload: boolean;
+  /** The active filters (AR-04); refreshes and "load more" keep them. */
+  filter: DocumentFilter;
 }) {
   const t = useTranslations("Upload");
   const [documents, setDocuments] = useState(initial);
@@ -35,12 +49,12 @@ export function InboxClient({
   const input = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
-    const { data } = await browserApi.GET("/documents", { params: { query: { limit: 50 } } });
+    const { data } = await browserApi.GET("/documents", { params: { query: { ...filter, limit: 50 } } });
     if (data) {
       setDocuments(data.items);
       setCursor(data.nextCursor);
     }
-  }, []);
+  }, [filter]);
 
   // While documents are still being checked, look again every few seconds.
   const pending = documents.some((d) => d.processing === "PENDING");
@@ -142,7 +156,15 @@ export function InboxClient({
           <UploadResults lines={lines} />
         </section>
       )}
-      <DocumentListView documents={documents} cursor={cursor} onMore={setDocuments} onCursor={setCursor} />
+      <DocumentListView
+        documents={documents}
+        cursor={cursor}
+        filter={filter}
+        canChange={canUpload}
+        onMore={setDocuments}
+        onCursor={setCursor}
+        onChanged={refresh}
+      />
     </div>
   );
 }
@@ -208,21 +230,53 @@ function UploadResults({ lines }: { lines: UploadLine[] }) {
 function DocumentListView({
   documents,
   cursor,
+  filter,
+  canChange,
   onMore,
   onCursor,
+  onChanged,
 }: {
   documents: DocumentSummary[];
   cursor?: string;
+  filter: DocumentFilter;
+  canChange: boolean;
   onMore: (docs: DocumentSummary[]) => void;
   onCursor: (cursor?: string) => void;
+  onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("Inbox");
   const td = useTranslations("Document");
+  const te = useErrorText();
   const format = useFormatter();
   const processing = documents.filter((d) => d.processing === "PENDING").length;
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<DocumentStatus>("CHECKED");
+  const [bulkMessage, setBulkMessage] = useState("");
+
+  function toggle(id: string, on: boolean) {
+    setSelected((all) => {
+      const next = new Set(all);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function applyBulk() {
+    const { data, error } = await browserApi.POST("/documents/status", {
+      body: { documentIds: Array.from(selected), status: bulkStatus },
+    });
+    if (data) {
+      setBulkMessage(t("bulkDone", { count: data.changed, status: td(`status.${bulkStatus}`) }));
+      setSelected(new Set());
+      await onChanged();
+    } else {
+      setBulkMessage(te(problemCode(error)));
+    }
+  }
 
   async function more() {
-    const { data } = await browserApi.GET("/documents", { params: { query: { limit: 50, cursor } } });
+    const { data } = await browserApi.GET("/documents", { params: { query: { ...filter, limit: 50, cursor } } });
     if (data) {
       onMore([...documents, ...data.items]);
       onCursor(data.nextCursor);
@@ -237,12 +291,55 @@ function DocumentListView({
       <p role="status" className="text-sm text-slate-700">
         {processing > 0 ? t("processingNote", { count: processing }) : ""}
       </p>
+      {canChange && documents.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+          data-testid="bulk-bar"
+        >
+          <span className="text-sm">{t("selected", { count: selected.size })}</span>
+          <label htmlFor="bulk-status" className="text-sm">
+            {t("bulkLabel")}
+          </label>
+          <select
+            id="bulk-status"
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as DocumentStatus)}
+            className="rounded border border-slate-400 px-2 py-1"
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {td(`status.${s}`)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={selected.size === 0}
+            onClick={applyBulk}
+            className="rounded bg-brand-700 px-3 py-1 font-medium text-white hover:bg-brand-900 disabled:opacity-50"
+          >
+            {t("bulkApply")}
+          </button>
+          <span role="status" className="text-sm text-green-800">
+            {bulkMessage}
+          </span>
+        </div>
+      )}
       {documents.length === 0 ? (
-        <p className="text-slate-700">{t("empty")}</p>
+        <p className="text-slate-700">{Object.keys(filter).length > 0 ? t("noMatches") : t("empty")}</p>
       ) : (
         <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200" data-testid="document-list">
           {documents.map((d) => (
-            <li key={d.id} className="flex flex-wrap items-start gap-x-6 gap-y-1 p-4">
+            <li key={d.id} className="flex flex-wrap items-start gap-x-4 gap-y-1 p-4">
+              {canChange && (
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={selected.has(d.id)}
+                  onChange={(e) => toggle(d.id, e.target.checked)}
+                  aria-label={t("select", { name: d.sellerName ?? d.fileName ?? d.id })}
+                />
+              )}
               <div className="min-w-0 flex-1 basis-60">
                 <Link href={`/documents/${d.id}`} className="font-medium break-all text-brand-700 underline">
                   {d.sellerName ?? d.fileName ?? td("format.UNKNOWN")}
@@ -260,6 +357,9 @@ function DocumentListView({
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
+                <span className="rounded border border-slate-300 px-2 py-0.5 text-sm" data-testid="status-badge">
+                  {td(`status.${d.status}`)}
+                </span>
                 <ResultBadge doc={d} />
                 {d.duplicateOf && (
                   <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900" title={td("duplicateHint")}>

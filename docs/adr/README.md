@@ -30,3 +30,5 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0022](0022-archive-write-once-originals.md) | Archive: write-once originals, retention, integrity | Accepted |
 | [0023](0023-intake-pipeline-and-documents.md) | Intake pipeline, uploads and documents | Accepted |
 | [0024](0024-email-intake.md) | Email intake: Postfix, policy lookup and pipe to the API | Accepted (production DNS pending S5-a) |
+| [0025](0025-viewer-and-derived-objects.md) | Viewer, PDF view copy and derived objects | Accepted |
+| [0026](0026-document-status-and-search.md) | Document status, history and search | Accepted |

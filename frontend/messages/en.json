@@ -116,6 +116,9 @@
     "UPLOAD_SIZE_MISMATCH": "The file didn't arrive completely. Please upload it again.",
     "UPLOAD_NOT_FOUND": "This upload doesn't exist.",
     "DOCUMENT_NOT_FOUND": "This document doesn't exist.",
+    "VIEW_NOT_AVAILABLE": "There is no invoice view for this document.",
+    "ATTACHMENT_NOT_FOUND": "This attachment doesn't exist.",
+    "INVALID_CURSOR": "Please reload the list.",
     "generic": "Something went wrong. Please try again."
   },
   "Inbox": {
@@ -141,7 +144,22 @@
       "EMAIL": "Email",
       "CREATED": "Created"
     },
-    "more": "Load more"
+    "more": "Load more",
+    "search": "Search",
+    "searchHint": "Supplier, invoice number, item, file name – supplier names also with typos.",
+    "filterStatus": "Status",
+    "allStatuses": "All",
+    "filterFrom": "Invoice date from",
+    "filterTo": "Invoice date to",
+    "applyFilters": "Show",
+    "resetFilters": "Reset filters",
+    "tagFilter": "Tag: {tag}",
+    "noMatches": "No documents match these filters.",
+    "selected": "{count, plural, =0 {No documents selected} one {# document selected} other {# documents selected}}",
+    "bulkLabel": "Set status to",
+    "bulkApply": "Apply to selection",
+    "bulkDone": "{count, plural, one {# document} other {# documents}} set to “{status}”.",
+    "select": "Select {name}"
   },
   "Upload": {
     "heading": "Upload invoices",
@@ -229,11 +247,59 @@
       "WARNING": "Remark",
       "INFO": "Info"
     },
-    "viewerNote": "The full invoice view follows soon."
+    "status": {
+      "NEW": "New",
+      "CHECKED": "Checked",
+      "APPROVED": "Approved",
+      "PAID": "Paid",
+      "DISPUTED": "Disputed",
+      "BOOKED": "Booked"
+    },
+    "levelExplanation": {
+      "VALID": "The invoice meets all rules for e-invoices.",
+      "WARNING": "The invoice is valid. Please still note the remarks below.",
+      "ERROR": "The invoice breaks mandatory rules. Ask for a corrected invoice before you pay or claim input VAT."
+    },
+    "originalRuleText": "Original text of the rule",
+    "openEarlier": "Open the earlier invoice",
+    "downloads": "Files",
+    "downloadOriginal": "Download original",
+    "downloadViewPdf": "Download PDF view copy",
+    "downloadAttachment": "Attachment: {name}",
+    "invoiceHeading": "Invoice content",
+    "noView": "There is no invoice view for this document.",
+    "statusHeading": "Processing status",
+    "currentStatus": "Current status",
+    "newStatus": "New status",
+    "statusNote": "Note on the change (optional)",
+    "changeStatus": "Change status",
+    "statusSaved": "Status changed.",
+    "history": "History",
+    "noHistory": "No changes yet.",
+    "historyEntry": "{at}: {user} – {from} → {to}",
+    "unknownUser": "Unknown",
+    "tags": "Tags",
+    "tagsHint": "Separated by commas, e.g. Material, Office",
+    "note": "Note",
+    "saveMetadata": "Save tags and note",
+    "metadataSaved": "Saved.",
+    "revalidate": "Check again",
+    "revalidateQueued": "The invoice is being checked again."
   },
   "Notifications": {
     "heading": "Notifications",
     "emailOnNewDocuments": "Email me when new documents arrive",
     "saved": "Saved."
+  },
+  "Correction": {
+    "button": "Request a corrected invoice",
+    "intro": "You can send this text to the supplier. ERIKA doesn't send it itself.",
+    "textLabel": "Prepared email text",
+    "subject": "Request for a corrected invoice {number}",
+    "body": "Dear Sir or Madam,\n\nwe can't process your invoice {number} of {date} as it is. Checking it as an e-invoice found these errors:\n\n{reasons}\n\nPlease send us a corrected invoice as an e-invoice (XRechnung or ZUGFeRD).\n\nThank you and kind regards",
+    "defaultSeller": "Supplier",
+    "openMail": "Open in mail program",
+    "copy": "Copy text",
+    "copied": "Copied."
   }
 }
