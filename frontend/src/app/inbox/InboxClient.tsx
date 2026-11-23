@@ -49,7 +49,9 @@ export function InboxClient({
   const input = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
-    const { data } = await browserApi.GET("/documents", { params: { query: { ...filter, limit: 50 } } });
+    const { data } = await browserApi.GET("/documents", {
+      params: { query: { ...filter, direction: "IN", limit: 50 } },
+    });
     if (data) {
       setDocuments(data.items);
       setCursor(data.nextCursor);
@@ -276,7 +278,9 @@ function DocumentListView({
   }
 
   async function more() {
-    const { data } = await browserApi.GET("/documents", { params: { query: { ...filter, limit: 50, cursor } } });
+    const { data } = await browserApi.GET("/documents", {
+      params: { query: { ...filter, direction: "IN", limit: 50, cursor } },
+    });
     if (data) {
       onMore([...documents, ...data.items]);
       onCursor(data.nextCursor);

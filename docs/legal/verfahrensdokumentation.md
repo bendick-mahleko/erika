@@ -1,6 +1,6 @@
 # Verfahrensdokumentation ERIKA – erster Entwurf
 
-Stand: 23.11.2026 · Status: **Entwurf** (Software Design, offener Punkt 4). Prüfung mit einer Steuerberaterin bzw. einem Steuerberater vor dem Start (Stage 11).
+Stand: 23.11.2026 (ergänzt um Ausgangsrechnungen, Stage 8) · Status: **Entwurf** (Software Design, offener Punkt 4). Prüfung mit einer Steuerberaterin bzw. einem Steuerberater vor dem Start (Stage 11).
 
 Diese Dokumentation beschreibt, wie ERIKA elektronische Rechnungen empfängt, prüft, archiviert und bereitstellt. Sie folgt dem Aufbau der GoBD (BMF-Schreiben, Rz. 151 ff.) und ist als **Baustein für die Verfahrensdokumentation unserer Kunden** gedacht: Jeder Kunde ergänzt sie um seine eigenen organisatorischen Regeln (wer prüft, wer gibt frei, wer bucht).
 
@@ -14,7 +14,8 @@ ERIKA ist eine Web-Anwendung für kleine Unternehmen. Sie
 - erkennt das Format (XRechnung UBL/CII, ZUGFeRD/Factur-X, sonstige PDF),
 - prüft E-Rechnungen gegen die amtlichen Regeln (KoSIT-Prüfkonfiguration, EN 16931),
 - archiviert das Original unveränderbar bis zum Ende der Aufbewahrungsfrist,
-- stellt Rechnungen lesbar dar und verwaltet einen Bearbeitungsstatus.
+- stellt Rechnungen lesbar dar und verwaltet einen Bearbeitungsstatus,
+- erstellt Ausgangsrechnungen, Gutschriften und Stornorechnungen als E-Rechnung (XRechnung oder ZUGFeRD), vergibt fortlaufende Nummern und versendet sie per E-Mail.
 
 Das **Original** ist die empfangene Datei (bei E-Rechnungen die XML-Datei bzw. das hybride PDF). Lesefassungen (HTML-Ansicht, PDF-Ansichtskopie) sind abgeleitet und als solche gekennzeichnet.
 
@@ -46,9 +47,19 @@ Status: Neu, Geprüft, Freigegeben, Bezahlt, Beanstandet, Gebucht; dazu Schlagw�
 
 ### 2.4 Rollen
 
-Inhaber (alle Rechte), Mitarbeiter (Bearbeitung), Steuerberater (nur lesen). Jede Anmeldung erfordert einen zweiten Faktor.
+Inhaber (alle Rechte, auch Rechnungseinstellungen), Mitarbeiter (Bearbeitung, Rechnungen erstellen und versenden), Steuerberater (nur lesen). Jede Anmeldung erfordert einen zweiten Faktor.
 
-### 2.5 Abruf und Export
+### 2.5 Ausgangsrechnungen
+
+1. Rechnungen entstehen als **Entwurf** aus gespeicherten Kunden und Artikeln oder aus freien Angaben. Der Entwurf wird beim Bearbeiten gespeichert und kann bis zur Ausstellung geändert oder verworfen werden.
+2. ERIKA prüft beim Bearbeiten und vor der Ausstellung die Pflichtangaben nach § 14 Abs. 4 UStG und EN 16931 (u. a. vollständige Anschriften, Steuernummer oder USt-IdNr., Leistungsdatum oder -zeitraum, Menge, Bezeichnung, Steuersatz). Fehlt etwas, kann die Rechnung nicht ausgestellt werden.
+3. **Ausstellung:** In einem Vorgang vergibt ERIKA die nächste Nummer nach dem eingestellten Nummernformat (fortlaufend je Format und – falls enthalten – je Jahr), erzeugt die Datei, prüft sie mit den amtlichen Regeln (wie beim Eingang, 2.2) und archiviert sie unveränderbar (3.2). Findet die Prüfung Fehler, wird nichts ausgestellt und die Nummer nicht verbraucht. Ausgestellte Nummern bleiben dauerhaft im Bestand, auch nach einer Stornierung.
+4. Die Umsatzsteuer wird je Position nach dem gewählten Fall ausgewiesen: 19 %, 7 %, 0 %, Steuerschuldnerschaft des Leistungsempfängers (§ 13b UStG), steuerfreie innergemeinschaftliche Lieferung (§ 4 Nr. 1 Buchst. b, § 6a UStG) oder Kleinunternehmer (§ 19 UStG, ohne Steuerausweis). Die vorgeschriebenen Hinweise werden automatisch auf die Rechnung gesetzt.
+5. **Korrekturen** erfolgen nie durch Ändern, sondern durch eine Gutschrift, eine Stornorechnung oder eine korrigierte Rechnung, die auf die ursprüngliche Rechnung verweist (Nummer und Datum). Bei Stornierung oder Korrektur erhält die ursprüngliche Rechnung den Status „Storniert“.
+6. **Versand:** Beim Versand per E-Mail archiviert ERIKA die gesendete Nachricht mit der angehängten Rechnungsdatei unveränderbar und protokolliert Zeitpunkt, Empfänger und Zustellergebnis. Die Rechnung kann auch heruntergeladen und auf anderem Weg übermittelt werden.
+7. Status ausgehender Rechnungen: Ausgestellt, Versendet, Zustellung fehlgeschlagen, Bezahlt, Storniert, Gebucht; jede Änderung mit Benutzer und Zeitpunkt im Verlauf und Audit-Protokoll.
+
+### 2.6 Abruf und Export
 
 Das Original kann jederzeit unverändert heruntergeladen werden; die Prüfsumme (SHA-256) wird dabei geprüft und mitgeliefert. Exporte für die Steuerberatung (DATEV) und den Datenzugriff der Finanzverwaltung folgen in Stage 9.
 
@@ -68,7 +79,7 @@ Web-Oberfläche, Programmierschnittstelle (API) und Hintergrundverarbeitung lauf
 
 ### 3.3 Protokollierung (GoBD Rz. 64)
 
-Anmeldungen, Statusänderungen, Änderungen von Schlagwörtern und Notizen, Einstellungen und Exporte werden in einem **hash-verketteten Audit-Protokoll** je Arbeitsbereich festgehalten: Jeder Eintrag enthält den Hash seines Vorgängers. Täglich wird die Kette geprüft und ihr Endwert außerhalb der Datenbank gespeichert; eine Lücke oder Änderung löst einen Alarm aus (ADR 0019).
+Anmeldungen, Statusänderungen, Änderungen von Schlagwörtern und Notizen, Einstellungen, Kunden- und Artikeländerungen, die Ausstellung jeder Rechnung (mit Nummer und Prüfsumme), Versand und Zustellergebnisse sowie Exporte werden in einem **hash-verketteten Audit-Protokoll** je Arbeitsbereich festgehalten: Jeder Eintrag enthält den Hash seines Vorgängers. Täglich wird die Kette geprüft und ihr Endwert außerhalb der Datenbank gespeichert; eine Lücke oder Änderung löst einen Alarm aus (ADR 0019).
 
 ### 3.4 Mandantentrennung und Zugriffsschutz
 

@@ -49,3 +49,21 @@ export function problemCode(error: unknown): string {
   if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
   return "generic";
 }
+
+export type Invoice = components["schemas"]["Invoice"];
+export type InvoiceContent = components["schemas"]["InvoiceContent"];
+export type InvoiceLineInput = components["schemas"]["InvoiceLineInput"];
+export type InvoiceFormat = components["schemas"]["InvoiceFormat"];
+export type InvoiceSettings = components["schemas"]["InvoiceSettings"];
+export type DraftProblem = components["schemas"]["DraftProblem"];
+export type VatTreatment = components["schemas"]["VatTreatment"];
+export type VatRate = components["schemas"]["VatRate"];
+export type Customer = components["schemas"]["Customer"];
+export type CustomerInput = components["schemas"]["CustomerInput"];
+export type Article = components["schemas"]["Article"];
+export type ArticleInput = components["schemas"]["ArticleInput"];
+
+/** A fresh Idempotency-Key for POST requests that create or send something (Software Design §6). */
+export function idempotencyKey(): string {
+  return crypto.randomUUID();
+}

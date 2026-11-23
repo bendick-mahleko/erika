@@ -88,3 +88,41 @@ class SendMailJobHandler(
         const val TYPE = "platform.send-mail"
     }
 }
+
+/**
+ * Sends a complete RFC 5322 message exactly as given (e.g. an invoice email whose bytes were
+ * archived first, CR-07). Returns the server's last answer, which for most providers contains
+ * their message ID ("250 2.0.0 Ok: queued as …"), or null.
+ */
+fun interface RawMailTransport {
+    fun send(
+        eml: ByteArray,
+        recipients: List<String>,
+    ): String?
+}
+
+@Component
+class SmtpRawMailTransport(
+    private val sender: JavaMailSender,
+) : RawMailTransport {
+    override fun send(
+        eml: ByteArray,
+        recipients: List<String>,
+    ): String? {
+        val impl = sender as org.springframework.mail.javamail.JavaMailSenderImpl
+        val session = impl.session
+        val message = jakarta.mail.internet.MimeMessage(session, eml.inputStream())
+        val transport = session.getTransport(impl.protocol ?: "smtp")
+        transport.connect(impl.host, impl.port, impl.username, impl.password)
+        try {
+            // Transport.sendMessage writes the parsed message unchanged (no saveChanges), so
+            // what is sent is byte for byte what was archived.
+            transport.sendMessage(message, recipients.map { jakarta.mail.internet.InternetAddress(it, true) }.toTypedArray())
+            // SMTPTransport (Angus Mail, runtime only) exposes the last answer; looked up reflectively.
+            val answer = transport.javaClass.methods.firstOrNull { it.name == "getLastServerResponse" && it.parameterCount == 0 }
+            return (answer?.invoke(transport) as String?)?.trim()
+        } finally {
+            transport.close()
+        }
+    }
+}

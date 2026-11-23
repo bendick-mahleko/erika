@@ -133,3 +133,56 @@ export async function fetchIntakeAddress(): Promise<string | null> {
 export async function fetchNotificationSettings(): Promise<components["schemas"]["NotificationSettings"] | null> {
   return authed((init) => api.GET("/notification-settings", init));
 }
+
+export type Invoice = components["schemas"]["Invoice"];
+export type InvoiceList = components["schemas"]["InvoiceList"];
+export type InvoiceSettings = components["schemas"]["InvoiceSettings"];
+export type Customer = components["schemas"]["Customer"];
+export type Article = components["schemas"]["Article"];
+
+/** Outgoing invoices and drafts, newest first (null if not signed in). */
+export async function fetchInvoices(): Promise<InvoiceList | null> {
+  return authed((init) => api.GET("/invoices", { ...init, params: { query: { limit: 50 } } }));
+}
+
+/** One invoice or draft with its ETag (for autosave with If-Match), or null. */
+export async function fetchInvoice(invoiceId: string): Promise<{ invoice: Invoice; etag: string } | null> {
+  try {
+    const { data, response } = await api.GET("/invoices/{invoiceId}", {
+      headers: await sessionHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+      params: { path: { invoiceId } },
+    });
+    return data ? { invoice: data, etag: response.headers.get("ETag") ?? "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchInvoiceSettings(): Promise<{ settings: InvoiceSettings; etag: string } | null> {
+  try {
+    const { data, response } = await api.GET("/invoice-settings", {
+      headers: await sessionHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    return data ? { settings: data, etag: response.headers.get("ETag") ?? "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchCustomers(includeArchived = false): Promise<Customer[]> {
+  const data = await authed((init) =>
+    api.GET("/customers", { ...init, params: { query: { includeArchived, limit: 200 } } }),
+  );
+  return data?.items ?? [];
+}
+
+export async function fetchArticles(includeArchived = false): Promise<Article[]> {
+  const data = await authed((init) =>
+    api.GET("/articles", { ...init, params: { query: { includeArchived, limit: 200 } } }),
+  );
+  return data?.items ?? [];
+}

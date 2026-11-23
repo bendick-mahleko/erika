@@ -7,7 +7,9 @@ import { browserApi, problemCode, type Document, type DocumentStatus } from "@/l
 import { useErrorText } from "@/lib/useErrorText";
 import { ErrorAlert } from "@/components/forms";
 
-const STATUSES: DocumentStatus[] = ["NEW", "CHECKED", "APPROVED", "PAID", "DISPUTED", "BOOKED"];
+const STATUSES_IN: DocumentStatus[] = ["NEW", "CHECKED", "APPROVED", "PAID", "DISPUTED", "BOOKED"];
+/** Outgoing invoices: users set SENT, PAID, BOOKED; ERIKA sets the others (issue, bounce, cancellation). */
+const STATUSES_OUT: DocumentStatus[] = ["SENT", "PAID", "BOOKED"];
 
 /**
  * Status (with a note for the history), tags and note (AR-03), and revalidation. Only
@@ -26,6 +28,9 @@ export function DocumentActions({ doc: initial, canChange }: { doc: Document; ca
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const base = doc.direction === "OUT" ? STATUSES_OUT : STATUSES_IN;
+  // The current status stays selectable even if it is one ERIKA set (e.g. ISSUED).
+  const statuses = base.includes(doc.status) ? base : [doc.status, ...base];
 
   async function save(
     body: { status?: DocumentStatus; statusNote?: string; tags?: string[]; note?: string },
@@ -99,7 +104,7 @@ export function DocumentActions({ doc: initial, canChange }: { doc: Document; ca
               onChange={(e) => setStatus(e.target.value as DocumentStatus)}
               className="rounded border border-slate-400 px-2 py-2"
             >
-              {STATUSES.map((s) => (
+              {statuses.map((s) => (
                 <option key={s} value={s}>
                   {t(`status.${s}`)}
                 </option>

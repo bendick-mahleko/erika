@@ -65,12 +65,37 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 .tree
                 .path("id")
                 .asString()
+        val documentB = documentOf(userB.workspaceId)
+        val key = "Idempotency-Key"
+        val customerB =
+            b
+                .post(
+                    "/api/v1/customers",
+                    mapOf("name" to "Kunde von B", "countryCode" to "DE", "vatTreatment" to "DOMESTIC"),
+                    key to UUID.randomUUID().toString(),
+                ).tree
+                .path("id")
+                .asString()
+        val articleB =
+            b
+                .post(
+                    "/api/v1/articles",
+                    mapOf("name" to "Artikel von B", "unitCode" to "C62", "netPrice" to "1.00", "vatRate" to "STANDARD_19"),
+                    key to UUID.randomUUID().toString(),
+                ).tree
+                .path("id")
+                .asString()
+        val (invoiceB, deliveryB) = issuedInvoiceOf(userB.workspaceId, documentB)
         fixturesB =
             mapOf(
                 "memberId" to memberB.path("id").asString(),
                 "uploadId" to uploadB,
-                "documentId" to documentOf(userB.workspaceId).toString(),
+                "documentId" to documentB.toString(),
                 "attachmentIndex" to "0",
+                "customerId" to customerB,
+                "articleId" to articleB,
+                "invoiceId" to invoiceB.toString(),
+                "deliveryId" to deliveryB.toString(),
             )
         markersB =
             setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH") + fixturesB.values - "0"
@@ -93,7 +118,8 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 if (op.public) {
                     assertTrue(publicAllowed.matches(op.path), "${op.path} is public (security: []) but not on the allow-list")
                 } else {
-                    val response = client().send(op.method, url(op, fixturesB), op.example)
+                    val headers = if (op.headerParams.contains("Idempotency-Key")) arrayOf("Idempotency-Key" to "k") else emptyArray()
+                    val response = client().send(op.method, url(op, fixturesB), op.example, headers)
                     assertEquals(401, response.status, "${op.method} ${op.path}: $response")
                 }
             }
@@ -121,11 +147,50 @@ class TenantIsolationIT : ApiIntegrationTest() {
         return id
     }
 
+    /** An issued invoice of tenant B with one delivery, written directly (issuing needs the worker). */
+    private fun issuedInvoiceOf(
+        workspaceId: UUID,
+        documentId: UUID,
+    ): Pair<UUID, UUID> {
+        val invoice = UUID.randomUUID()
+        val delivery = UUID.randomUUID()
+        TestDatabase.update(
+            """
+            INSERT INTO invoice (id, workspace_id, number, kind, type_code, format, document_id, sha256, file_name, media_type,
+                                 issue_date, buyer_name, currency, net, tax, gross)
+            SELECT ?, ?, 'B-1', 'INVOICE', '380', 'XRECHNUNG_CII', d.id, d.sha256, 'b.xml', 'application/xml',
+                   current_date, 'Kunde von B', 'EUR', 1, 0, 1
+              FROM document d WHERE d.id = ?
+            """.trimIndent(),
+            invoice,
+            workspaceId,
+            documentId,
+        )
+        TestDatabase.update("INSERT INTO invoice_draft (id, workspace_id, state, data) VALUES (?, ?, 'ISSUED', '{}')", invoice, workspaceId)
+        TestDatabase.update(
+            """
+            INSERT INTO invoice_delivery (id, workspace_id, invoice_id, recipient, subject, message_id)
+            VALUES (?, ?, ?, 'kunde@b.example', 'Rechnung B-1', ?)
+            """.trimIndent(),
+            delivery,
+            workspaceId,
+            invoice,
+            "<$delivery@test>",
+        )
+        return invoice to delivery
+    }
+
     private fun exerciseAsA(op: Operation) {
         val headers = mutableListOf<Pair<String, String>>()
+        if (op.headerParams.contains("Idempotency-Key")) headers += "Idempotency-Key" to UUID.randomUUID().toString()
         if (op.headerParams.contains("If-Match")) {
-            // Optimistic locking: use A's own current version, as a client would.
-            a.get("/api/v1${op.path}").header("ETag")?.let { headers += "If-Match" to it }
+            // Optimistic locking: use A's own current version, as a client would; for B's resources
+            // any version (the answer must be 404 whatever the version says).
+            if (op.pathParams.isEmpty()) {
+                a.get("/api/v1${op.path}").header("ETag")?.let { headers += "If-Match" to it }
+            } else {
+                headers += "If-Match" to "\"0\""
+            }
         }
         val response = a.send(op.method, url(op, fixturesB), op.example, headers.toTypedArray())
         if (op.pathParams.isNotEmpty()) {

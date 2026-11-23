@@ -96,6 +96,14 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - In-app feedback is mailed to `ERIKA_FEEDBACK_TO` (`beta@erika.local` in the local stack, so it shows up in Mailpit).
 - The worker serves Prometheus metrics on port 8082 (`/metrics`); tests use a free port (`erika.worker.metrics-port=0`).
 
+### Invoice creator (Stage 8)
+
+- Before the first invoice, fill in the company details (`/settings/workspace`: address and VAT ID or tax number) and the invoice settings (`/settings/invoices`: IBAN; for XRechnung also contact name, phone and email). The draft lists what is missing.
+- Issuing and sending run in the **worker** (ADR 0031): with only the API running, a draft stays in "Wird ausgestellt …". Locally the `worker` service of the app profile does it; in API tests call `WorkerContext.drain()` (helpers in `support/CreatorSupport.kt`).
+- Sent invoice emails land in Mailpit; the archived `.eml` can be downloaded from the invoice page.
+- Delivery webhook: `POST /webhooks/mail` with `X-Erika-Webhook-Secret: $ERIKA_MAIL_WEBHOOK_SECRET` (empty = off; tests use `test-webhook-secret`), body `{"messageId": "<…>", "event": "BOUNCED"}`.
+- invoice-core 0.4 writes the files (invoice-core ADR 0006). After changing a serialiser run invoice-core's `./gradlew check` and the back end's `./gradlew test --tests '*GeneratedInvoicesConformanceIT'` (KoSIT + veraPDF on every format and VAT case).
+
 ## Operations (Stage 7)
 
 - Production layout, setup and routine work: [docs/ops/production.md](ops/production.md); backups and restore drills: [backup.md](ops/backup.md), [restore.md](ops/restore.md); alerts: [monitoring.md](ops/monitoring.md); beta: [beta.md](ops/beta.md).

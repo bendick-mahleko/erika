@@ -28,6 +28,10 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - Sign-up needs accepted terms and, while `erika.signup.mode=INVITE_ONLY`, a valid invitation (ADR 0030). The only write endpoint open to ADVISOR is `POST /feedback`; don't add others.
 - Infrastructure is code (ADR 0027–0029): change `infra/` and run the checks of CI job `infra`; never put secrets in plain text (SOPS: `infra/production/secrets.sops.yaml`). New alerts need a promtool test and a runbook section.
 - Legal texts are German content modules in `frontend/src/content/legal/` (not messages); keep `draft: true` until a lawyer has reviewed them.
+- Invoice creator (ADR 0031): invoices are issued only by `creator.InvoiceIssuer` in the worker (number, generate, validate, archive in one transaction); issued drafts and `invoice` rows never change; corrections only by credit note/cancellation. Outgoing statuses only via `Documents.changeStatus`.
+- POSTs that create or send something take an `Idempotency-Key` (`platform.web.Idempotency`); drafts and master data use ETag/If-Match (`Etags`).
+- Every file `invoice-core`'s `InvoiceWriter` produces must pass `GeneratedInvoicesConformanceIT` (KoSIT + veraPDF) for all formats and VAT cases.
+- Provider callbacks live under `/webhooks/**` (`api/webhooks.yaml`), authenticated by a shared secret, never a session.
 - Errors: RFC 9457 problem details with a stable `code` (`ErikaException`).
 - No invoice content in logs or exception messages.
 - UI texts in `frontend/messages/{de,en}.json`; German first.

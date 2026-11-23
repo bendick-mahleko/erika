@@ -28,6 +28,9 @@ export async function UserMenu() {
               </span>
             )}
           </Link>
+          <Link href="/invoices" className={link}>
+            {t("invoices")}
+          </Link>
           <span className="text-slate-200">{t("signedInAs", { name: session.user.displayName })}</span>
           <Link href="/settings/workspace" className={link}>
             {t("settings")}

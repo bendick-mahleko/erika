@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.4.0
+  version: 0.5.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -39,6 +39,12 @@ tags:
     description: Received documents, the viewer, status, tags and search (IN-04, IN-05, VW-01..06, AR-01..04)
   - name: feedback
     description: Feedback from users to the ERIKA team (closed beta)
+  - name: invoices
+    description: Creating, issuing and sending outgoing invoices, credit notes and cancellations (CR-01..07)
+  - name: customers
+    description: Customer list for the invoice creator (CR-05)
+  - name: articles
+    description: Articles and services for the invoice creator (CR-05)
 paths:
   /health:
     get:
@@ -609,6 +615,435 @@ paths:
       responses:
         "202": { description: Received; thank you. }
         default: { $ref: "#/components/responses/Problem" }
+  /invoice-settings:
+    get:
+      tags: [invoices]
+      operationId: getInvoiceSettings
+      summary: Seller data, numbering and defaults for creating invoices
+      description: |
+        The seller's name, address, VAT ID and tax number come from the workspace settings
+        (`GET /workspace`) and are shown here read-only. `missing` lists what must be filled in
+        before an invoice can be issued.
+      responses:
+        "200":
+          description: The settings.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [invoices]
+      operationId: updateInvoiceSettings
+      summary: Change the invoice settings (owner only)
+      description: Needs `If-Match` with the ETag from `GET /invoice-settings`.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSettingsUpdate" }
+            example:
+              contactName: "Erika Mustermann"
+              contactPhone: "+49 30 1234567"
+              contactEmail: "rechnung@mustermann.example"
+              iban: "DE02120300000000202051"
+              bic: "BYLADEM1001"
+              accountHolder: "Mustermann Malerbetrieb GmbH"
+              kleinunternehmer: false
+              numberPattern: "RE-{YYYY}-{NNNN}"
+              creditNotePattern: "GS-{YYYY}-{NNNN}"
+              defaultFormat: "ZUGFERD_EN16931"
+              paymentTermsDays: 14
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+  /customers:
+    get:
+      tags: [customers]
+      operationId: listCustomers
+      summary: Customers, by name (CR-05)
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Part of the name, customer number or email address.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: includeArchived
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 1, maximum: 200, default: 100 }
+      responses:
+        "200":
+          description: Matching customers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [customers]
+      operationId: createCustomer
+      summary: Add a customer
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+            example:
+              name: "Kunde AG"
+              customerNumber: "K-1001"
+              street: "Kundenweg 2"
+              postalCode: "80331"
+              city: "München"
+              countryCode: "DE"
+              email: "eingang@kunde.example"
+              buyerReference: "K-1001"
+              vatTreatment: "DOMESTIC"
+      responses:
+        "201":
+          description: Created (or, for a repeated Idempotency-Key, the customer created the first time).
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        default: { $ref: "#/components/responses/Problem" }
+  /customers/{customerId}:
+    get:
+      tags: [customers]
+      operationId: getCustomer
+      summary: One customer
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: The customer.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [customers]
+      operationId: updateCustomer
+      summary: Change or archive a customer
+      description: Needs `If-Match`. Issued invoices keep the data they were issued with.
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+            example: { name: "Kunde AG", city: "München", postalCode: "80331", countryCode: "DE", vatTreatment: "DOMESTIC", archived: false }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        default: { $ref: "#/components/responses/Problem" }
+  /articles:
+    get:
+      tags: [articles]
+      operationId: listArticles
+      summary: Articles and services, by name (CR-05)
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: includeArchived
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 1, maximum: 200, default: 100 }
+      responses:
+        "200":
+          description: Matching articles.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArticleList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [articles]
+      operationId: createArticle
+      summary: Add an article or service
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArticleInput" }
+            example: { name: "Malerarbeiten", articleNumber: "L-01", unitCode: "HUR", netPrice: "55.00", vatRate: "STANDARD_19" }
+      responses:
+        "201":
+          description: Created (or, for a repeated Idempotency-Key, the article created the first time).
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Article" }
+        default: { $ref: "#/components/responses/Problem" }
+  /articles/{articleId}:
+    get:
+      tags: [articles]
+      operationId: getArticle
+      summary: One article
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      responses:
+        "200":
+          description: The article.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Article" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [articles]
+      operationId: updateArticle
+      summary: Change or archive an article
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArticleInput" }
+            example: { name: "Malerarbeiten", unitCode: "HUR", netPrice: "58.00", vatRate: "STANDARD_19", archived: false }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Article" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices:
+    get:
+      tags: [invoices]
+      operationId: listInvoices
+      summary: Outgoing invoices and drafts, newest first
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/InvoiceState" }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: One page.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [invoices]
+      operationId: createInvoiceDraft
+      summary: Start a new invoice (draft)
+      description: |
+        Creates a draft with the workspace defaults (format, payment terms). The draft is
+        saved as it is edited (`PUT /invoices/{invoiceId}`) and issued with
+        `POST /invoices/{invoiceId}/issue` (CR-01).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceContent" }
+            example: { format: "ZUGFERD_EN16931", lines: [] }
+      responses:
+        "201":
+          description: The new draft.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices/{invoiceId}:
+    get:
+      tags: [invoices]
+      operationId: getInvoice
+      summary: One invoice or draft, with computed totals and open problems
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "200":
+          description: The invoice.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [invoices]
+      operationId: updateInvoiceDraft
+      summary: Save a draft (autosave)
+      description: |
+        Replaces the draft's content; needs `If-Match` (412 if someone else saved in between).
+        Only drafts can be changed: an issued invoice is corrected by a credit note (CR-06).
+        Incomplete drafts are saved; `problems` says what is missing.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceContent" }
+            example:
+              format: "ZUGFERD_EN16931"
+              buyer: { name: "Kunde AG", street: "Kundenweg 2", postalCode: "80331", city: "München", countryCode: "DE" }
+              deliveryDate: "2026-11-20"
+              lines: [{ name: "Malerarbeiten", quantity: "8", unitCode: "HUR", netPrice: "55.00", vatRate: "STANDARD_19" }]
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [invoices]
+      operationId: deleteInvoiceDraft
+      summary: Discard a draft
+      description: Only drafts that were never issued. Issued invoices can't be deleted (GoBD).
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "204": { description: Discarded. }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices/{invoiceId}/issue:
+    post:
+      tags: [invoices]
+      operationId: issueInvoice
+      summary: Issue the invoice (assign number, generate, validate, archive)
+      description: |
+        Refused with 422 `DRAFT_INCOMPLETE` while mandatory content is missing (CR-01). Otherwise
+        the draft is frozen and issued in the background (Software Design §5, Flow C): one
+        transaction assigns the next number, generates the file, validates it (must be VALID or
+        WARNING; otherwise nothing is issued and the number is not used), archives it and creates
+        the document. Poll `GET /invoices/{invoiceId}` until `state` is ISSUED, or back to DRAFT
+        with `issueError`. Repeating the call is harmless.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Being issued (or already issued).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices/{invoiceId}/credit-note:
+    post:
+      tags: [invoices]
+      operationId: createCreditNote
+      summary: Start a credit note, cancellation or correction for an issued invoice (CR-06)
+      description: |
+        Creates a draft that references the original (BT-25), prefilled with its lines:
+        CREDIT_NOTE (type 381, edit the lines to credit part of it), CANCELLATION (381 for the
+        full amount; the original becomes CANCELLED when issued) or CORRECTION (384, the
+        corrected invoice; the original becomes CANCELLED when issued).
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreditNoteRequest" }
+            example: { kind: "CANCELLATION" }
+      responses:
+        "201":
+          description: The new draft.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices/{invoiceId}/send:
+    post:
+      tags: [invoices]
+      operationId: sendInvoice
+      summary: Send the issued invoice by email (CR-07)
+      description: |
+        Queues the email with the invoice file attached. The sent message is archived
+        write-once together with the file; delivery results appear in `deliveries` and in the
+        document's history.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendInvoiceRequest" }
+            example: { to: "eingang@kunde.example", message: "Guten Tag, anbei unsere Rechnung. Viele Grüße" }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDelivery" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices/{invoiceId}/deliveries/{deliveryId}/message:
+    get:
+      tags: [invoices]
+      operationId: getInvoiceDeliveryMessage
+      summary: The sent email as archived (.eml, with the invoice attached)
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - name: deliveryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The message (RFC 5322), as an attachment.
+          content:
+            message/rfc822:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     session:
@@ -636,6 +1071,28 @@ components:
       name: uploadId
       in: path
       required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique per request (e.g. a UUID). Repeating a request with the same key returns the first result instead of acting twice.
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ArticleId:
+      name: articleId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InvoiceId:
+      name: invoiceId
+      in: path
+      required: true
+      description: ID of the draft; it stays the same when the invoice is issued.
       schema: { type: string, format: uuid }
   responses:
     Problem:
@@ -906,7 +1363,11 @@ components:
           description: Documents still being read and validated.
     DocumentStatus:
       type: string
-      enum: [NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED]
+      description: |
+        Incoming documents (AR-03): NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED.
+        Outgoing invoices: ISSUED, SENT, DELIVERY_FAILED, PAID, CANCELLED, BOOKED; users may set
+        SENT, PAID and BOOKED, the others are set by ERIKA.
+      enum: [NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED, ISSUED, SENT, DELIVERY_FAILED, CANCELLED]
     DocumentFormat:
       type: string
       description: |
@@ -1198,3 +1659,376 @@ components:
           type: string
           description: Stable error code, e.g. VALIDATION_FAILED, NUMBER_CONFLICT.
           examples: ["VALIDATION_FAILED"]
+    InvoiceFormat:
+      type: string
+      description: |
+        Output format (CR-02). XRECHNUNG_CII / XRECHNUNG_UBL: XRechnung 3.0 XML (needs the
+        buyer reference and the buyer's email address). ZUGFERD_EN16931: PDF/A-3 with embedded
+        XML, readable by people and machines.
+      enum: [XRECHNUNG_CII, XRECHNUNG_UBL, ZUGFERD_EN16931]
+    VatTreatment:
+      type: string
+      description: |
+        DOMESTIC: VAT per line (19 %, 7 %, 0 %). REVERSE_CHARGE: the customer owes the VAT
+        (§ 13b UStG, category AE). INTRA_EU: tax-free intra-EU supply (category K). For
+        Kleinunternehmer (invoice settings) every line gets category E with the § 19 UStG note.
+      enum: [DOMESTIC, REVERSE_CHARGE, INTRA_EU]
+    VatRate:
+      type: string
+      description: "Line VAT rate for DOMESTIC invoices: 19 %, 7 % or 0 %."
+      enum: [STANDARD_19, REDUCED_7, ZERO]
+    Decimal:
+      type: string
+      pattern: "^-?[0-9]{1,12}(\\.[0-9]{1,4})?$"
+      description: Decimal number as a string, e.g. "8" or "55.5".
+    SellerProfile:
+      type: object
+      description: From the workspace settings (`PUT /workspace`).
+      required: [name, countryCode]
+      properties:
+        name: { type: string }
+        street: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
+        countryCode: { type: string }
+        vatId: { type: string }
+        taxNumber: { type: string }
+    InvoiceSettingsUpdate:
+      type: object
+      required: [kleinunternehmer, numberPattern, creditNotePattern, defaultFormat, paymentTermsDays]
+      properties:
+        contactName: { type: string, maxLength: 200, description: "BT-41, mandatory for XRechnung" }
+        contactPhone: { type: string, maxLength: 50, description: "BT-42, mandatory for XRechnung" }
+        contactEmail: { type: string, maxLength: 320, description: "BT-43 and the seller's electronic address (BT-34)" }
+        legalRegistration: { type: string, maxLength: 200, description: "BT-30, e.g. HRB 12345, Amtsgericht Berlin" }
+        iban: { type: string, maxLength: 40 }
+        bic: { type: string, maxLength: 11 }
+        accountHolder: { type: string, maxLength: 200 }
+        kleinunternehmer:
+          type: boolean
+          description: Kleinunternehmer under § 19 UStG (BR-06); invoices then carry no VAT.
+        numberPattern:
+          type: string
+          maxLength: 40
+          description: |
+            Invoice numbers, e.g. `RE-{YYYY}-{NNNN}`: `{YYYY}`, `{YY}`, `{MM}` for the issue date,
+            exactly one counter `{N…}` (the number of N is the minimum number of digits). The
+            counter runs separately for every distinct prefix, e.g. per year.
+        creditNotePattern:
+          type: string
+          maxLength: 40
+          description: Numbers of credit notes and cancellations; the same pattern as invoices shares their counter.
+        defaultFormat: { $ref: "#/components/schemas/InvoiceFormat" }
+        paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
+    InvoiceSettings:
+      type: object
+      required: [kleinunternehmer, numberPattern, creditNotePattern, defaultFormat, paymentTermsDays, seller, missing, nextNumber, version]
+      properties:
+        contactName: { type: string, maxLength: 200, description: "BT-41, mandatory for XRechnung" }
+        contactPhone: { type: string, maxLength: 50, description: "BT-42, mandatory for XRechnung" }
+        contactEmail: { type: string, maxLength: 320, description: "BT-43 and the seller's electronic address (BT-34)" }
+        legalRegistration: { type: string, maxLength: 200, description: "BT-30, e.g. HRB 12345, Amtsgericht Berlin" }
+        iban: { type: string, maxLength: 40 }
+        bic: { type: string, maxLength: 11 }
+        accountHolder: { type: string, maxLength: 200 }
+        kleinunternehmer:
+          type: boolean
+          description: Kleinunternehmer under § 19 UStG (BR-06); invoices then carry no VAT.
+        numberPattern:
+          type: string
+          maxLength: 40
+          description: |
+            Invoice numbers, e.g. `RE-{YYYY}-{NNNN}`: `{YYYY}`, `{YY}`, `{MM}` for the issue date,
+            exactly one counter `{N…}` (the number of N is the minimum number of digits). The
+            counter runs separately for every distinct prefix, e.g. per year.
+        creditNotePattern:
+          type: string
+          maxLength: 40
+          description: Numbers of credit notes and cancellations; the same pattern as invoices shares their counter.
+        defaultFormat: { $ref: "#/components/schemas/InvoiceFormat" }
+        paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
+        seller: { $ref: "#/components/schemas/SellerProfile" }
+        missing:
+          type: array
+          description: Settings that must be filled in before invoices can be issued, e.g. `iban`, `seller.taxId`.
+          items: { type: string }
+        nextNumber:
+          type: string
+          description: The number the next invoice issued today would get.
+        version: { type: integer, format: int32 }
+    CustomerInput:
+      type: object
+      required: [name, countryCode, vatTreatment]
+      properties:
+        customerNumber: { type: string, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        street: { type: string, maxLength: 200 }
+        additionalLine: { type: string, maxLength: 200 }
+        postalCode: { type: string, maxLength: 20 }
+        city: { type: string, maxLength: 100 }
+        countryCode: { type: string, pattern: "^[A-Z]{2}$" }
+        vatId: { type: string, pattern: "^[A-Za-z]{2}[0-9A-Za-z+*.]{2,12}$" }
+        email: { type: string, maxLength: 320 }
+        contactName: { type: string, maxLength: 200 }
+        buyerReference: { type: string, maxLength: 100, description: "BT-10, e.g. the customer's order or cost centre reference" }
+        vatTreatment: { $ref: "#/components/schemas/VatTreatment" }
+        preferredFormat: { $ref: "#/components/schemas/InvoiceFormat" }
+        paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
+        archived: { type: boolean, default: false }
+    Customer:
+      type: object
+      required: [name, countryCode, vatTreatment, id, version, archived]
+      properties:
+        customerNumber: { type: string, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        street: { type: string, maxLength: 200 }
+        additionalLine: { type: string, maxLength: 200 }
+        postalCode: { type: string, maxLength: 20 }
+        city: { type: string, maxLength: 100 }
+        countryCode: { type: string, pattern: "^[A-Z]{2}$" }
+        vatId: { type: string, pattern: "^[A-Za-z]{2}[0-9A-Za-z+*.]{2,12}$" }
+        email: { type: string, maxLength: 320 }
+        contactName: { type: string, maxLength: 200 }
+        buyerReference: { type: string, maxLength: 100, description: "BT-10, e.g. the customer's order or cost centre reference" }
+        vatTreatment: { $ref: "#/components/schemas/VatTreatment" }
+        preferredFormat: { $ref: "#/components/schemas/InvoiceFormat" }
+        paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
+        archived: { type: boolean, default: false }
+        id: { type: string, format: uuid }
+        version: { type: integer, format: int32 }
+    CustomerList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Customer" }
+    ArticleInput:
+      type: object
+      required: [name, unitCode, netPrice, vatRate]
+      properties:
+        articleNumber: { type: string, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 1000 }
+        unitCode:
+          type: string
+          pattern: "^[A-Z0-9]{1,3}$"
+          description: UN/ECE Recommendation 20 unit code, e.g. C62 (piece), HUR (hour), LS (lump sum).
+        netPrice: { $ref: "#/components/schemas/Decimal" }
+        vatRate: { $ref: "#/components/schemas/VatRate" }
+        archived: { type: boolean, default: false }
+    Article:
+      type: object
+      required: [name, unitCode, netPrice, vatRate, id, version, archived]
+      properties:
+        articleNumber: { type: string, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 1000 }
+        unitCode:
+          type: string
+          pattern: "^[A-Z0-9]{1,3}$"
+          description: UN/ECE Recommendation 20 unit code, e.g. C62 (piece), HUR (hour), LS (lump sum).
+        netPrice: { $ref: "#/components/schemas/Decimal" }
+        vatRate: { $ref: "#/components/schemas/VatRate" }
+        archived: { type: boolean, default: false }
+        id: { type: string, format: uuid }
+        version: { type: integer, format: int32 }
+    ArticleList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Article" }
+    InvoiceKind:
+      type: string
+      description: "INVOICE (380), CREDIT_NOTE and CANCELLATION (381), CORRECTION (384)."
+      enum: [INVOICE, CREDIT_NOTE, CANCELLATION, CORRECTION]
+    InvoiceState:
+      type: string
+      description: DRAFT (editable), ISSUING (being numbered, generated and validated), ISSUED (frozen).
+      enum: [DRAFT, ISSUING, ISSUED]
+    BuyerData:
+      type: object
+      description: The customer as it appears on the invoice (a copy; later changes of the customer don't affect it).
+      properties:
+        customerNumber: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 200 }
+        street: { type: string, maxLength: 200 }
+        additionalLine: { type: string, maxLength: 200 }
+        postalCode: { type: string, maxLength: 20 }
+        city: { type: string, maxLength: 100 }
+        countryCode: { type: string, pattern: "^[A-Z]{2}$" }
+        vatId: { type: string, maxLength: 20 }
+        email: { type: string, maxLength: 320 }
+        contactName: { type: string, maxLength: 200 }
+    InvoiceLineInput:
+      type: object
+      properties:
+        articleId: { type: string, format: uuid, description: "The article it was taken from, if any." }
+        articleNumber: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 1000 }
+        quantity: { $ref: "#/components/schemas/Decimal" }
+        unitCode: { type: string, pattern: "^[A-Z0-9]{1,3}$" }
+        netPrice: { $ref: "#/components/schemas/Decimal" }
+        vatRate: { $ref: "#/components/schemas/VatRate" }
+    InvoiceContent:
+      type: object
+      description: The editable content of a draft. Everything is optional while editing; `problems` lists what issuing needs.
+      properties:
+        format: { $ref: "#/components/schemas/InvoiceFormat" }
+        customerId: { type: string, format: uuid }
+        buyer: { $ref: "#/components/schemas/BuyerData" }
+        vatTreatment: { $ref: "#/components/schemas/VatTreatment" }
+        issueDate:
+          type: string
+          format: date
+          description: Invoice date (BT-2); empty = the day it is issued.
+        deliveryDate: { type: string, format: date, description: "Date of supply (BT-72)" }
+        periodStart: { type: string, format: date, description: "Service period from (BT-73)" }
+        periodEnd: { type: string, format: date, description: "Service period to (BT-74)" }
+        dueDate: { type: string, format: date, description: "BT-9; empty = invoice date plus the payment terms" }
+        buyerReference: { type: string, maxLength: 100, description: "BT-10; mandatory for XRechnung" }
+        orderReference: { type: string, maxLength: 100, description: "BT-13" }
+        paymentTerms: { type: string, maxLength: 500, description: "BT-20; empty = generated from the due date" }
+        note: { type: string, maxLength: 2000, description: "BT-22, printed on the invoice" }
+        lines:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/InvoiceLineInput" }
+    DraftProblem:
+      type: object
+      required: [field, code]
+      properties:
+        field:
+          type: string
+          description: "Path of the field, e.g. `buyer.name`, `lines[0].quantity`, `settings.iban`."
+        code:
+          type: string
+          description: "REQUIRED, INVALID, REQUIRED_FOR_XRECHNUNG, VAT_ID_REQUIRED, PERIOD_ORDER, SETTINGS_INCOMPLETE …"
+    VatAmount:
+      type: object
+      required: [category, rate, taxableAmount, taxAmount]
+      properties:
+        category: { type: string, description: "UNCL 5305: S, Z, E, AE, K" }
+        rate: { $ref: "#/components/schemas/Money" }
+        taxableAmount: { $ref: "#/components/schemas/Money" }
+        taxAmount: { $ref: "#/components/schemas/Money" }
+        note: { type: string, description: "Exemption reason / note printed on the invoice." }
+    InvoiceTotals:
+      type: object
+      required: [currency, netAmount, taxAmount, grossAmount, vat]
+      properties:
+        currency: { type: string }
+        netAmount: { $ref: "#/components/schemas/Money" }
+        taxAmount: { $ref: "#/components/schemas/Money" }
+        grossAmount: { $ref: "#/components/schemas/Money" }
+        lineAmounts:
+          type: array
+          items: { $ref: "#/components/schemas/Money" }
+        vat:
+          type: array
+          items: { $ref: "#/components/schemas/VatAmount" }
+    InvoiceReference:
+      type: object
+      required: [id, number]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string }
+        kind: { $ref: "#/components/schemas/InvoiceKind" }
+    IssuedInfo:
+      type: object
+      required: [number, issueDate, documentId, status, issuedAt, fileName]
+      properties:
+        number: { type: string, description: BT-1 }
+        issueDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        documentId:
+          type: string
+          format: uuid
+          description: The archived file is this document's original (`GET /documents/{documentId}/original`).
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        issuedAt: { type: string, format: date-time }
+        fileName: { type: string }
+    DeliveryStatus:
+      type: string
+      enum: [QUEUED, SENT, DELIVERED, BOUNCED, FAILED]
+    InvoiceDelivery:
+      type: object
+      required: [id, to, subject, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        to: { type: string }
+        subject: { type: string }
+        status: { $ref: "#/components/schemas/DeliveryStatus" }
+        detail: { type: string, description: "Reason given by the provider for a bounce or failure." }
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time }
+        archived: { type: boolean, description: "The sent message is in the archive." }
+    Invoice:
+      type: object
+      required: [id, kind, state, version, content, problems, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/InvoiceKind" }
+        state: { $ref: "#/components/schemas/InvoiceState" }
+        version: { type: integer, format: int32 }
+        content: { $ref: "#/components/schemas/InvoiceContent" }
+        totals: { $ref: "#/components/schemas/InvoiceTotals" }
+        problems:
+          type: array
+          description: What is missing or wrong before the draft can be issued (empty when ready).
+          items: { $ref: "#/components/schemas/DraftProblem" }
+        issueError:
+          type: array
+          description: Validation messages of the last attempt to issue, if it failed.
+          items: { $ref: "#/components/schemas/ValidationMessage" }
+        original: { $ref: "#/components/schemas/InvoiceReference" }
+        corrections:
+          type: array
+          description: Credit notes, cancellations and corrections of this invoice.
+          items: { $ref: "#/components/schemas/InvoiceReference" }
+        issued: { $ref: "#/components/schemas/IssuedInfo" }
+        deliveries:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceDelivery" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    InvoiceListItem:
+      type: object
+      required: [id, kind, state, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/InvoiceKind" }
+        state: { $ref: "#/components/schemas/InvoiceState" }
+        number: { type: string }
+        buyerName: { type: string }
+        issueDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        grossAmount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        updatedAt: { type: string, format: date-time }
+    InvoiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceListItem" }
+        nextCursor: { type: string }
+    CreditNoteRequest:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [CREDIT_NOTE, CANCELLATION, CORRECTION]
+    SendInvoiceRequest:
+      type: object
+      required: [to]
+      properties:
+        to: { type: string, minLength: 3, maxLength: 320, description: "Recipient; defaults in the UI to the customer's email." }
+        subject: { type: string, maxLength: 200, description: "Empty = \"Rechnung <number>\"." }
+        message: { type: string, maxLength: 4000 }

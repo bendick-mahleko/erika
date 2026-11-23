@@ -110,6 +110,44 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.workspaceId,
             user.userId,
         )
+        // Stage 8: creator tables.
+        val draft = java.util.UUID.randomUUID()
+        TestDatabase.update("INSERT INTO idempotency_key (workspace_id, key, operation) VALUES (?, 'rls-key', 'test')", user.workspaceId)
+        TestDatabase.update("INSERT INTO invoice_settings (workspace_id) VALUES (?) ON CONFLICT DO NOTHING", user.workspaceId)
+        TestDatabase.update("INSERT INTO party (id, workspace_id, name) VALUES (gen_random_uuid(), ?, 'Kunde')", user.workspaceId)
+        TestDatabase.update(
+            "INSERT INTO article (id, workspace_id, name, net_price) VALUES (gen_random_uuid(), ?, 'Artikel', 1)",
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            "INSERT INTO number_sequence (workspace_id, sequence_key, next_value) VALUES (?, 'RE-{N}', 1)",
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            """
+            INSERT INTO invoice (id, workspace_id, number, kind, type_code, format, document_id, sha256, file_name, media_type,
+                                 issue_date, buyer_name, currency, net, tax, gross)
+            VALUES (?, ?, 'RLS-1', 'INVOICE', '380', 'XRECHNUNG_CII', ?, repeat('a', 64), 'x.xml', 'application/xml',
+                    current_date, 'Kunde', 'EUR', 1, 0, 1)
+            """.trimIndent(),
+            draft,
+            user.workspaceId,
+            doc,
+        )
+        TestDatabase.update(
+            "INSERT INTO invoice_draft (id, workspace_id, state, data) VALUES (?, ?, 'ISSUED', '{}')",
+            draft,
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            """
+            INSERT INTO invoice_delivery (id, workspace_id, invoice_id, recipient, subject, message_id)
+            VALUES (gen_random_uuid(), ?, ?, 'a@example.test', 'Rechnung', ?)
+            """.trimIndent(),
+            user.workspaceId,
+            draft,
+            "<${java.util.UUID.randomUUID()}@test>",
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

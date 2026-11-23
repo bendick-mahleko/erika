@@ -14,8 +14,9 @@
 		-Server
 	}
 
-	# Staging is not public: everything except the health endpoint needs basic auth.
-	@protected not path /api/v1/health
+	# Staging is not public: everything except the health endpoint and provider callbacks
+	# (their own shared secret) needs basic auth.
+	@protected not path /api/v1/health /webhooks/*
 	basic_auth @protected {
 		{$STAGING_USER} {$STAGING_PASSWORD_HASH}
 	}
@@ -23,6 +24,13 @@
 	# The mail server's endpoints (ADR 0024) are internal only.
 	handle /internal/* {
 		respond 404
+	}
+
+	# Provider callbacks (api/webhooks.yaml): authenticated by their own shared secret.
+	handle /webhooks/* {
+		reverse_proxy api:8080 {
+			header_up X-Request-Id {http.request.uuid}
+		}
 	}
 
 	handle /api/* {

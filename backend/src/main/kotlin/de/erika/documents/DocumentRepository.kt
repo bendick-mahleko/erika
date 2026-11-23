@@ -129,6 +129,36 @@ internal class DocumentRepository(
             .param("via", via.name)
             .update() == 1
 
+    fun insertOutgoing(
+        id: UUID,
+        stored: StoredObject,
+        fileName: String,
+    ) {
+        jdbc
+            .sql(
+                """
+                INSERT INTO document (id, workspace_id, direction, sha256, file_name, media_type, size_bytes, received_via, status)
+                VALUES (:id, :ws, 'OUT', :sha, :fileName, :mediaType, :size, 'CREATED', 'ISSUED')
+                """.trimIndent(),
+            ).param("id", id)
+            .param("ws", stored.workspaceId)
+            .param("sha", stored.sha256)
+            .param("fileName", fileName)
+            .param("mediaType", stored.mediaType)
+            .param("size", stored.sizeBytes)
+            .update()
+    }
+
+    fun statuses(ids: Collection<UUID>): Map<UUID, String> {
+        if (ids.isEmpty()) return emptyMap()
+        return jdbc
+            .sql("SELECT id, status FROM document WHERE workspace_id = current_workspace_id() AND id IN (:ids)")
+            .param("ids", ids.toList())
+            .query { rs, _ -> rs.getObject("id", UUID::class.java) to rs.getString("status") }
+            .list()
+            .toMap()
+    }
+
     fun find(id: UUID): DocumentRow? =
         jdbc
             .sql("$SELECT_DOCUMENT WHERE d.id = :id AND d.workspace_id = current_workspace_id()")

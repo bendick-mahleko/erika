@@ -44,7 +44,7 @@ class SecurityConfiguration {
             // The mail server's internal endpoints authenticate with a shared secret, not a session.
             .csrf {
                 it.spa()
-                it.ignoringRequestMatchers("/internal/intake/**")
+                it.ignoringRequestMatchers("/internal/intake/**", "/webhooks/**")
             }.securityContext { it.securityContextRepository(contextRepository) }
             .sessionManagement { it.sessionFixation { fixation -> fixation.changeSessionId() } }
             .formLogin { it.disable() }
@@ -61,6 +61,9 @@ class SecurityConfiguration {
                     // Postfix → API (api/internal.yaml): checked against the shared secret in the controller.
                     // Not routed by the reverse proxy; reachable only on the internal network.
                     .requestMatchers(HttpMethod.POST, "/internal/intake/**")
+                    .permitAll()
+                    // Provider callbacks (api/webhooks.yaml): checked against their shared secret in the controller.
+                    .requestMatchers(HttpMethod.POST, "/webhooks/mail")
                     .permitAll()
                     // Actuator runs on the separate management port, which the reverse proxy
                     // doesn't route (container health checks, Prometheus scraping).

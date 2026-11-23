@@ -66,7 +66,8 @@ Do this once. It takes about half a day, plus DNS propagation.
       terraform -chdir=../terraform output -raw ansible_inventory > inventory/production.yml
       ansible-playbook site.yml
       ```
-   3. On the first run, set `erika_ci_runner_token` (one-time token from *Settings → Actions → Runners → New self-hosted runner*). It registers the runner on the ops server.
+   3. Outgoing mail provider (once chosen): in its dashboard, point the delivery/bounce webhook to `https://erika-app.de/webhooks/mail` with the header `X-Erika-Webhook-Secret: <erika_mail_webhook_secret from SOPS>`. Its payload is mapped to the neutral event of `api/webhooks.yaml` (ADR 0031); until that mapping exists, bounces show up only in the provider's dashboard.
+   4. On the first run, set `erika_ci_runner_token` (one-time token from *Settings → Actions → Runners → New self-hosted runner*). It registers the runner on the ops server.
 7. **GitHub.**
    1. Create the environment `production` with a required reviewer.
    2. Make sure the repository is private (ADR 0027).

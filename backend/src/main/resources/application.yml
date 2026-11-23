@@ -143,3 +143,6 @@ erika:
   feedback:
     # Team address for in-app feedback; empty = stored only.
     to: ${ERIKA_FEEDBACK_TO:}
+  creator:
+    # Shared secret of the mail provider's delivery webhook (POST /webhooks/mail); empty disables it.
+    webhook-secret: ${ERIKA_MAIL_WEBHOOK_SECRET:}

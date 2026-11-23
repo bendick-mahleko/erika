@@ -44,6 +44,8 @@ x-backend: &backend
     ERIKA_INVITE_SECRET: ${ERIKA_INVITE_SECRET:?}
     ERIKA_TERMS_VERSION: ${ERIKA_TERMS_VERSION:-beta-2026-12}
     ERIKA_FEEDBACK_TO: ${ERIKA_FEEDBACK_TO:?}
+    # Invoice creator (ADR 0031): delivery webhook of the mail provider.
+    ERIKA_MAIL_WEBHOOK_SECRET: ${ERIKA_MAIL_WEBHOOK_SECRET:-}
   logging: &logging
     driver: json-file
     options: { max-size: "20m", max-file: "5" }

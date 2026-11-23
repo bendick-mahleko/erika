@@ -216,3 +216,60 @@ export async function sendMail(
   await command("QUIT", "221");
   socket.end();
 }
+
+/** A JSON API call with the page's session and CSRF token (for setting up test data). */
+export async function apiCall(
+  page: Page,
+  method: "GET" | "POST" | "PUT",
+  path: string,
+  data?: unknown,
+  headers: Record<string, string> = {},
+) {
+  const cookie = (await page.context().cookies()).find((c) => c.name === "XSRF-TOKEN");
+  const response = await page.request.fetch(path, {
+    method,
+    data,
+    headers: { "X-XSRF-TOKEN": decodeURIComponent(cookie?.value ?? ""), ...headers },
+  });
+  expect(response.ok(), `${method} ${path}: ${response.status()} ${await response.text()}`).toBeTruthy();
+  return { body: await response.json().catch(() => null), etag: response.headers()["etag"] ?? "" };
+}
+
+/** Seller profile and invoice settings complete, so invoices can be issued (Stage 8). */
+export async function completeSeller(page: Page) {
+  const ws = await apiCall(page, "GET", "/api/v1/workspace");
+  await apiCall(
+    page,
+    "PUT",
+    "/api/v1/workspace",
+    {
+      name: ws.body.name,
+      street: "Musterstraße 1",
+      postalCode: "10115",
+      city: "Berlin",
+      countryCode: "DE",
+      vatId: "DE123456789",
+      taxNumber: "30/123/45678",
+    },
+    { "If-Match": ws.etag },
+  );
+  const settings = await apiCall(page, "GET", "/api/v1/invoice-settings");
+  await apiCall(
+    page,
+    "PUT",
+    "/api/v1/invoice-settings",
+    {
+      contactName: "Erika Test",
+      contactPhone: "+49 30 1234567",
+      contactEmail: "rechnung@malerbetrieb.example",
+      iban: "DE02120300000000202051",
+      bic: "BYLADEM1001",
+      kleinunternehmer: false,
+      numberPattern: "RE-{YYYY}-{NNNN}",
+      creditNotePattern: "GS-{YYYY}-{NNNN}",
+      defaultFormat: "ZUGFERD_EN16931",
+      paymentTermsDays: 14,
+    },
+    { "If-Match": settings.etag },
+  );
+}

@@ -23,6 +23,13 @@
 		respond 404
 	}
 
+	# Provider callbacks (api/webhooks.yaml): authenticated by their own shared secret.
+	handle /webhooks/* {
+		reverse_proxy api:8080 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+
 	handle /api/* {
 		reverse_proxy api:8080 {
 			header_up X-Request-Id {http.request.uuid}

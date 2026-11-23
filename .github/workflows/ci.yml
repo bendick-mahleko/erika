@@ -24,6 +24,7 @@ jobs:
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/openapi.yaml
       # Internal endpoints for the mail server (not generated, ADR 0024).
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/internal.yaml
+      - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/webhooks.yaml
 
   # Stage 7 (ADR 0027–0029): everything in infra/ is checked by its own tool.
   infra:

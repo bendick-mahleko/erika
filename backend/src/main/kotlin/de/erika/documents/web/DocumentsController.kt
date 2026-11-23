@@ -120,7 +120,9 @@ internal class DocumentsController(
         val principal = ErikaPrincipal.current()
         val doc = find(documentId)
         documentUpdate.status?.let {
-            service.changeStatus(principal.workspaceId, doc.id, Status.valueOf(it.value), documentUpdate.statusNote, principal.userId)
+            val status = Status.valueOf(it.value)
+            if (status != Status.valueOf(doc.status) && status !in Status.settableBy(doc.direction)) throw statusNotAllowed()
+            service.changeStatus(principal.workspaceId, doc.id, status, documentUpdate.statusNote, principal.userId)
         }
         service.updateMetadata(principal.workspaceId, doc.id, documentUpdate.tags, documentUpdate.note, principal.userId)
         return ResponseEntity.ok(load(documentId))
@@ -130,8 +132,11 @@ internal class DocumentsController(
         val principal = ErikaPrincipal.current()
         val status = Status.valueOf(bulkStatusChange.status.value)
         val changed =
-            bulkStatusChange.documentIds.distinct().count {
-                service.changeStatus(principal.workspaceId, it, status, bulkStatusChange.note, principal.userId)
+            bulkStatusChange.documentIds.distinct().count { id ->
+                // Documents whose direction doesn't allow this status are skipped (not counted).
+                val doc = documents.find(id) ?: return@count false
+                status in Status.settableBy(doc.direction) &&
+                    service.changeStatus(principal.workspaceId, id, status, bulkStatusChange.note, principal.userId)
             }
         return ResponseEntity.ok(BulkStatusResult(changed = changed))
     }
@@ -190,6 +195,13 @@ internal class DocumentsController(
     private fun find(documentId: UUID): DocumentRow = documents.find(documentId) ?: throw notFound()
 
     private fun notFound() = ErikaException("DOCUMENT_NOT_FOUND", HttpStatus.NOT_FOUND, "Document not found.")
+
+    private fun statusNotAllowed() =
+        ErikaException(
+            "STATUS_NOT_ALLOWED",
+            HttpStatus.BAD_REQUEST,
+            "This status can't be set by hand for this document (outgoing invoices: SENT, PAID, BOOKED).",
+        )
 
     private fun viewNotAvailable() =
         ErikaException("VIEW_NOT_AVAILABLE", HttpStatus.NOT_FOUND, "There is no invoice view for this document (yet).")

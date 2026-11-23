@@ -298,6 +298,21 @@ object TestDatabase {
         val forged =
             "SELECT d.id FROM document d JOIN stored_object s ON s.workspace_id = d.workspace_id AND s.sha256 = d.sha256 " +
                 "WHERE s.size_bytes = 1"
+        // Issued invoices written directly by tests (tenant-isolation fixtures) on forged documents.
+        val invoices = "SELECT id FROM invoice WHERE document_id IN ($forged)"
+        update("DELETE FROM invoice_delivery WHERE invoice_id IN ($invoices)")
+        asOwner { c ->
+            // Issued drafts are frozen by a trigger; the schema owner lifts it for this cleanup only.
+            c.createStatement().use { st ->
+                st.execute("ALTER TABLE invoice_draft DISABLE TRIGGER invoice_draft_frozen")
+                try {
+                    st.executeUpdate("DELETE FROM invoice_draft WHERE id IN ($invoices) OR original_invoice_id IN ($invoices)")
+                } finally {
+                    st.execute("ALTER TABLE invoice_draft ENABLE TRIGGER invoice_draft_frozen")
+                }
+            }
+        }
+        update("DELETE FROM invoice WHERE id IN ($invoices)")
         update("DELETE FROM validation_result WHERE document_id IN ($forged)")
         update("DELETE FROM status_event WHERE document_id IN ($forged)")
         update("DELETE FROM derived_object WHERE document_id IN ($forged)")

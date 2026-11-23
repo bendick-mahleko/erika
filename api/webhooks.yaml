@@ -1,0 +1,55 @@
+openapi: 3.1.0
+info:
+  title: ERIKA webhooks (provider callbacks)
+  version: 0.1.0
+  description: |
+    Callbacks from external providers. Not part of the public API (`openapi.yaml`): they live
+    outside `/api/v1`, need no session or CSRF token, and authenticate with a shared secret.
+    Implemented by hand in `de.erika.creator.web.MailWebhookController` (ADR 0031).
+
+    The outgoing mail provider is not chosen yet (docs/legal/README.md). This endpoint takes
+    a provider-neutral event; when the provider is chosen, its own payload is mapped here (or a
+    second endpoint is added for it) without changing how ERIKA records deliveries.
+servers:
+  - url: /
+security:
+  - webhookSecret: []
+paths:
+  /webhooks/mail:
+    post:
+      operationId: receiveMailEvent
+      summary: Delivery result of a sent invoice email (CR-07)
+      description: |
+        Matched to the delivery by `messageId` (our Message-ID or the provider's ID from the
+        SMTP answer). Unknown IDs are acknowledged with 202 and ignored, so the provider doesn't
+        retry forever. Repeated events are harmless.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailEvent" }
+            example: { messageId: "<3f2b0c1e-6a7d-4d43-9f55-0d6b8c1a2e4f@erika.local>", event: "BOUNCED", detail: "550 5.1.1 mailbox unavailable" }
+      responses:
+        "202": { description: Received. }
+        "400": { description: Malformed event. }
+        "401": { description: Missing or wrong secret. }
+components:
+  securitySchemes:
+    webhookSecret:
+      type: apiKey
+      in: header
+      name: X-Erika-Webhook-Secret
+  schemas:
+    MailEvent:
+      type: object
+      required: [messageId, event]
+      properties:
+        messageId: { type: string, minLength: 1, maxLength: 300 }
+        event:
+          type: string
+          enum: [DELIVERED, BOUNCED, FAILED, COMPLAINED]
+        detail:
+          type: string
+          maxLength: 500
+          description: The provider's reason (SMTP status text). Stored as it is; must not contain invoice content.
+        occurredAt: { type: string, format: date-time }

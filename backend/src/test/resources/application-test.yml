@@ -15,6 +15,8 @@ erika:
     secure-cookies: false
   intake:
     mail-secret: test-intake-secret
+  creator:
+    webhook-secret: test-webhook-secret
 
 logging:
   structured:

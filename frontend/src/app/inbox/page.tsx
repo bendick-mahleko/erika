@@ -45,7 +45,10 @@ export default async function InboxPage({
   const session = await fetchSession();
   if (session.state !== "AUTHENTICATED") redirect("/login");
   const filter = filterFrom(await searchParams);
-  const [documents, address] = await Promise.all([fetchDocuments(filter), fetchIntakeAddress()]);
+  const [documents, address] = await Promise.all([
+    fetchDocuments({ ...filter, direction: "IN" }),
+    fetchIntakeAddress(),
+  ]);
   const t = await getTranslations("Inbox");
 
   return (

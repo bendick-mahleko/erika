@@ -36,3 +36,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0028](0028-backups-and-restore.md) | Backups, replication and restore drills | Accepted |
 | [0029](0029-monitoring-logs-alerts.md) | Monitoring, logs, error tracking and the status page | Accepted |
 | [0030](0030-closed-beta.md) | Closed beta: invitations, terms, feedback, legal pages | Accepted |
+| [0031](0031-invoice-creator.md) | Invoice creator: drafts, issuing in the worker, numbering, sending | Accepted |

@@ -1,6 +1,6 @@
 # 0004. Spike S2-a: ZUGFeRD PDF/A-3 generation with Mustangproject
 
-- Status: Accepted
+- Status: Accepted; the generation approach is superseded by [0006](0006-invoice-writer.md) (own writer, no Mustangproject at run time)
 - Date: 2026-11-22
 
 ## Question

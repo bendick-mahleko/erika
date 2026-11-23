@@ -9,8 +9,7 @@ The e-invoice engine shared by ERIKA, the Nebenkosten app and the trades app. A 
 | Arithmetic checks and § 14 UStG mandatory-content checks with German/English texts | VW-05, VW-04 | 0.1 |
 | `InvoiceParser.invoiceXml`: the invoice XML to validate (the file, or the XML embedded in a ZUGFeRD PDF) | VW-03 | 0.2 |
 | `InvoiceView.of`: every business term with its German label (`BtLabels`), grouped for display; `ViewRenderer.pdf`: PDF view copy marked "Ansichtskopie" on every page | VW-01, VW-02 | 0.3 |
-| Write XRechnung / ZUGFeRD | CR-02 | Stage 8 |
-| Render the PDF view copy | VW-02 | Stage 6 |
+| `InvoiceWriter.write`: XRechnung CII, XRechnung UBL, ZUGFeRD EN 16931 (PDF/A-3 with embedded XML); `InvoiceCalculator` (EN 16931 amounts); `VatCase` (S 19/7 %, Z, AE, K, E with § 19 UStG note), ADR 0006 | CR-02, CR-04 | 0.4 |
 
 ## Usage
 
@@ -22,6 +21,9 @@ when {
 }
 val findings = InvoiceChecks.check(parsed.invoice!!)           // arithmetic + § 14 UStG
 findings.forEach { println("${it.severity} ${it.ruleId}: ${it.message("de")}") }
+
+// Writing (0.4): the caller fills in content and VAT categories; amounts are computed.
+val bytes = InvoiceWriter.write(invoice, OutputFormat.ZUGFERD_EN16931)
 ```
 
 Every model property carries its EN 16931 business term (`@Bt("BT-1")`), used for labels in the viewer.

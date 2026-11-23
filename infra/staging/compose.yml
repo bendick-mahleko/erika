@@ -36,6 +36,7 @@ x-backend: &backend
     ERIKA_SIGNUP_MODE: ${ERIKA_SIGNUP_MODE:-INVITE_ONLY}
     ERIKA_INVITE_SECRET: ${ERIKA_INVITE_SECRET:?}
     ERIKA_FEEDBACK_TO: ${ERIKA_FEEDBACK_TO:-}
+    ERIKA_MAIL_WEBHOOK_SECRET: ${ERIKA_MAIL_WEBHOOK_SECRET:-}
   depends_on:
     postgres: { condition: service_healthy }
 

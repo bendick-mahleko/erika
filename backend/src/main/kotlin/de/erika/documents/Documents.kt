@@ -53,8 +53,40 @@ data class DocumentValidated(
             }
 }
 
-/** AR-03: the processing status of an incoming invoice. */
-enum class DocumentStatus { NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED }
+/**
+ * Processing status. Incoming invoices (AR-03): NEW … BOOKED. Outgoing invoices (build plan,
+ * gap 4): ISSUED, SENT, DELIVERY_FAILED, PAID, CANCELLED, BOOKED.
+ */
+enum class DocumentStatus {
+    NEW,
+    CHECKED,
+    APPROVED,
+    PAID,
+    DISPUTED,
+    BOOKED,
+    ISSUED,
+    SENT,
+    DELIVERY_FAILED,
+    CANCELLED,
+    ;
+
+    companion object {
+        /** Statuses a user may set on a document of this direction (the others are set by ERIKA). */
+        fun settableBy(direction: String): Set<DocumentStatus> =
+            if (direction == "OUT") setOf(SENT, PAID, BOOKED) else setOf(NEW, CHECKED, APPROVED, PAID, DISPUTED, BOOKED)
+    }
+}
+
+/** An invoice created in ERIKA was issued and archived as an outgoing document (CR-03). */
+data class DocumentIssued(
+    override val workspaceId: UUID,
+    override val actorId: UUID?,
+    val documentId: UUID,
+    val sha256: String,
+) : AuditableEvent {
+    override val action = "document.issued"
+    override val details get() = mapOf("documentId" to documentId.toString(), "sha256" to sha256)
+}
 
 data class DocumentStatusChanged(
     override val workspaceId: UUID,
@@ -127,8 +159,37 @@ class Documents internal constructor(
     }
 
     /**
-     * Sets the status and records who did it, when, and why (AR-03), audited (AR-02).
-     * Returns false if the document doesn't exist or already has this status.
+     * Registers an invoice issued by the creator (direction OUT, status ISSUED) for its archived
+     * file, and queues reading it for the viewer and search, in the caller's transaction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun registerOutgoing(
+        stored: StoredObject,
+        fileName: String,
+        actorId: UUID?,
+    ): UUID {
+        val id = UUID.randomUUID()
+        repository.insertOutgoing(id, stored, fileName)
+        repository.insertStatusEvent(stored.workspaceId, id, null, DocumentStatus.ISSUED.name, null, actorId)
+        jobs.enqueue(
+            ParseAndValidateJobHandler.TYPE,
+            ParseAndValidateJobHandler.Payload(id),
+            workspaceId = stored.workspaceId,
+            maxAttempts = ParseAndValidateJobHandler.MAX_ATTEMPTS,
+        )
+        events.publishEvent(DocumentIssued(stored.workspaceId, actorId, id, stored.sha256))
+        return id
+    }
+
+    /** Current status of each of the given documents of the workspace (missing ones are left out). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun statuses(documentIds: Collection<UUID>): Map<UUID, DocumentStatus> =
+        repository.statuses(documentIds).mapValues { DocumentStatus.valueOf(it.value) }
+
+    /**
+     * Sets the status and records who did it (null: ERIKA itself, e.g. a bounce), when, and
+     * why (AR-03), audited (AR-02). Returns false if the document doesn't exist or already has
+     * this status.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     fun changeStatus(
@@ -136,7 +197,7 @@ class Documents internal constructor(
         documentId: UUID,
         status: DocumentStatus,
         note: String?,
-        actorId: UUID,
+        actorId: UUID?,
     ): Boolean {
         val previous = repository.updateStatus(documentId, status.name) ?: return false
         repository.insertStatusEvent(workspaceId, documentId, previous, status.name, note?.trim()?.ifEmpty { null }, actorId)

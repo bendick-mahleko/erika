@@ -59,5 +59,6 @@ Exit criteria of Stage 7. All must be ticked before the first invitation goes ou
 | Privacy notice, beta terms, data-processing agreement: placeholders filled in, reviewed | `/datenschutz`, `/nutzungsbedingungen`, `/auftragsverarbeitung`, `/impressum` | ☐ |
 | Verfahrensdokumentation, first draft | [docs/legal/verfahrensdokumentation.md](../legal/verfahrensdokumentation.md) | ☐ |
 | Status page public, uptime monitors active | https://status.erika-app.de | ☐ |
+| Invoice creator in production: create → issue → send with the team's test workspace; email and file archived together; a test bounce marks the invoice "Zustellung fehlgeschlagen" | Stage 8 exit criteria (ADR 0031); timed manual test from saved customer and article < 3 minutes (CR-05) | ☐ |
 | Invite-only sign-up active in production | `GET /api/v1/auth/signup-policy` → `inviteOnly: true` | ☐ |
 | **Closed beta starts with 20 users** | Beta list | ☐ |
