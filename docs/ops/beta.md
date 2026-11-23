@@ -60,5 +60,6 @@ Exit criteria of Stage 7. All must be ticked before the first invitation goes ou
 | Verfahrensdokumentation, first draft | [docs/legal/verfahrensdokumentation.md](../legal/verfahrensdokumentation.md) | ☐ |
 | Status page public, uptime monitors active | https://status.erika-app.de | ☐ |
 | Invoice creator in production: create → issue → send with the team's test workspace; email and file archived together; a test bounce marks the invoice "Zustellung fehlgeschlagen" | Stage 8 exit criteria (ADR 0031); timed manual test from saved customer and article < 3 minutes (CR-05) | ☐ |
+| Stage 9: an advisor invited from the test workspace reads, comments and exports; the DATEV file of a period export is imported by a tax advisor (S9-a, EX-01); a full export of the test workspace matches the archive | ADR 0032; record the advisor's feedback on accounts and tax keys | ☐ |
 | Invite-only sign-up active in production | `GET /api/v1/auth/signup-policy` → `inviteOnly: true` | ☐ |
 | **Closed beta starts with 20 users** | Beta list | ☐ |

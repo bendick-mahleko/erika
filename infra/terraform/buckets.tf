@@ -106,6 +106,26 @@ resource "aws_s3_bucket" "derived" {
   bucket   = "${var.bucket_prefix}-derived"
 }
 
+# Export ZIPs (ADR 0032): the app deletes them after 7 days; the lifecycle rule removes
+# anything left over (e.g. after a failed clean-up).
+resource "aws_s3_bucket" "exports" {
+  provider = aws.primary
+  bucket   = "${var.bucket_prefix}-exports"
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "exports" {
+  provider = aws.primary
+  bucket   = aws_s3_bucket.exports.id
+  rule {
+    id     = "expire-exports"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = 8
+    }
+  }
+}
+
 # --- backup (second location) ---------------------------------------------------------
 
 # pgBackRest repository: encrypted client-side; pgBackRest itself expires old backups, so

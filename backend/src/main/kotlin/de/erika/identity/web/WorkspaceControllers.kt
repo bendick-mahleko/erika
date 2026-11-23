@@ -4,17 +4,21 @@ import de.erika.contract.api.MembersApi
 import de.erika.contract.api.WorkspaceApi
 import de.erika.contract.model.Member
 import de.erika.contract.model.MemberList
+import de.erika.contract.model.MemberRoleChange
 import de.erika.contract.model.Workspace
+import de.erika.contract.model.WorkspaceClosureRequest
 import de.erika.contract.model.WorkspaceUpdate
 import de.erika.identity.IdentityErrors
 import de.erika.identity.MembershipRepository
 import de.erika.identity.MembershipRow
+import de.erika.identity.Team
 import de.erika.identity.WorkspaceChanges
 import de.erika.identity.WorkspaceRepository
 import de.erika.identity.WorkspaceRow
 import de.erika.identity.WorkspaceUpdated
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
+import de.erika.platform.security.WorkspaceRole
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Profile
 import org.springframework.http.ResponseEntity
@@ -31,6 +35,7 @@ import de.erika.contract.model.Role as ApiRole
 @Profile(RuntimeInstance.PROFILE_API)
 internal class WorkspaceController(
     private val workspaces: WorkspaceRepository,
+    private val team: Team,
     private val events: ApplicationEventPublisher,
 ) : WorkspaceApi {
     override fun getWorkspace(): ResponseEntity<Workspace> {
@@ -60,6 +65,14 @@ internal class WorkspaceController(
         val changed = changedFields(before, after)
         if (changed.isNotEmpty()) events.publishEvent(WorkspaceUpdated(principal.workspaceId, principal.userId, changed))
         return ResponseEntity.ok().eTag(etag(after)).body(after.toApi())
+    }
+
+    /** EX-04: the workspace becomes read-only; kept until the last retention date. */
+    @PreAuthorize("hasRole('OWNER')")
+    override fun closeWorkspace(workspaceClosureRequest: WorkspaceClosureRequest): ResponseEntity<Workspace> {
+        val principal = ErikaPrincipal.current()
+        val closed = team.close(principal.workspaceId, principal.userId, workspaceClosureRequest.confirmName)
+        return ResponseEntity.ok().eTag(etag(closed)).body(closed.toApi())
     }
 
     private fun changedFields(
@@ -95,6 +108,8 @@ internal class WorkspaceController(
             city = city,
             vatId = vatId,
             taxNumber = taxNumber,
+            closedAt = closedAt,
+            deleteAfter = deleteAfter,
         )
 }
 
@@ -102,6 +117,7 @@ internal class WorkspaceController(
 @Profile(RuntimeInstance.PROFILE_API)
 internal class MembersController(
     private val memberships: MembershipRepository,
+    private val team: Team,
 ) : MembersApi {
     override fun listMembers(): ResponseEntity<MemberList> =
         ResponseEntity.ok(
@@ -117,6 +133,23 @@ internal class MembersController(
         // Another workspace's member is indistinguishable from a missing one (NF-03: 404).
         val row = memberships.findInCurrentWorkspace(memberId) ?: throw IdentityErrors.notFound("MEMBER")
         return ResponseEntity.ok(row.toApi())
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun changeMemberRole(
+        memberId: UUID,
+        memberRoleChange: MemberRoleChange,
+    ): ResponseEntity<Member> {
+        val p = ErikaPrincipal.current()
+        val row = team.changeRole(p.workspaceId, p.userId, memberId, WorkspaceRole.valueOf(memberRoleChange.role.name))
+        return ResponseEntity.ok(row.toApi())
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun removeMember(memberId: UUID): ResponseEntity<Unit> {
+        val p = ErikaPrincipal.current()
+        team.remove(p.workspaceId, p.userId, memberId)
+        return ResponseEntity.noContent().build()
     }
 
     private fun MembershipRow.toApi() =

@@ -34,7 +34,10 @@
     "signedInAs": "Angemeldet als {name}",
     "inbox": "Eingang",
     "inboxBadge": "{count, plural, one {# neues Dokument} other {# neue Dokumente}}",
-    "invoices": "Rechnungen"
+    "invoices": "Rechnungen",
+    "exports": "Export",
+    "workspace": "Arbeitsbereich",
+    "closedBanner": "Dieses Konto ist geschlossen. Sie können Daten lesen, herunterladen und exportieren, aber nichts mehr ändern."
   },
   "Auth": {
     "email": "E-Mail-Adresse",
@@ -53,7 +56,8 @@
       "inviteOnlyTitle": "Geschlossene Beta",
       "inviteOnly": "ERIKA wird gerade mit einer kleinen Gruppe von Betrieben getestet. Ein Konto können Sie nur mit einem persönlichen Einladungslink anlegen.",
       "inviteOnlyContact": "Sie möchten mitmachen? Schreiben Sie uns an {email}.",
-      "invited": "Sie wurden eingeladen. Die Einladung gilt für diese E-Mail-Adresse."
+      "invited": "Sie wurden eingeladen. Die Einladung gilt für diese E-Mail-Adresse.",
+      "joining": "Sie treten mit diesem Konto dem Arbeitsbereich bei, zu dem Sie eingeladen wurden. Verwenden Sie die eingeladene E-Mail-Adresse."
     },
     "verify": {
       "title": "E-Mail-Adresse bestätigen",
@@ -142,7 +146,25 @@
     "RECIPIENT_INVALID": "Die E-Mail-Adresse des Empfängers ist ungültig.",
     "IDEMPOTENCY_KEY_REUSED": "Diese Anfrage wurde bereits gesendet. Bitte laden Sie die Seite neu.",
     "STATUS_NOT_ALLOWED": "Diesen Status können Sie für dieses Dokument nicht selbst setzen.",
-    "DELIVERY_NOT_FOUND": "Dieser Versand existiert nicht."
+    "DELIVERY_NOT_FOUND": "Dieser Versand existiert nicht.",
+    "ALREADY_MEMBER": "Diese Person ist schon Mitglied des Arbeitsbereichs.",
+    "INVITATION_OTHER_ACCOUNT": "Die Einladung gilt für eine andere E-Mail-Adresse.",
+    "INVITATION_NOT_OPEN": "Diese Einladung ist abgelaufen, wurde zurückgezogen oder schon verwendet.",
+    "INVITATION_NOT_FOUND": "Die Einladung wurde nicht gefunden.",
+    "LAST_OWNER": "Ein Arbeitsbereich braucht mindestens eine Inhaberin oder einen Inhaber. Machen Sie zuerst jemand anderen zur Inhaberin oder zum Inhaber.",
+    "MEMBER_NOT_FOUND": "Das Mitglied wurde nicht gefunden.",
+    "SESSION_REVOKED": "Ihr Zugang zu diesem Arbeitsbereich hat sich geändert. Bitte melden Sie sich neu an.",
+    "WORKSPACE_CLOSED": "Dieses Konto ist geschlossen. Daten können gelesen und exportiert, aber nicht geändert werden.",
+    "WORKSPACE_NOT_FOUND": "Der Arbeitsbereich wurde nicht gefunden.",
+    "WORKSPACE_NAME_REQUIRED": "Bitte geben Sie den Namen Ihres Unternehmens ein.",
+    "CONFIRMATION_MISMATCH": "Der eingegebene Name stimmt nicht mit dem Namen des Arbeitsbereichs überein.",
+    "EXPORT_NOT_FOUND": "Der Export wurde nicht gefunden.",
+    "EXPORT_NOT_READY": "Der Export wird noch erstellt.",
+    "EXPORT_EXPIRED": "Dieser Export ist abgelaufen und wurde gelöscht. Starten Sie einen neuen.",
+    "EXPORT_FAILED": "Dieser Export ist fehlgeschlagen. Starten Sie einen neuen.",
+    "EXPORT_PERIOD_INVALID": "Bitte prüfen Sie den Zeitraum (höchstens drei Jahre, „bis“ nicht vor „von“).",
+    "EXPORTS_PENDING": "Es werden noch mehrere Exporte erstellt. Bitte warten Sie, bis sie fertig sind.",
+    "COMMENT_EMPTY": "Der Kommentar ist leer."
   },
   "Inbox": {
     "title": "Eingang",
@@ -660,5 +682,150 @@
     "save": "Speichern",
     "saved": "Gespeichert.",
     "readOnly": "Nur Inhaber können die Rechnungseinstellungen ändern."
+  },
+  "Settings": {
+    "nav": "Bereiche der Einstellungen",
+    "workspace": "Unternehmen",
+    "invoices": "Rechnungen",
+    "team": "Team",
+    "datev": "DATEV"
+  },
+  "Team": {
+    "title": "Team und Steuerberatung",
+    "intro": "Laden Sie Mitarbeitende oder Ihre Steuerberatung ein. Steuerberater/innen sehen alle Dokumente, können kommentieren und exportieren, aber nichts ändern.",
+    "members": "Mitglieder",
+    "name": "Name",
+    "email": "E-Mail",
+    "role": "Rolle",
+    "roleOf": "Rolle von {name}",
+    "twoFactor": "Zwei-Faktor-Anmeldung",
+    "actions": "Aktionen",
+    "you": "(Sie)",
+    "yes": "eingerichtet",
+    "no": "fehlt",
+    "remove": "Entfernen",
+    "removeLabel": "{name} entfernen",
+    "removeConfirm": "{name} aus dem Arbeitsbereich entfernen? Das Konto bleibt bestehen.",
+    "roles": {
+      "OWNER": "Inhaber/in",
+      "MEMBER": "Mitglied",
+      "ADVISOR": "Steuerberater/in"
+    },
+    "invite": "Jemanden einladen",
+    "inviteEmail": "E-Mail-Adresse",
+    "inviteRole": "Rolle",
+    "inviteSubmit": "Einladung senden",
+    "invited": "Einladung an {email} gesendet. Der Link ist 7 Tage gültig.",
+    "roleChanged": "Rolle geändert. Die Person meldet sich mit der neuen Rolle neu an.",
+    "removed": "{name} wurde entfernt.",
+    "invitations": "Einladungen",
+    "noInvitations": "Keine Einladungen.",
+    "revoke": "Zurückziehen",
+    "revokeLabel": "Einladung an {email} zurückziehen",
+    "revoked": "Einladung zurückgezogen.",
+    "state": {
+      "OPEN": "offen",
+      "ACCEPTED": "angenommen",
+      "EXPIRED": "abgelaufen",
+      "REVOKED": "zurückgezogen"
+    },
+    "expires": "gültig bis {date}",
+    "ownerOnly": "Nur Inhaber/innen können einladen, Rollen ändern und Mitglieder entfernen."
+  },
+  "Invitation": {
+    "title": "Einladung",
+    "loading": "Einladung wird geprüft …",
+    "intro": "Sie wurden eingeladen, im ERIKA-Arbeitsbereich „{workspace}“ als {role} mitzuarbeiten.",
+    "forEmail": "Die Einladung gilt für {email}.",
+    "accept": "Einladung annehmen",
+    "signUp": "Konto anlegen und beitreten",
+    "signIn": "Anmelden",
+    "haveAccount": "Für {email} gibt es schon ein ERIKA-Konto. Melden Sie sich an und öffnen Sie diesen Link danach noch einmal.",
+    "otherAccount": "Sie sind als {current} angemeldet, die Einladung gilt aber für {email}. Melden Sie sich ab und mit dieser Adresse wieder an.",
+    "invalid": "Dieser Einladungslink ist ungültig.",
+    "state": {
+      "EXPIRED": "Diese Einladung ist abgelaufen. Bitten Sie um eine neue.",
+      "ACCEPTED": "Diese Einladung wurde bereits angenommen.",
+      "REVOKED": "Diese Einladung wurde zurückgezogen."
+    },
+    "roles": {
+      "OWNER": "Inhaber/in",
+      "MEMBER": "Mitglied",
+      "ADVISOR": "Steuerberater/in"
+    }
+  },
+  "Exports": {
+    "title": "Export",
+    "intro": "Exportieren Sie die Belege eines Zeitraums mit Übersicht und DATEV-Buchungsstapel für Ihre Steuerberatung.",
+    "period": "Zeitraum exportieren",
+    "from": "Von (Rechnungsdatum)",
+    "to": "Bis (Rechnungsdatum)",
+    "scope": "Umfang",
+    "scopes": {
+      "ALL": "Eingangs- und Ausgangsrechnungen",
+      "IN": "Nur Eingangsrechnungen",
+      "OUT": "Nur Ausgangsrechnungen"
+    },
+    "start": "Export starten",
+    "started": "Der Export wird erstellt. Sie erhalten eine E-Mail, sobald er fertig ist.",
+    "full": "Vollständiger Kontoexport",
+    "fullIntro": "Alle archivierten Originale, alle Daten und das Änderungsprotokoll in einer ZIP-Datei, z. B. bevor Sie das Konto schließen.",
+    "fullStart": "Kontoexport starten",
+    "list": "Ihre Exporte",
+    "empty": "Noch keine Exporte.",
+    "what": "Export",
+    "state": "Stand",
+    "kinds": {
+      "PERIOD": "{from} bis {to}",
+      "FULL": "Vollständiger Kontoexport"
+    },
+    "states": {
+      "QUEUED": "wird erstellt …",
+      "READY": "bereit",
+      "FAILED": "fehlgeschlagen",
+      "EXPIRED": "abgelaufen"
+    },
+    "download": "Herunterladen",
+    "downloadLabel": "Export {name} herunterladen",
+    "documents": "{count, plural, one {# Datei} other {# Dateien}}",
+    "expires": "Download bis {date}",
+    "requestedBy": "angefordert von {name}",
+    "datevMissing": "Für den DATEV-Buchungsstapel fehlen Berater- und Mandantennummer. Ohne sie enthält der Export nur Belege und Übersicht.",
+    "datevMissingLink": "DATEV-Einstellungen ergänzen",
+    "datevMissingAsk": "Bitten Sie die Inhaberin oder den Inhaber, sie in den Einstellungen einzutragen."
+  },
+  "Datev": {
+    "title": "DATEV-Einstellungen",
+    "intro": "Diese Angaben stehen im Kopf des DATEV-Buchungsstapels. Ihre Steuerberatung nennt sie Ihnen.",
+    "consultantNumber": "Beraternummer",
+    "clientNumber": "Mandantennummer",
+    "chart": "Kontenrahmen",
+    "fiscalYearStartMonth": "Beginn des Wirtschaftsjahrs (Monat 1–12)",
+    "accountLength": "Sachkontenlänge",
+    "accounts": "Konten (leer lassen für die Vorgabe)",
+    "expenseAccount": "Aufwandskonto für Eingangsrechnungen",
+    "revenueAccount": "Erlöskonto für Ausgangsrechnungen",
+    "creditorAccount": "Kreditorenkonto",
+    "debtorAccount": "Debitorenkonto",
+    "current": "Derzeit: {value}",
+    "save": "Speichern",
+    "saved": "Gespeichert.",
+    "readOnly": "Nur Inhaber/innen können diese Angaben ändern."
+  },
+  "Comments": {
+    "title": "Kommentare",
+    "empty": "Noch keine Kommentare.",
+    "label": "Neuer Kommentar",
+    "hint": "Kommentare sehen alle im Arbeitsbereich, auch Ihre Steuerberatung. Sie lassen sich nicht ändern oder löschen.",
+    "submit": "Kommentar speichern",
+    "formerMember": "ehemaliges Mitglied"
+  },
+  "Closure": {
+    "title": "Konto schließen",
+    "intro": "Nach dem Schließen ist der Arbeitsbereich schreibgeschützt: Alle können weiter lesen, herunterladen und exportieren, aber nichts mehr ändern. Rechnungen an Ihre Eingangsadresse werden abgewiesen. Die Daten bleiben bis zum Ende der gesetzlichen Aufbewahrungsfrist erhalten und werden danach gelöscht. Das lässt sich in ERIKA nicht rückgängig machen.",
+    "exportFirst": "Laden Sie vorher den vollständigen Kontoexport herunter.",
+    "confirm": "Zur Bestätigung den Namen des Arbeitsbereichs eingeben: {name}",
+    "submit": "Konto endgültig schließen",
+    "closed": "Das Konto wurde am {date} geschlossen. Die Daten werden bis {deleteAfter} aufbewahrt."
   }
 }

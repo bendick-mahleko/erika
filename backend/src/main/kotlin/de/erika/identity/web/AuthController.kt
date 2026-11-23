@@ -1,6 +1,10 @@
 package de.erika.identity.web
 
 import de.erika.contract.api.AuthApi
+import de.erika.contract.model.InvitationPreview
+import de.erika.contract.model.InvitationRole
+import de.erika.contract.model.InvitationState
+import de.erika.contract.model.InvitationTokenRequest
 import de.erika.contract.model.LoginRequest
 import de.erika.contract.model.RecoveryCodes
 import de.erika.contract.model.Session
@@ -8,23 +12,30 @@ import de.erika.contract.model.SessionState
 import de.erika.contract.model.SessionUser
 import de.erika.contract.model.SessionWorkspace
 import de.erika.contract.model.SignupRequest
+import de.erika.contract.model.SwitchWorkspaceRequest
 import de.erika.contract.model.TotpConfirmRequest
 import de.erika.contract.model.TotpEnrolment
 import de.erika.contract.model.TotpRequest
 import de.erika.contract.model.VerifyEmailRequest
+import de.erika.contract.model.WorkspaceChoice
 import de.erika.identity.AuthService
 import de.erika.identity.IdentityErrors
 import de.erika.identity.IdentityProperties
+import de.erika.identity.InvitationRepository
+import de.erika.identity.Invitations
 import de.erika.identity.LoginCompleted
 import de.erika.identity.PendingLogin
 import de.erika.identity.SignUp
 import de.erika.identity.SignupPolicy
 import de.erika.identity.UserRepository
+import de.erika.identity.WorkspaceEntered
 import de.erika.identity.WorkspaceRepository
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
 import de.erika.platform.security.RateLimiter
+import de.erika.platform.tenancy.TenantContext
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Profile
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.http.HttpStatus
@@ -32,6 +43,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
+import java.time.OffsetDateTime
 import de.erika.contract.model.Locale as ApiLocale
 import de.erika.contract.model.Role as ApiRole
 import de.erika.contract.model.SignupPolicy as ApiSignupPolicy
@@ -45,6 +57,10 @@ internal class AuthController(
     private val workspaces: WorkspaceRepository,
     private val request: HttpServletRequest,
     private val signupPolicy: SignupPolicy,
+    private val invitations: Invitations,
+    private val invitationRepository: InvitationRepository,
+    private val tenant: TenantContext,
+    private val events: ApplicationEventPublisher,
     props: IdentityProperties,
 ) : AuthApi {
     private val attempts = RateLimiter(props.loginRateLimit, props.loginRateWindow)
@@ -70,6 +86,7 @@ internal class AuthController(
                     locale = (signupRequest.locale ?: ApiLocale.DE).value,
                     termsAccepted = signupRequest.termsAccepted,
                     invitationCode = signupRequest.invitationCode,
+                    workspaceInvitation = signupRequest.workspaceInvitation,
                 ),
             )
         } catch (e: DuplicateKeyException) {
@@ -125,6 +142,50 @@ internal class AuthController(
         return ResponseEntity.ok(RecoveryCodes(codes = codes))
     }
 
+    override fun previewInvitation(invitationTokenRequest: InvitationTokenRequest): ResponseEntity<InvitationPreview> {
+        limit()
+        val invitation = invitations.preview(invitationTokenRequest.token)
+        return ResponseEntity.ok(
+            InvitationPreview(
+                workspaceName = invitation.workspaceName,
+                email = invitation.email,
+                role = InvitationRole.forValue(invitation.role.name),
+                state = InvitationState.forValue(invitation.state(OffsetDateTime.now()).name),
+                accountExists = users.findByEmail(invitation.email) != null,
+            ),
+        )
+    }
+
+    /** Runs in the tenant transaction of the current workspace; accepting moves it to the joined one. */
+    override fun acceptInvitation(invitationTokenRequest: InvitationTokenRequest): ResponseEntity<Session> {
+        limit()
+        val principal = ErikaPrincipal.currentOrNull() ?: throw IdentityErrors.loginRequired()
+        val user = users.findById(principal.userId) ?: throw IdentityErrors.loginRequired()
+        val invitation = invitations.accept(invitationTokenRequest.token, user.id, user.email)
+        enter(principal, invitation.workspaceId, invitation.role)
+        return ResponseEntity.ok(currentSession())
+    }
+
+    override fun switchWorkspace(switchWorkspaceRequest: SwitchWorkspaceRequest): ResponseEntity<Session> {
+        val principal = ErikaPrincipal.currentOrNull() ?: throw IdentityErrors.loginRequired()
+        val choice =
+            invitationRepository.workspacesOf(principal.userId).firstOrNull { it.id == switchWorkspaceRequest.workspaceId }
+                ?: throw IdentityErrors.notFound("WORKSPACE")
+        tenant.enterWorkspace(choice.id)
+        enter(principal, choice.id, choice.role)
+        return ResponseEntity.ok(currentSession())
+    }
+
+    /** Continues the signed-in session in another workspace (new session ID, that membership's role). */
+    private fun enter(
+        principal: ErikaPrincipal,
+        workspaceId: java.util.UUID,
+        role: de.erika.platform.security.WorkspaceRole,
+    ) {
+        sessions.signIn(ErikaPrincipal(principal.userId, workspaceId, role))
+        events.publishEvent(WorkspaceEntered(workspaceId, principal.userId))
+    }
+
     override fun logOut(): ResponseEntity<Unit> {
         ErikaPrincipal.currentOrNull()?.let { auth.logout(it.userId, it.workspaceId) }
         sessions.signOut()
@@ -151,8 +212,12 @@ internal class AuthController(
             return Session(
                 state = SessionState.AUTHENTICATED,
                 user = SessionUser(user.id, user.email, user.displayName, ApiLocale.forValue(user.locale)),
-                workspace = workspace?.let { SessionWorkspace(it.id, it.name) },
+                workspace = workspace?.let { SessionWorkspace(it.id, it.name, closed = it.closed) },
                 role = ApiRole.valueOf(principal.role.name),
+                workspaces =
+                    invitationRepository.workspacesOf(user.id).map {
+                        WorkspaceChoice(it.id, it.name, ApiRole.valueOf(it.role.name))
+                    },
             )
         }
         val pending = sessions.pending() ?: return Session(state = SessionState.ANONYMOUS)

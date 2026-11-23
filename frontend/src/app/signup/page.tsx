@@ -28,14 +28,20 @@ function invitedEmail(invite: string | undefined): string | undefined {
   }
 }
 
-export default async function SignupPage({ searchParams }: { searchParams: Promise<{ invite?: string | string[] }> }) {
+type Params = { invite?: string | string[]; joining?: string | string[]; email?: string | string[] };
+
+const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
+export default async function SignupPage({ searchParams }: { searchParams: Promise<Params> }) {
   const t = await getTranslations("Auth");
-  const raw = (await searchParams).invite;
-  const invite = Array.isArray(raw) ? raw[0] : raw;
+  const params = await searchParams;
+  const invite = first(params.invite);
+  // A workspace invitation (ADR 0032) also counts as the closed-beta invitation.
+  const joining = first(params.joining);
   const policy = await fetchSignupPolicy();
   const contact = process.env.ERIKA_BETA_CONTACT ?? "";
 
-  if (policy.inviteOnly && !invite) {
+  if (policy.inviteOnly && !invite && !joining) {
     return (
       <AuthCard title={t("signup.title")}>
         <div className="space-y-3" data-testid="invite-only">
@@ -55,7 +61,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
 
   return (
     <AuthCard title={t("signup.title")}>
-      <SignupForm invite={invite} invitedEmail={invitedEmail(invite)} />
+      <SignupForm
+        invite={invite}
+        joining={joining}
+        invitedEmail={joining ? first(params.email) : invitedEmail(invite)}
+      />
     </AuthCard>
   );
 }

@@ -25,7 +25,7 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - Never commit the EICAR test string; tests assemble it at run time.
 - Viewer data (view JSON, PDF view copy, attachments) is built by the worker; the API never parses or renders files (ADR 0025). Downloads go through the `download` helper (attachment disposition, nosniff, strict CSP).
 - Status changes only via `documents.Documents.changeStatus` (history + audit); the original never changes.
-- Sign-up needs accepted terms and, while `erika.signup.mode=INVITE_ONLY`, a valid invitation (ADR 0030). The only write endpoint open to ADVISOR is `POST /feedback`; don't add others.
+- Sign-up needs accepted terms and, while `erika.signup.mode=INVITE_ONLY`, a valid beta invitation or workspace invitation (ADR 0030, 0032). ADVISOR may write only `POST /feedback`, `POST /documents/{id}/comments` and `POST /exports` (`AdvisorReadOnlyIT` checks every other write operation); don't add others.
 - Infrastructure is code (ADR 0027–0029): change `infra/` and run the checks of CI job `infra`; never put secrets in plain text (SOPS: `infra/production/secrets.sops.yaml`). New alerts need a promtool test and a runbook section.
 - Legal texts are German content modules in `frontend/src/content/legal/` (not messages); keep `draft: true` until a lawyer has reviewed them.
 - Invoice creator (ADR 0031): invoices are issued only by `creator.InvoiceIssuer` in the worker (number, generate, validate, archive in one transaction); issued drafts and `invoice` rows never change; corrections only by credit note/cancellation. Outgoing statuses only via `Documents.changeStatus`.
@@ -35,4 +35,6 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - Errors: RFC 9457 problem details with a stable `code` (`ErikaException`).
 - No invoice content in logs or exception messages.
 - UI texts in `frontend/messages/{de,en}.json`; German first.
+- Membership and closure are checked on every signed-in request (`WorkspaceAccessInterceptor`); a closed workspace is read-only except exports, feedback and `/auth`. Comments are append-only.
+- Exports (ADR 0032) are built by the worker; originals only via `Archive.open`, documents via `documents.DocumentExports`; the full export collects `platform.export.AccountDataSection` beans (each module exports its own tables). Downloads are 303 redirects to pre-signed URLs; ZIPs expire after 7 days.
 - Spring Boot 4 / Jackson 3 (`tools.jackson.*`), not Jackson 2.

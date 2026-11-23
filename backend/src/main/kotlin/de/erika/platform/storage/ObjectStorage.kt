@@ -25,8 +25,10 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRetentionRequest
 import software.amazon.awssdk.services.s3.model.S3Exception
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
 import java.net.URI
+import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
@@ -55,6 +57,11 @@ data class StorageProperties(
     val uploadsBucket: String = "erika-uploads",
     /** Objects rebuilt from originals (PDF view copies, decoded attachments): no Object Lock. */
     val derivedBucket: String = "erika-derived",
+    /**
+     * Export ZIPs (EX-01, EX-04): no lock; the app deletes them after 7 days and a lifecycle
+     * rule removes anything left over.
+     */
+    val exportsBucket: String = "erika-exports",
     /**
      * Endpoint the browser uses for pre-signed upload URLs, when it differs from [endpoint]
      * (locally the API reaches S3 as `http://s3:8333`, the browser as `http://localhost:9000`).
@@ -142,6 +149,25 @@ interface ObjectStorage {
         bytes: ByteArray,
         contentType: String,
     )
+
+    /** Uploads a (possibly large) file to [bucket] without reading it into memory. Not for originals. */
+    fun putFile(
+        bucket: String,
+        key: String,
+        file: Path,
+        contentType: String,
+    )
+
+    /**
+     * A short-lived `GET` URL for one object, against the public endpoint, that makes the
+     * browser save it as [fileName] (attachment disposition).
+     */
+    fun presignDownload(
+        bucket: String,
+        key: String,
+        fileName: String,
+        validFor: Duration,
+    ): String
 
     /** Reads an object, or null if it doesn't exist. */
     fun get(
@@ -268,6 +294,49 @@ class S3ObjectStorage(
                 .build(),
             RequestBody.fromBytes(bytes),
         )
+    }
+
+    override fun putFile(
+        bucket: String,
+        key: String,
+        file: Path,
+        contentType: String,
+    ) {
+        s3.putObject(
+            PutObjectRequest
+                .builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(contentType)
+                .build(),
+            RequestBody.fromFile(file),
+        )
+    }
+
+    override fun presignDownload(
+        bucket: String,
+        key: String,
+        fileName: String,
+        validFor: Duration,
+    ): String {
+        val ascii = fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val get =
+            GetObjectRequest
+                .builder()
+                .bucket(bucket)
+                .key(key)
+                .responseContentDisposition("attachment; filename=\"$ascii\"")
+                .responseContentType("application/zip")
+                .build()
+        return presigner
+            .presignGetObject(
+                GetObjectPresignRequest
+                    .builder()
+                    .signatureDuration(validFor)
+                    .getObjectRequest(get)
+                    .build(),
+            ).url()
+            .toString()
     }
 
     override fun get(

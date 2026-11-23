@@ -34,7 +34,10 @@
     "signedInAs": "Signed in as {name}",
     "inbox": "Inbox",
     "inboxBadge": "{count, plural, one {# new document} other {# new documents}}",
-    "invoices": "Invoices"
+    "invoices": "Invoices",
+    "exports": "Export",
+    "workspace": "Workspace",
+    "closedBanner": "This account is closed. You can read, download and export data, but nothing can be changed."
   },
   "Auth": {
     "email": "Email address",
@@ -53,7 +56,8 @@
       "inviteOnlyTitle": "Closed beta",
       "inviteOnly": "ERIKA is currently being tested with a small group of businesses. You can only create an account with a personal invitation link.",
       "inviteOnlyContact": "Would you like to take part? Write to us at {email}.",
-      "invited": "You have been invited. The invitation is valid for this email address."
+      "invited": "You have been invited. The invitation is valid for this email address.",
+      "joining": "With this account you join the workspace you were invited to. Use the invited email address."
     },
     "verify": {
       "title": "Confirm email address",
@@ -142,7 +146,25 @@
     "RECIPIENT_INVALID": "The recipient's email address is invalid.",
     "IDEMPOTENCY_KEY_REUSED": "This request was already sent. Please reload the page.",
     "STATUS_NOT_ALLOWED": "You can't set this status yourself for this document.",
-    "DELIVERY_NOT_FOUND": "This delivery doesn't exist."
+    "DELIVERY_NOT_FOUND": "This delivery doesn't exist.",
+    "ALREADY_MEMBER": "This person is already a member of the workspace.",
+    "INVITATION_OTHER_ACCOUNT": "The invitation is for another email address.",
+    "INVITATION_NOT_OPEN": "This invitation has expired, was withdrawn or was already used.",
+    "INVITATION_NOT_FOUND": "The invitation was not found.",
+    "LAST_OWNER": "A workspace needs at least one owner. Make someone else owner first.",
+    "MEMBER_NOT_FOUND": "The member was not found.",
+    "SESSION_REVOKED": "Your access to this workspace has changed. Please sign in again.",
+    "WORKSPACE_CLOSED": "This account is closed. Data can be read and exported, but not changed.",
+    "WORKSPACE_NOT_FOUND": "The workspace was not found.",
+    "WORKSPACE_NAME_REQUIRED": "Please enter the name of your business.",
+    "CONFIRMATION_MISMATCH": "The name you typed doesn't match the workspace name.",
+    "EXPORT_NOT_FOUND": "The export was not found.",
+    "EXPORT_NOT_READY": "The export is still being built.",
+    "EXPORT_EXPIRED": "This export has expired and was deleted. Start a new one.",
+    "EXPORT_FAILED": "This export failed. Start a new one.",
+    "EXPORT_PERIOD_INVALID": "Please check the period (at most three years, 'to' not before 'from').",
+    "EXPORTS_PENDING": "Several exports are still being built. Please wait for them.",
+    "COMMENT_EMPTY": "The comment is empty."
   },
   "Inbox": {
     "title": "Inbox",
@@ -660,5 +682,150 @@
     "save": "Save",
     "saved": "Saved.",
     "readOnly": "Only owners can change the invoice settings."
+  },
+  "Settings": {
+    "nav": "Settings sections",
+    "workspace": "Business",
+    "invoices": "Invoices",
+    "team": "Team",
+    "datev": "DATEV"
+  },
+  "Team": {
+    "title": "Team and tax advisor",
+    "intro": "Invite colleagues or your tax advisor. Tax advisors see all documents and can comment and export, but can't change anything.",
+    "members": "Members",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "roleOf": "Role of {name}",
+    "twoFactor": "Two-factor sign-in",
+    "actions": "Actions",
+    "you": "(you)",
+    "yes": "set up",
+    "no": "missing",
+    "remove": "Remove",
+    "removeLabel": "Remove {name}",
+    "removeConfirm": "Remove {name} from the workspace? Their account stays.",
+    "roles": {
+      "OWNER": "Owner",
+      "MEMBER": "Member",
+      "ADVISOR": "Tax advisor"
+    },
+    "invite": "Invite someone",
+    "inviteEmail": "Email address",
+    "inviteRole": "Role",
+    "inviteSubmit": "Send invitation",
+    "invited": "Invitation sent to {email}. The link is valid for 7 days.",
+    "roleChanged": "Role changed. The person signs in again with the new role.",
+    "removed": "{name} was removed.",
+    "invitations": "Invitations",
+    "noInvitations": "No invitations.",
+    "revoke": "Withdraw",
+    "revokeLabel": "Withdraw the invitation to {email}",
+    "revoked": "Invitation withdrawn.",
+    "state": {
+      "OPEN": "open",
+      "ACCEPTED": "accepted",
+      "EXPIRED": "expired",
+      "REVOKED": "withdrawn"
+    },
+    "expires": "valid until {date}",
+    "ownerOnly": "Only owners can invite, change roles and remove members."
+  },
+  "Invitation": {
+    "title": "Invitation",
+    "loading": "Checking the invitation …",
+    "intro": "You were invited to work in the ERIKA workspace “{workspace}” as {role}.",
+    "forEmail": "The invitation is for {email}.",
+    "accept": "Accept invitation",
+    "signUp": "Create account and join",
+    "signIn": "Sign in",
+    "haveAccount": "There is already an ERIKA account for {email}. Sign in and open this link again.",
+    "otherAccount": "You are signed in as {current}, but the invitation is for {email}. Sign out and sign in with that address.",
+    "invalid": "This invitation link is invalid.",
+    "state": {
+      "EXPIRED": "This invitation has expired. Ask for a new one.",
+      "ACCEPTED": "This invitation was already accepted.",
+      "REVOKED": "This invitation was withdrawn."
+    },
+    "roles": {
+      "OWNER": "Owner",
+      "MEMBER": "Member",
+      "ADVISOR": "Tax advisor"
+    }
+  },
+  "Exports": {
+    "title": "Export",
+    "intro": "Export the documents of a period with an overview and a DATEV Buchungsstapel for your tax advisor.",
+    "period": "Export a period",
+    "from": "From (invoice date)",
+    "to": "To (invoice date)",
+    "scope": "Scope",
+    "scopes": {
+      "ALL": "Received and issued invoices",
+      "IN": "Received invoices only",
+      "OUT": "Issued invoices only"
+    },
+    "start": "Start export",
+    "started": "The export is being built. You'll get an email when it is ready.",
+    "full": "Full account export",
+    "fullIntro": "All archived originals, all data and the audit log in one ZIP file, e.g. before you close the account.",
+    "fullStart": "Start account export",
+    "list": "Your exports",
+    "empty": "No exports yet.",
+    "what": "Export",
+    "state": "State",
+    "kinds": {
+      "PERIOD": "{from} to {to}",
+      "FULL": "Full account export"
+    },
+    "states": {
+      "QUEUED": "being built …",
+      "READY": "ready",
+      "FAILED": "failed",
+      "EXPIRED": "expired"
+    },
+    "download": "Download",
+    "downloadLabel": "Download export {name}",
+    "documents": "{count, plural, one {# file} other {# files}}",
+    "expires": "download until {date}",
+    "requestedBy": "requested by {name}",
+    "datevMissing": "Consultant and client number are missing for the DATEV Buchungsstapel. Without them the export contains only the documents and the overview.",
+    "datevMissingLink": "Complete the DATEV settings",
+    "datevMissingAsk": "Ask an owner to enter them in the settings."
+  },
+  "Datev": {
+    "title": "DATEV settings",
+    "intro": "These values go into the header of the DATEV Buchungsstapel. Your tax advisor can tell you them.",
+    "consultantNumber": "Consultant number (Beraternummer)",
+    "clientNumber": "Client number (Mandantennummer)",
+    "chart": "Chart of accounts",
+    "fiscalYearStartMonth": "First month of the fiscal year (1–12)",
+    "accountLength": "Account length",
+    "accounts": "Accounts (leave empty for the default)",
+    "expenseAccount": "Expense account for received invoices",
+    "revenueAccount": "Revenue account for issued invoices",
+    "creditorAccount": "Creditor account",
+    "debtorAccount": "Debtor account",
+    "current": "Currently: {value}",
+    "save": "Save",
+    "saved": "Saved.",
+    "readOnly": "Only owners can change these settings."
+  },
+  "Comments": {
+    "title": "Comments",
+    "empty": "No comments yet.",
+    "label": "New comment",
+    "hint": "Everyone in the workspace sees comments, your tax advisor too. They can't be changed or deleted.",
+    "submit": "Save comment",
+    "formerMember": "former member"
+  },
+  "Closure": {
+    "title": "Close account",
+    "intro": "After closing, the workspace is read-only: everyone can still read, download and export, but nothing can be changed. Invoices sent to your intake address are refused. The data is kept until the end of the statutory retention period and deleted afterwards. This can't be undone in ERIKA.",
+    "exportFirst": "Download the full account export first.",
+    "confirm": "To confirm, type the workspace name: {name}",
+    "submit": "Close account for good",
+    "closed": "The account was closed on {date}. The data is kept until {deleteAfter}."
   }
 }

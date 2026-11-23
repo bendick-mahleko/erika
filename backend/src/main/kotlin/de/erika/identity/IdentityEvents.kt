@@ -82,3 +82,76 @@ data class WorkspaceUpdated(
     override val action = "identity.workspace.updated"
     override val details get() = mapOf("fields" to changedFields.sorted().joinToString(","))
 }
+
+/** An invitation to the workspace was sent (the address is not audited; it identifies the invitation by ID). */
+data class InvitationSent(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val invitationId: UUID,
+    val role: String,
+) : AuditableEvent {
+    override val action = "identity.invitation.sent"
+    override val details get() = mapOf("invitationId" to invitationId.toString(), "role" to role)
+}
+
+data class InvitationRevoked(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val invitationId: UUID,
+) : AuditableEvent {
+    override val action = "identity.invitation.revoked"
+    override val details get() = mapOf("invitationId" to invitationId.toString())
+}
+
+/** The invitee joined the workspace ([actorId] is the new member). */
+data class InvitationAccepted(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val invitationId: UUID,
+    val role: String,
+) : AuditableEvent {
+    override val action = "identity.invitation.accepted"
+    override val details get() = mapOf("invitationId" to invitationId.toString(), "role" to role)
+}
+
+data class MemberRoleChanged(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val memberUserId: UUID,
+    val from: String,
+    val to: String,
+) : AuditableEvent {
+    override val action = "identity.member.role_changed"
+    override val details get() = mapOf("userId" to memberUserId.toString(), "from" to from, "to" to to)
+}
+
+data class MemberRemoved(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val memberUserId: UUID,
+    val role: String,
+) : AuditableEvent {
+    override val action = "identity.member.removed"
+    override val details get() = mapOf("userId" to memberUserId.toString(), "role" to role)
+}
+
+/** The user continued in this workspace (switched from another one or after joining it). */
+data class WorkspaceEntered(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+) : AuditableEvent {
+    override val action = "identity.workspace.entered"
+}
+
+/**
+ * The owner closed the account (EX-04): the workspace is read-only and kept until
+ * [deleteAfter]. Published API: billing ends the subscription on this event (Stage 10).
+ */
+data class WorkspaceClosed(
+    override val workspaceId: UUID,
+    override val actorId: UUID,
+    val deleteAfter: java.time.LocalDate,
+) : AuditableEvent {
+    override val action = "identity.workspace.closed"
+    override val details get() = mapOf("deleteAfter" to deleteAfter.toString())
+}

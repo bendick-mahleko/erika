@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { UserMenu } from "@/components/UserMenu";
+import { fetchSession } from "@/lib/api/client";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,6 +18,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Public status page on the ops server (NF-06); read at runtime, so one image fits all environments.
   const statusUrl = process.env.ERIKA_STATUS_URL;
   const footerLink = "underline-offset-4 hover:underline";
+  const session = await fetchSession();
+  const closed = session.state === "AUTHENTICATED" && session.workspace?.closed === true;
+  const tn = await getTranslations("Nav");
 
   return (
     <html lang={locale}>
@@ -38,6 +42,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </header>
           <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+            {closed && (
+              <p
+                role="status"
+                className="mb-6 rounded border border-amber-700 bg-amber-50 px-4 py-3 text-amber-900"
+                data-testid="closed-banner"
+              >
+                {tn("closedBanner")}
+              </p>
+            )}
             {children}
           </main>
         </NextIntlClientProvider>

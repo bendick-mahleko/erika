@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.5.0
+  version: 0.6.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -45,6 +45,10 @@ tags:
     description: Customer list for the invoice creator (CR-05)
   - name: articles
     description: Articles and services for the invoice creator (CR-05)
+  - name: invitations
+    description: Inviting team members and the tax advisor (EX-02)
+  - name: exports
+    description: Period export with DATEV CSV and full account export (EX-01, EX-04)
 paths:
   /health:
     get:
@@ -116,6 +120,11 @@ paths:
         recorded and audited. While sign-up is invite-only, `invitationCode` must be a
         valid, unexpired invitation for exactly this email address (else 403
         `INVITATION_REQUIRED` or `INVITATION_INVALID`).
+
+        With `workspaceInvitation` (the token from a workspace invitation email) the user joins
+        the inviting workspace with the invited role instead of creating a workspace of their
+        own; `workspaceName` is then not needed, the email address must be the invited one, and
+        the invitation also counts as the closed-beta invitation.
       security: []
       requestBody:
         required: true
@@ -229,6 +238,72 @@ paths:
       responses:
         "204": { description: Signed out. }
         default: { $ref: "#/components/responses/Problem" }
+  /auth/invitation:
+    post:
+      tags: [auth]
+      operationId: previewInvitation
+      summary: What a workspace invitation link is for (before signing in or up)
+      description: |
+        The token is the only key, so this works without a session. 404
+        `INVITATION_INVALID` for unknown tokens; expired, used or revoked invitations are
+        returned with that `state`, so the page can explain it.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvitationTokenRequest" }
+            example: { token: "q3J1cHRvZ3JhcGhpY2FsbHktcmFuZG9tLXRva2Vu" }
+      responses:
+        "200":
+          description: The invitation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationPreview" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/invitation/accept:
+    post:
+      tags: [auth]
+      operationId: acceptInvitation
+      summary: Join the inviting workspace with the signed-in account
+      description: |
+        The signed-in user's email address must be the invited one (403
+        `INVITATION_OTHER_ACCOUNT`). Afterwards the session is switched to the joined workspace.
+        Accepting twice is harmless.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvitationTokenRequest" }
+            example: { token: "q3J1cHRvZ3JhcGhpY2FsbHktcmFuZG9tLXRva2Vu" }
+      responses:
+        "200":
+          description: The session, now in the joined workspace.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/workspace:
+    post:
+      tags: [auth]
+      operationId: switchWorkspace
+      summary: Continue in another workspace the user belongs to
+      description: |
+        E.g. a tax advisor with several clients. The session gets a new ID and the role of
+        that membership; 404 `WORKSPACE_NOT_FOUND` if the user isn't a member.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SwitchWorkspaceRequest" }
+            example: { workspaceId: "3f1c0a52-8d55-4b8e-a2c0-6d1f0b7e9a11" }
+      responses:
+        "200":
+          description: The session in the chosen workspace.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        default: { $ref: "#/components/responses/Problem" }
   /workspace:
     get:
       tags: [workspace]
@@ -265,6 +340,30 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Workspace" }
         default: { $ref: "#/components/responses/Problem" }
+  /workspace/closure:
+    post:
+      tags: [workspace]
+      operationId: closeWorkspace
+      summary: Close the account (owner only, EX-04)
+      description: |
+        The workspace becomes read-only for everyone: members can still sign in, read, download
+        and export, but nothing can be changed, and its intake address stops accepting mail.
+        The data is kept until the last retention date of its originals (`deleteAfter`) and
+        deleted afterwards. Billing ends with the closure. Recorded in the audit log; can't be
+        undone in the app. `confirmName` must repeat the workspace name exactly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceClosureRequest" }
+            example: { confirmName: "Name des Arbeitsbereichs" }
+      responses:
+        "200":
+          description: Closed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Problem" }
   /members:
     get:
       tags: [members]
@@ -293,6 +392,89 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [members]
+      operationId: changeMemberRole
+      summary: Change a member's role (owner only)
+      description: The last owner can't be demoted (409 `LAST_OWNER`). The member signs in again with the new role.
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberRoleChange" }
+            example: { role: "ADVISOR" }
+      responses:
+        "200":
+          description: The member with the new role.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [members]
+      operationId: removeMember
+      summary: Remove a member from the workspace (owner only)
+      description: |
+        The user's account stays (they may belong to other workspaces); their sessions in this
+        workspace end with their next request. The last owner can't be removed (409 `LAST_OWNER`).
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Removed. }
+        default: { $ref: "#/components/responses/Problem" }
+  /invitations:
+    get:
+      tags: [invitations]
+      operationId: listInvitations
+      summary: Open and recent invitations (owner only)
+      responses:
+        "200":
+          description: Invitations, newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [invitations]
+      operationId: createInvitation
+      summary: Invite someone by email as MEMBER or ADVISOR (owner only)
+      description: |
+        Sends an email with a link that is valid for 7 days. A new invitation to the same
+        address replaces the open one. 409 `ALREADY_MEMBER` if the address already belongs to a
+        member. Tax advisors (ADVISOR) can read, comment and export, but never change data.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvitationRequest" }
+            example: { email: "kanzlei@steuerberater.example", role: "ADVISOR" }
+      responses:
+        "201":
+          description: Invitation sent.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invitations/{invitationId}:
+    delete:
+      tags: [invitations]
+      operationId: revokeInvitation
+      summary: Withdraw an open invitation (owner only)
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "204": { description: Withdrawn (or no longer open). }
         default: { $ref: "#/components/responses/Problem" }
   /notification-settings:
     get:
@@ -509,6 +691,41 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BulkStatusResult" }
+        default: { $ref: "#/components/responses/Problem" }
+  /documents/{documentId}/comments:
+    get:
+      tags: [documents]
+      operationId: listDocumentComments
+      summary: Comments on a document, oldest first
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: The comments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [documents]
+      operationId: addDocumentComment
+      summary: Comment on a document (every role, tax advisors included)
+      description: Comments can't be edited or deleted; the original document never changes.
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentRequest" }
+            example: { body: "Bitte Leistungszeitraum ergänzen lassen." }
+      responses:
+        "201":
+          description: The new comment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
         default: { $ref: "#/components/responses/Problem" }
   /documents/{documentId}/view:
     get:
@@ -1044,6 +1261,111 @@ paths:
             message/rfc822:
               schema: { type: string, format: binary }
         default: { $ref: "#/components/responses/Problem" }
+  /exports:
+    get:
+      tags: [exports]
+      operationId: listExports
+      summary: Exports of the workspace, newest first
+      responses:
+        "200":
+          description: The exports.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [exports]
+      operationId: createExport
+      summary: Start a period export (every role) or a full account export (owner only)
+      description: |
+        Built in the background. PERIOD: a ZIP with the originals whose invoice date (or receipt
+        date, when there is none) lies in `from`…`to`, an index CSV (file name, SHA-256, invoice
+        data) and a DATEV Buchungsstapel CSV (EXTF) per fiscal year (EX-01). FULL: every archived
+        original plus all metadata and the audit log as JSON, with a SHA-256 manifest (EX-04,
+        NF-09). The requester gets an email when it is ready; the ZIP can be downloaded after
+        signing in until `expiresAt` (7 days), then it is deleted.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+            example: { kind: "PERIOD", from: "2026-10-01", to: "2026-12-31", scope: "ALL" }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Export" }
+        default: { $ref: "#/components/responses/Problem" }
+  /exports/{exportId}:
+    get:
+      tags: [exports]
+      operationId: getExport
+      summary: One export and its state
+      parameters:
+        - $ref: "#/components/parameters/ExportId"
+      responses:
+        "200":
+          description: The export.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Export" }
+        default: { $ref: "#/components/responses/Problem" }
+  /exports/{exportId}/download:
+    get:
+      tags: [exports]
+      operationId: downloadExport
+      summary: Download the ZIP (signed-in users of the workspace only)
+      description: |
+        Redirects to a short-lived (60 s) download URL of the object store. 409
+        `EXPORT_NOT_READY` while it is being built, 410 `EXPORT_EXPIRED` after `expiresAt`.
+      parameters:
+        - $ref: "#/components/parameters/ExportId"
+      responses:
+        "303":
+          description: See the download URL.
+          headers:
+            Location:
+              description: Short-lived download URL.
+              schema: { type: string }
+        default: { $ref: "#/components/responses/Problem" }
+  /datev-settings:
+    get:
+      tags: [exports]
+      operationId: getDatevSettings
+      summary: Settings for the DATEV CSV (consultant and client number, chart of accounts)
+      responses:
+        "200":
+          description: The settings (defaults until saved).
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatevSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [exports]
+      operationId: updateDatevSettings
+      summary: Change the DATEV settings (owner only)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DatevSettingsUpdate" }
+            example: { consultantNumber: 1234567, clientNumber: 10001, chart: "SKR03", fiscalYearStartMonth: 1, accountLength: 4 }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatevSettings" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     session:
@@ -1094,6 +1416,16 @@ components:
       required: true
       description: ID of the draft; it stays the same when the invoice is issued.
       schema: { type: string, format: uuid }
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ExportId:
+      name: exportId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
   responses:
     Problem:
       description: Error as RFC 9457 problem details.
@@ -1121,7 +1453,8 @@ components:
           examples: ["beta-2026-12"]
     SignupRequest:
       type: object
-      required: [email, password, displayName, workspaceName, termsAccepted]
+      description: "`workspaceName` is required unless `workspaceInvitation` is given."
+      required: [email, password, displayName, termsAccepted]
       properties:
         email: { type: string, format: email, maxLength: 254 }
         password:
@@ -1139,6 +1472,10 @@ components:
           type: string
           maxLength: 1000
           description: The `invite` parameter of the invitation link (closed beta).
+        workspaceInvitation:
+          type: string
+          maxLength: 200
+          description: Token from a workspace invitation email; the user joins that workspace.
     FeedbackCategory:
       type: string
       enum: [PROBLEM, IDEA, PRAISE, OTHER]
@@ -1208,6 +1545,16 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
+        closed:
+          type: boolean
+          description: The account was closed; the workspace is read-only (EX-04).
+    WorkspaceChoice:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
     Session:
       type: object
       required: [state]
@@ -1216,6 +1563,71 @@ components:
         user: { $ref: "#/components/schemas/SessionUser" }
         workspace: { $ref: "#/components/schemas/SessionWorkspace" }
         role: { $ref: "#/components/schemas/Role" }
+        workspaces:
+          type: array
+          description: Every workspace the signed-in user belongs to (for switching).
+          items: { $ref: "#/components/schemas/WorkspaceChoice" }
+    SwitchWorkspaceRequest:
+      type: object
+      required: [workspaceId]
+      properties:
+        workspaceId: { type: string, format: uuid }
+    InvitationTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 200 }
+    InvitationState:
+      type: string
+      enum: [OPEN, ACCEPTED, EXPIRED, REVOKED]
+    InvitationRole:
+      type: string
+      enum: [MEMBER, ADVISOR]
+    InvitationPreview:
+      type: object
+      required: [workspaceName, email, role, state, accountExists]
+      properties:
+        workspaceName: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/InvitationRole" }
+        state: { $ref: "#/components/schemas/InvitationState" }
+        accountExists:
+          type: boolean
+          description: An account with the invited address exists (sign in to accept), else sign up.
+    InvitationRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        role: { $ref: "#/components/schemas/InvitationRole" }
+    Invitation:
+      type: object
+      required: [id, email, role, state, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/InvitationRole" }
+        state: { $ref: "#/components/schemas/InvitationState" }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        invitedByName: { type: string }
+    InvitationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Invitation" }
+    MemberRoleChange:
+      type: object
+      required: [role]
+      properties:
+        role: { $ref: "#/components/schemas/Role" }
+    WorkspaceClosureRequest:
+      type: object
+      required: [confirmName]
+      properties:
+        confirmName: { type: string, minLength: 1, maxLength: 200 }
     Workspace:
       type: object
       required: [id, name, countryCode, plan, updatedAt]
@@ -1234,6 +1646,14 @@ components:
           description: Steuernummer (BT-32)
         plan: { type: string }
         updatedAt: { type: string, format: date-time }
+        closedAt:
+          type: string
+          format: date-time
+          description: When the account was closed; the workspace is read-only since then.
+        deleteAfter:
+          type: string
+          format: date
+          description: The data of a closed workspace is kept until this day (last retention date).
     WorkspaceUpdate:
       type: object
       required: [name, countryCode]
@@ -2032,3 +2452,122 @@ components:
         to: { type: string, minLength: 3, maxLength: 320, description: "Recipient; defaults in the UI to the customer's email." }
         subject: { type: string, maxLength: 200, description: "Empty = \"Rechnung <number>\"." }
         message: { type: string, maxLength: 4000 }
+    CommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000 }
+    Comment:
+      type: object
+      required: [id, body, createdAt, authorId]
+      properties:
+        id: { type: string, format: uuid }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+        authorId: { type: string, format: uuid }
+        authorName:
+          type: string
+          description: Absent when the author is no longer a member.
+    CommentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+    ExportKind:
+      type: string
+      enum: [PERIOD, FULL]
+    ExportScope:
+      type: string
+      description: Received (IN), issued (OUT) or all documents.
+      enum: [IN, OUT, ALL]
+    ExportState:
+      type: string
+      enum: [QUEUED, READY, FAILED, EXPIRED]
+    ExportRequest:
+      type: object
+      description: "`from` and `to` are required for PERIOD and ignored for FULL."
+      required: [kind]
+      properties:
+        kind: { $ref: "#/components/schemas/ExportKind" }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        scope: { $ref: "#/components/schemas/ExportScope" }
+    Export:
+      type: object
+      required: [id, kind, scope, state, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/ExportKind" }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        scope: { $ref: "#/components/schemas/ExportScope" }
+        state: { $ref: "#/components/schemas/ExportState" }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        fileName: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        sha256:
+          type: string
+          description: SHA-256 of the ZIP.
+        documentCount:
+          type: integer
+          format: int32
+          description: Number of documents (PERIOD) or archived originals (FULL) in the ZIP.
+        requestedByName: { type: string }
+    ExportList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Export" }
+    DatevChart:
+      type: string
+      enum: [SKR03, SKR04]
+    DatevSettingsUpdate:
+      type: object
+      required: [chart, fiscalYearStartMonth, accountLength]
+      properties:
+        consultantNumber:
+          type: integer
+          format: int32
+          minimum: 1001
+          maximum: 9999999
+          description: DATEV Beraternummer.
+        clientNumber:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 99999
+          description: DATEV Mandantennummer.
+        chart: { $ref: "#/components/schemas/DatevChart" }
+        fiscalYearStartMonth: { type: integer, format: int32, minimum: 1, maximum: 12 }
+        accountLength:
+          type: integer
+          format: int32
+          minimum: 4
+          maximum: 8
+          description: Length of general ledger accounts (Sachkontenlänge); personal accounts have one digit more.
+        expenseAccount: { type: string, pattern: "^[0-9]{4,9}$", description: "Expense account for received invoices; default from the chart." }
+        revenueAccount: { type: string, pattern: "^[0-9]{4,9}$", description: "Revenue account for issued invoices; default from the chart." }
+        creditorAccount: { type: string, pattern: "^[0-9]{5,9}$", description: "Creditor (supplier) account; default 70000." }
+        debtorAccount: { type: string, pattern: "^[0-9]{5,9}$", description: "Debtor (customer) account; default 10000." }
+    DatevSettings:
+      type: object
+      required: [chart, fiscalYearStartMonth, accountLength, expenseAccount, revenueAccount, creditorAccount, debtorAccount, complete]
+      properties:
+        consultantNumber: { type: integer, format: int32 }
+        clientNumber: { type: integer, format: int32 }
+        chart: { $ref: "#/components/schemas/DatevChart" }
+        fiscalYearStartMonth: { type: integer, format: int32 }
+        accountLength: { type: integer, format: int32 }
+        expenseAccount: { type: string, description: The account used (saved or default). }
+        revenueAccount: { type: string }
+        creditorAccount: { type: string }
+        debtorAccount: { type: string }
+        complete:
+          type: boolean
+          description: Consultant and client number are set; without them the DATEV file can't be imported.

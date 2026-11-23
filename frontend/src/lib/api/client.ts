@@ -186,3 +186,45 @@ export async function fetchArticles(includeArchived = false): Promise<Article[]>
   );
   return data?.items ?? [];
 }
+
+export type Member = components["schemas"]["Member"];
+export type Invitation = components["schemas"]["Invitation"];
+export type Export = components["schemas"]["Export"];
+export type DatevSettings = components["schemas"]["DatevSettings"];
+export type Comment = components["schemas"]["Comment"];
+
+export async function fetchMembers(): Promise<Member[]> {
+  const data = await authed((init) => api.GET("/members", init));
+  return data?.items ?? [];
+}
+
+/** Invitations (owners only; empty for other roles). */
+export async function fetchInvitations(): Promise<Invitation[]> {
+  const data = await authed((init) => api.GET("/invitations", init));
+  return data?.items ?? [];
+}
+
+export async function fetchExports(): Promise<Export[]> {
+  const data = await authed((init) => api.GET("/exports", init));
+  return data?.items ?? [];
+}
+
+export async function fetchDatevSettings(): Promise<{ settings: DatevSettings; etag: string } | null> {
+  try {
+    const { data, response } = await api.GET("/datev-settings", {
+      headers: await sessionHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    return data ? { settings: data, etag: response.headers.get("ETag") ?? "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchComments(documentId: string): Promise<Comment[]> {
+  const data = await authed((init) =>
+    api.GET("/documents/{documentId}/comments", { ...init, params: { path: { documentId } } }),
+  );
+  return data?.items ?? [];
+}

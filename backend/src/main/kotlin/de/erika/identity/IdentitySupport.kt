@@ -74,6 +74,16 @@ internal object IdentityErrors {
     fun weakPassword() =
         ErikaException("WEAK_PASSWORD", HttpStatus.BAD_REQUEST, "The password must not contain your email address or workspace name.")
 
+    fun invitationForOtherAddress() =
+        ErikaException(
+            "INVITATION_OTHER_ACCOUNT",
+            HttpStatus.FORBIDDEN,
+            "This invitation is for another email address. Sign in or sign up with the invited address.",
+        )
+
+    fun workspaceNameRequired() =
+        ErikaException("WORKSPACE_NAME_REQUIRED", HttpStatus.BAD_REQUEST, "Please enter the name of your business.")
+
     fun notFound(what: String) = ErikaException("${what}_NOT_FOUND", HttpStatus.NOT_FOUND, "Not found.")
 
     fun preconditionRequired() =
@@ -109,6 +119,24 @@ internal class IdentityMails(
         user: UserRow,
         device: String,
     ) = mail(user, "newdevice", user.displayName, device)
+
+    /** Invitation to a workspace; in the inviter's language (the invitee has no account yet). */
+    fun invitation(
+        to: String,
+        inviter: UserRow,
+        workspaceName: String,
+        role: de.erika.platform.security.WorkspaceRole,
+        token: String,
+    ): Mail {
+        val locale = Locale.forLanguageTag(inviter.locale)
+        val roleText = messages.getMessage("mail.role.${role.name}", null, locale)
+        val link = "${props.webBaseUrl}/invitations/accept?token=$token"
+        return Mail(
+            to = to,
+            subject = messages.getMessage("mail.invitation.subject", arrayOf(inviter.displayName), locale),
+            body = messages.getMessage("mail.invitation.body", arrayOf(inviter.displayName, workspaceName, roleText, link), locale),
+        )
+    }
 
     private fun mail(
         user: UserRow,

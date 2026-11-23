@@ -28,6 +28,7 @@ Do this once. It takes about half a day, plus DNS propagation.
    - an Object Storage key pair.
 
    Accept Hetzner's data-processing agreement in the account (see [docs/legal/README.md](../legal/README.md)).
+   Terraform also creates the `<prefix>-exports` bucket (export ZIPs, lifecycle 8 days, ADR 0032); its name goes into `ERIKA_S3_EXPORTS_BUCKET`.
 2. **Terraform state bucket.** Create `erika-prod-tfstate` in `erika-backup` (nbg1), with versioning on.
 3. **Secrets.**
    1. Create an age key pair for each administrator: `age-keygen -o ~/.config/sops/age/keys.txt`.

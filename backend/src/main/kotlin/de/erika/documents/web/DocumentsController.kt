@@ -4,6 +4,9 @@ import de.erika.archive.Archive
 import de.erika.contract.api.DocumentsApi
 import de.erika.contract.model.BulkStatusChange
 import de.erika.contract.model.BulkStatusResult
+import de.erika.contract.model.Comment
+import de.erika.contract.model.CommentList
+import de.erika.contract.model.CommentRequest
 import de.erika.contract.model.Document
 import de.erika.contract.model.DocumentFormat
 import de.erika.contract.model.DocumentList
@@ -21,6 +24,9 @@ import de.erika.contract.model.StatusEvent
 import de.erika.contract.model.ValidationLevel
 import de.erika.contract.model.ValidationMessage
 import de.erika.contract.model.ValidationResult
+import de.erika.documents.CommentRepository
+import de.erika.documents.CommentRow
+import de.erika.documents.Comments
 import de.erika.documents.DerivedObjects
 import de.erika.documents.DocumentFilter
 import de.erika.documents.DocumentRepository
@@ -32,6 +38,7 @@ import de.erika.identity.WorkspaceContacts
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
 import de.erika.platform.web.ErikaException
+import de.erika.platform.web.Idempotency
 import org.springframework.context.annotation.Profile
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.core.io.Resource
@@ -67,6 +74,9 @@ internal class DocumentsController(
     private val archive: Archive,
     private val contacts: WorkspaceContacts,
     private val json: JsonMapper,
+    private val comments: Comments,
+    private val commentRows: CommentRepository,
+    private val idempotency: Idempotency,
 ) : DocumentsApi {
     override fun listDocuments(
         limit: Int,
@@ -184,6 +194,36 @@ internal class DocumentsController(
         service.revalidate(principal.workspaceId, doc.id, principal.userId)
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(load(documentId))
     }
+
+    override fun listDocumentComments(documentId: UUID): ResponseEntity<CommentList> {
+        find(documentId)
+        val rows = commentRows.forDocument(documentId)
+        val names = contacts.displayNames(rows.map { it.authorId }.toSet())
+        return ResponseEntity.ok(CommentList(rows.map { it.toApi(names) }))
+    }
+
+    /** Every role, tax advisors included (EX-02): a comment changes no business data. */
+    override fun addDocumentComment(
+        documentId: UUID,
+        idempotencyKey: String,
+        commentRequest: CommentRequest,
+    ): ResponseEntity<Comment> {
+        val principal = ErikaPrincipal.current()
+        val doc = find(documentId)
+        if (commentRequest.body.isBlank()) {
+            throw ErikaException("COMMENT_EMPTY", HttpStatus.BAD_REQUEST, "The comment is empty.")
+        }
+        val result =
+            idempotency.once(principal.workspaceId, idempotencyKey, "addDocumentComment") {
+                comments.add(principal.workspaceId, doc.id, principal.userId, commentRequest.body)
+            }
+        val row = commentRows.find(result.resourceId) ?: throw notFound()
+        if (row.documentId != doc.id) throw notFound()
+        return ResponseEntity.status(HttpStatus.CREATED).body(row.toApi(contacts.displayNames(setOf(row.authorId))))
+    }
+
+    private fun CommentRow.toApi(names: Map<UUID, String>) =
+        Comment(id = id, body = body, createdAt = createdAt, authorId = authorId, authorName = names[authorId])
 
     override fun getInboxSummary(): ResponseEntity<InboxSummary> {
         val (newDocuments, processing) = documents.summary()

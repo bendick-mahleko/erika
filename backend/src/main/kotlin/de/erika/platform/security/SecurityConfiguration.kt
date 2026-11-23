@@ -69,12 +69,15 @@ class SecurityConfiguration {
                     // doesn't route (container health checks, Prometheus scraping).
                     .requestMatchers(HttpMethod.GET, "/actuator/health/**", "/actuator/health", "/actuator/info", "/actuator/prometheus")
                     .permitAll()
-                    // Read-only for tax advisors: every state-changing request needs OWNER or MEMBER.
-                    // Later stages add explicit exceptions (e.g. POST /exports for advisors).
+                    // Read-only for tax advisors: every state-changing request needs OWNER or MEMBER,
+                    // with exactly three exceptions that change no business data (EX-02, ADR 0032).
                     .requestMatchers(HttpMethod.GET, "/api/v1/**")
                     .authenticated()
                     // Feedback to the ERIKA team changes no workspace data: every role (ADR 0030).
                     .requestMatchers(HttpMethod.POST, "/api/v1/feedback")
+                    .authenticated()
+                    // Tax advisors comment on documents and export them (EX-01, EX-02).
+                    .requestMatchers(HttpMethod.POST, "/api/v1/documents/*/comments", "/api/v1/exports")
                     .authenticated()
                     .requestMatchers("/api/v1/**")
                     .access(AuthorityAuthorizationManager.hasAnyRole("OWNER", "MEMBER"))

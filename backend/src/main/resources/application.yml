@@ -101,6 +101,8 @@ erika:
     uploads-bucket: ${ERIKA_S3_UPLOADS_BUCKET:erika-uploads}
     # PDF view copies and decoded attachments, rebuilt from originals when needed.
     derived-bucket: ${ERIKA_S3_DERIVED_BUCKET:erika-derived}
+    # Export ZIPs (EX-01, EX-04): deleted by the app after 7 days; lifecycle expiry as a backstop.
+    exports-bucket: ${ERIKA_S3_EXPORTS_BUCKET:erika-exports}
     # Endpoint for pre-signed upload URLs as the browser sees it; empty = same as endpoint.
     public-endpoint: ${ERIKA_S3_PUBLIC_ENDPOINT:}
   jobs:

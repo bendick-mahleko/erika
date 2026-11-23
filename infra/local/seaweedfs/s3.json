@@ -13,7 +13,8 @@
         "PutObjectRetention:erika-originals", "GetObjectRetention:erika-originals",
         "Read:erika-backups", "Write:erika-backups", "List:erika-backups",
         "Read:erika-uploads", "Write:erika-uploads", "List:erika-uploads",
-        "Read:erika-derived", "Write:erika-derived", "List:erika-derived"
+        "Read:erika-derived", "Write:erika-derived", "List:erika-derived",
+        "Read:erika-exports", "Write:erika-exports", "List:erika-exports"
       ]
     }
   ]

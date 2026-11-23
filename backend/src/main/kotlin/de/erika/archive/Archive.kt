@@ -185,6 +185,25 @@ class Archive(
             .optional()
             .orElse(null)
 
+    /** The latest retention date of the workspace's originals, or null if it has none (EX-04: kept until then). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun lastRetentionDate(workspaceId: UUID): LocalDate? =
+        jdbc
+            .sql("SELECT max(retention_until) FROM stored_object WHERE workspace_id = :ws")
+            .param("ws", workspaceId)
+            .query(LocalDate::class.java)
+            .optional()
+            .orElse(null)
+
+    /** Every original of the workspace, oldest first (full account export, EX-04). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun all(workspaceId: UUID): List<StoredObject> =
+        jdbc
+            .sql("$SELECT WHERE workspace_id = :ws ORDER BY stored_at, sha256")
+            .param("ws", workspaceId)
+            .query(::map)
+            .list()
+
     /** Reads the original and verifies its SHA-256 (Software Design §7: checked on every download). */
     @Transactional(propagation = Propagation.MANDATORY)
     fun open(

@@ -99,10 +99,15 @@ class SignupPolicy(
         termsAccepted: Boolean,
         invitationCode: String?,
     ) {
-        if (!termsAccepted) throw termsNotAccepted()
+        checkTerms(termsAccepted)
         if (!inviteOnly) return
         if (invitationCode.isNullOrBlank()) throw invitationRequired()
         if (invitations?.isValidFor(invitationCode, email) != true) throw invitationInvalid()
+    }
+
+    /** Terms only: a workspace invitation replaces the closed-beta invitation (ADR 0032). */
+    fun checkTerms(termsAccepted: Boolean) {
+        if (!termsAccepted) throw termsNotAccepted()
     }
 
     private companion object {

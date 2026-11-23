@@ -201,8 +201,62 @@ class Accounts(
         prefix: String = "user",
         client: TestClient = test.client(),
         workspaceName: String = "Workspace $prefix",
+    ): TestUser = enrol(registered(prefix, workspaceName), client)
+
+    /**
+     * A new user who joins the owner's workspace through the real invitation flow (EX-02):
+     * the owner invites with [role], the invitee signs up with the token from the email,
+     * verifies and sets up 2FA. Returns the user (workspace = the owner's) and their signed-in client.
+     */
+    fun invited(
+        owner: TestClient,
+        role: String,
+        prefix: String = role.lowercase(),
+    ): Pair<TestUser, TestClient> {
+        val email = "$prefix-${UUID.randomUUID().toString().take(8)}@example.test"
+        val invite =
+            owner.post(
+                "/api/v1/invitations",
+                mapOf("email" to email, "role" to role),
+                "Idempotency-Key" to UUID.randomUUID().toString(),
+            )
+        check(invite.status == 201) { "invitation failed: $invite" }
+        val invitationToken = Mails.verificationToken(test.jdbc, email)
+        val password = "Passphrase for $prefix ${UUID.randomUUID()}"
+        val client = test.client()
+        val signup =
+            client.post(
+                "/api/v1/auth/signup",
+                mapOf(
+                    "email" to email,
+                    "password" to password,
+                    "displayName" to "Test $prefix",
+                    "termsAccepted" to true,
+                    "workspaceInvitation" to invitationToken,
+                ),
+            )
+        check(signup.status == 202) { "sign-up with invitation failed: $signup" }
+        val token = Mails.verificationToken(test.jdbc, email)
+        check(client.post("/api/v1/auth/verify-email", mapOf("token" to token)).status == 204)
+        val (userId, workspaceId) =
+            TestDatabase.asOwner {
+                it
+                    .prepareStatement("SELECT u.id, m.workspace_id FROM app_user u JOIN membership m ON m.user_id = u.id WHERE u.email = ?")
+                    .apply { setString(1, email) }
+                    .executeQuery()
+                    .run {
+                        next()
+                        getObject(1, UUID::class.java) to getObject(2, UUID::class.java)
+                    }
+            }
+        return enrol(TestUser(email, password, userId, workspaceId, null), client) to client
+    }
+
+    /** Sets up 2FA for a verified user; [client] ends up signed in. */
+    fun enrol(
+        user: TestUser,
+        client: TestClient = test.client(),
     ): TestUser {
-        val user = registered(prefix, workspaceName)
         val login = client.post("/api/v1/auth/login", mapOf("email" to user.email, "password" to user.password))
         check(login.status == 200 && login.tree.path("state").asString() == "TOTP_ENROLMENT_REQUIRED") { "login: $login" }
         val enrolment = client.post("/api/v1/auth/totp/enrolment")
@@ -313,6 +367,7 @@ object TestDatabase {
             }
         }
         update("DELETE FROM invoice WHERE id IN ($invoices)")
+        update("DELETE FROM document_comment WHERE document_id IN ($forged)")
         update("DELETE FROM validation_result WHERE document_id IN ($forged)")
         update("DELETE FROM status_event WHERE document_id IN ($forged)")
         update("DELETE FROM derived_object WHERE document_id IN ($forged)")

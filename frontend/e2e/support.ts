@@ -273,3 +273,43 @@ export async function completeSeller(page: Page) {
     { "If-Match": settings.etag },
   );
 }
+
+/** Waits for a mail to [email] whose subject contains [subject] and returns the token from its link. */
+export async function mailToken(email: string, subject: string): Promise<string> {
+  for (let i = 0; i < 60; i++) {
+    const query = encodeURIComponent(`to:${email} subject:"${subject}"`);
+    const { messages } = (await (await fetch(`${mailpit}/api/v1/search?query=${query}`)).json()) as {
+      messages: { ID: string }[];
+    };
+    if (messages.length > 0) {
+      const message = await (await fetch(`${mailpit}/api/v1/message/${messages[0]!.ID}`)).json();
+      const token = /token=([A-Za-z0-9_-]+)/.exec(message.Text as string)?.[1];
+      if (token) return token;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new Error(`No mail "${subject}" for ${email}`);
+}
+
+/**
+ * Finishes a signed-up account through the API with the page's own cookies: email link,
+ * password, 2FA enrolment. The browser ends up signed in.
+ */
+export async function verifyAndSignIn(page: Page, email: string, password: string): Promise<void> {
+  const ip = `10.98.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250) + 1}`;
+  await page.request.get("/api/v1/auth/session", { headers: { "X-Forwarded-For": ip } });
+  const post = async (path: string, data?: unknown) => {
+    const cookie = (await page.context().cookies()).find((c) => c.name === "XSRF-TOKEN");
+    const response = await page.request.post(path, {
+      data,
+      headers: { "X-XSRF-TOKEN": decodeURIComponent(cookie?.value ?? ""), "X-Forwarded-For": ip },
+    });
+    expect(response.ok(), `${path}: ${response.status()} ${await response.text()}`).toBeTruthy();
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  };
+  await post("/api/v1/auth/verify-email", { token: await mailToken(email, "bestätigen") });
+  await post("/api/v1/auth/login", { email, password });
+  const enrolment = await post("/api/v1/auth/totp/enrolment");
+  await post("/api/v1/auth/totp/enrolment/confirm", { code: totp(enrolment.secret as string) });
+}

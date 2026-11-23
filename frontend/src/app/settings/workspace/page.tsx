@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { fetchIntakeAddress, fetchNotificationSettings, fetchSession, fetchWorkspace } from "@/lib/api/client";
 import { IntakeAddress } from "@/app/inbox/IntakeAddress";
+import { SettingsNav } from "@/components/SettingsNav";
+import { CloseAccount } from "./CloseAccount";
 import { NotificationForm } from "./NotificationForm";
 import { WorkspaceForm } from "./WorkspaceForm";
 
@@ -21,6 +23,7 @@ export default async function WorkspaceSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsNav current="workspace" />
       <div>
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="mt-2 text-slate-700">{t("intro")}</p>
@@ -31,6 +34,7 @@ export default async function WorkspaceSettingsPage() {
       {notifications && (
         <NotificationForm initial={notifications.emailOnNewDocuments} canEdit={session.role !== "ADVISOR"} />
       )}
+      {session.role === "OWNER" && <CloseAccount workspace={result.workspace} />}
     </div>
   );
 }

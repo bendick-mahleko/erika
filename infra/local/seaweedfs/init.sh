@@ -4,6 +4,8 @@
 #   $BUCKET          originals: Object Lock enabled (implies versioning), ADR 0013/0022
 #   $BACKUP_BUCKET   backup copies and audit head hashes: Object Lock enabled
 #   $DERIVED_BUCKET  PDF view copies and decoded attachments: no lock, rebuilt from originals
+#   $EXPORTS_BUCKET  export ZIPs (ADR 0032): no lock, deleted by the app after 7 days,
+#                    lifecycle expiry after 8 days as a backstop
 #   $UPLOADS_BUCKET  quarantine for uploads before the virus scan: no lock, objects expire
 #                    after a day, CORS for the browser's pre-signed PUT (ADR 0023)
 set -eu
@@ -23,6 +25,20 @@ else
   aws --endpoint-url "$S3_ENDPOINT" s3api create-bucket --bucket "$DERIVED"
   echo "Bucket $DERIVED created"
 fi
+
+EXPORTS="${EXPORTS_BUCKET:-erika-exports}"
+if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$EXPORTS" 2>/dev/null; then
+  echo "Bucket $EXPORTS exists"
+else
+  aws --endpoint-url "$S3_ENDPOINT" s3api create-bucket --bucket "$EXPORTS"
+  echo "Bucket $EXPORTS created"
+fi
+cat > /tmp/exports-lifecycle.json <<EOF
+{"Rules":[{"ID":"expire-exports","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":8}}]}
+EOF
+aws --endpoint-url "$S3_ENDPOINT" s3api put-bucket-lifecycle-configuration --bucket "$EXPORTS" \
+  --lifecycle-configuration file:///tmp/exports-lifecycle.json \
+  || echo "Lifecycle rule not supported by this S3 implementation; skipped (the app deletes expired exports)"
 
 UPLOADS="${UPLOADS_BUCKET:-erika-uploads}"
 if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$UPLOADS" 2>/dev/null; then

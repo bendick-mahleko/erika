@@ -148,6 +148,27 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             draft,
             "<${java.util.UUID.randomUUID()}@test>",
         )
+        // Stage 9: invitations, comments, DATEV settings, exports.
+        TestDatabase.update(
+            """
+            INSERT INTO invitation (id, workspace_id, email, role, token_hash, invited_by, expires_at)
+            VALUES (gen_random_uuid(), ?, 'rls@example.test', 'ADVISOR', gen_random_uuid()::text::bytea, ?, now())
+            """.trimIndent(),
+            user.workspaceId,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO document_comment (id, workspace_id, document_id, author_id, body) VALUES (gen_random_uuid(), ?, ?, ?, 'x')",
+            user.workspaceId,
+            doc,
+            user.userId,
+        )
+        TestDatabase.update("INSERT INTO datev_settings (workspace_id) VALUES (?) ON CONFLICT DO NOTHING", user.workspaceId)
+        TestDatabase.update(
+            "INSERT INTO data_export (id, workspace_id, kind, requested_by) VALUES (gen_random_uuid(), ?, 'FULL', ?)",
+            user.workspaceId,
+            user.userId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

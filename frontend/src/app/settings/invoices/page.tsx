@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { fetchInvoiceSettings, fetchSession } from "@/lib/api/client";
+import { SettingsNav } from "@/components/SettingsNav";
 import { InvoiceSettingsForm } from "./InvoiceSettingsForm";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,6 +20,7 @@ export default async function InvoiceSettingsPage() {
   const t = await getTranslations("InvoiceSettings");
   return (
     <div className="space-y-6">
+      <SettingsNav current="invoices" />
       <div>
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="mt-2 max-w-3xl text-slate-700">{t("intro")}</p>

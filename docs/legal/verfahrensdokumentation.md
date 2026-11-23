@@ -47,7 +47,7 @@ Status: Neu, Geprüft, Freigegeben, Bezahlt, Beanstandet, Gebucht; dazu Schlagw�
 
 ### 2.4 Rollen
 
-Inhaber (alle Rechte, auch Rechnungseinstellungen), Mitarbeiter (Bearbeitung, Rechnungen erstellen und versenden), Steuerberater (nur lesen). Jede Anmeldung erfordert einen zweiten Faktor.
+Inhaber (alle Rechte, auch Rechnungseinstellungen, Einladungen, Rollen und Kontoschließung), Mitarbeiter (Bearbeitung, Rechnungen erstellen und versenden), Steuerberater (lesen, kommentieren und exportieren, aber nichts ändern). Mitglieder werden per E-Mail eingeladen; der Link gilt 7 Tage und nur für die eingeladene Adresse. Rollenänderungen und Entfernungen wirken sofort: Die betroffene Person muss sich neu anmelden. Jede Anmeldung erfordert einen zweiten Faktor. Einladungen, Rollenänderungen und Entfernungen stehen im Audit-Protokoll.
 
 ### 2.5 Ausgangsrechnungen
 
@@ -61,7 +61,17 @@ Inhaber (alle Rechte, auch Rechnungseinstellungen), Mitarbeiter (Bearbeitung, Re
 
 ### 2.6 Abruf und Export
 
-Das Original kann jederzeit unverändert heruntergeladen werden; die Prüfsumme (SHA-256) wird dabei geprüft und mitgeliefert. Exporte für die Steuerberatung (DATEV) und den Datenzugriff der Finanzverwaltung folgen in Stage 9.
+Das Original kann jederzeit unverändert heruntergeladen werden; die Prüfsumme (SHA-256) wird dabei geprüft und mitgeliefert.
+
+**Zeitraum-Export für die Steuerberatung:** eine ZIP-Datei mit den Originalen des Zeitraums (maßgeblich ist das Rechnungsdatum, sonst das Eingangsdatum), einer Übersicht (`index.csv` mit Dateiname, SHA-256 und Rechnungsdaten) und einem DATEV-Buchungsstapel (Format EXTF, nicht festgeschrieben) je Wirtschaftsjahr. Der Buchungsstapel ist ein Vorschlag: eine Buchung je Rechnung und Steuersatz gegen Kreditor bzw. Debitor und ein Aufwands- bzw. Erlöskonto ohne Automatikfunktion; Steuerschlüssel nur für 19 % und 7 %. Die Kanzlei prüft und kontiert vor dem Festschreiben.
+
+**Vollständiger Kontoexport** (nur Inhaber): alle archivierten Originale, alle Daten als JSON, das Audit-Protokoll mit Hash-Kette und eine Prüfsummenliste (`MANIFEST.sha256`). Er eignet sich auch für den Datenzugriff der Finanzverwaltung (Z3, Datenträgerüberlassung).
+
+Exporte werden im Hintergrund erstellt, nur nach Anmeldung heruntergeladen und nach 7 Tagen gelöscht. Anforderung und jeder Download stehen im Audit-Protokoll.
+
+### 2.7 Kündigung und Schließung des Kontos
+
+Der Inhaber kann das Konto schließen. Danach ist der Arbeitsbereich schreibgeschützt: Lesen, Herunterladen und Exportieren bleiben möglich, Änderungen nicht; E-Mails an die Eingangsadresse werden abgewiesen. Die Daten bleiben bis zum Ende der längsten Aufbewahrungsfrist der archivierten Originale erhalten und werden danach gelöscht (docs/ops/gdpr.md). Die Schließung steht im Audit-Protokoll und kann in ERIKA nicht rückgängig gemacht werden.
 
 ## 3. Technische Systemdokumentation
 

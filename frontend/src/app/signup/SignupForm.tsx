@@ -17,7 +17,16 @@ const docLink = (href: string) =>
   };
 
 /** Sign-up: terms (incl. data-processing agreement) must be accepted; invitation during the closed beta. */
-export function SignupForm({ invite, invitedEmail }: { invite?: string; invitedEmail?: string }) {
+export function SignupForm({
+  invite,
+  invitedEmail,
+  joining,
+}: {
+  invite?: string;
+  invitedEmail?: string;
+  /** Token of a workspace invitation: join that workspace instead of creating one (ADR 0032). */
+  joining?: string;
+}) {
   const t = useTranslations("Auth");
   const te = useErrorText();
   const locale = useLocale();
@@ -37,7 +46,7 @@ export function SignupForm({ invite, invitedEmail }: { invite?: string; invitedE
           email,
           password: String(form.get("password")),
           displayName: String(form.get("displayName")),
-          workspaceName: String(form.get("workspaceName")),
+          ...(joining ? { workspaceInvitation: joining } : { workspaceName: String(form.get("workspaceName")) }),
           locale: locale === "en" ? "en" : "de",
           termsAccepted: form.get("termsAccepted") === "on",
           ...(invite ? { invitationCode: invite } : {}),
@@ -64,14 +73,21 @@ export function SignupForm({ invite, invitedEmail }: { invite?: string; invitedE
   return (
     <form onSubmit={submit} className="space-y-4" noValidate={false}>
       <p className="text-slate-700">{t("signup.intro")}</p>
-      {invitedEmail && (
+      {joining && (
+        <p className="rounded border border-brand-700 bg-slate-50 px-3 py-2 text-sm" data-testid="joining">
+          {t("signup.joining")}
+        </p>
+      )}
+      {invitedEmail && !joining && (
         <p className="rounded border border-brand-700 bg-slate-50 px-3 py-2 text-sm" data-testid="invited">
           {t("signup.invited")}
         </p>
       )}
       <ErrorAlert message={error} />
       <Field id="displayName" label={t("displayName")} required maxLength={100} autoComplete="name" />
-      <Field id="workspaceName" label={t("workspaceName")} required maxLength={200} autoComplete="organization" />
+      {!joining && (
+        <Field id="workspaceName" label={t("workspaceName")} required maxLength={200} autoComplete="organization" />
+      )}
       <Field
         id="email"
         label={t("email")}

@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { fetchDocument, fetchDocumentView, fetchSession, type ViewSection } from "@/lib/api/client";
+import { fetchComments, fetchDocument, fetchDocumentView, fetchSession, type ViewSection } from "@/lib/api/client";
 import { CorrectionRequest } from "./CorrectionRequest";
 import { DocumentActions } from "./DocumentActions";
+import { DocumentComments } from "./DocumentComments";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Document");
@@ -24,7 +25,10 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
   const { documentId } = await params;
   const doc = await fetchDocument(documentId);
   if (!doc) notFound();
-  const view = doc.viewAvailable ? await fetchDocumentView(documentId) : null;
+  const [view, comments] = await Promise.all([
+    doc.viewAvailable ? fetchDocumentView(documentId) : Promise.resolve(null),
+    fetchComments(documentId),
+  ]);
   const t = await getTranslations("Document");
   const ti = await getTranslations("Inbox");
   const format = await getFormatter();
@@ -176,6 +180,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
       </section>
 
       <DocumentActions doc={doc} canChange={canChange} />
+      <DocumentComments documentId={doc.id} initial={comments} canComment={!session.workspace?.closed} />
 
       {view ? (
         <section aria-labelledby="invoice-heading" className="space-y-4">

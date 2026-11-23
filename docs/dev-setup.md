@@ -104,6 +104,15 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - Delivery webhook: `POST /webhooks/mail` with `X-Erika-Webhook-Secret: $ERIKA_MAIL_WEBHOOK_SECRET` (empty = off; tests use `test-webhook-secret`), body `{"messageId": "<…>", "event": "BOUNCED"}`.
 - invoice-core 0.4 writes the files (invoice-core ADR 0006). After changing a serialiser run invoice-core's `./gradlew check` and the back end's `./gradlew test --tests '*GeneratedInvoicesConformanceIT'` (KoSIT + veraPDF on every format and VAT case).
 
+### Team, export and account closure (Stage 9)
+
+- Invitations: the email contains `/invitations/accept?token=…` (Mailpit locally). New users sign up from there without a workspace of their own; existing users accept while signed in. Users in several workspaces switch in the header (`POST /auth/workspace`). In API tests, `accounts.invited(ownerClient, "ADVISOR")` runs the whole flow.
+- Role checks: every write endpoint is closed to ADVISOR in `SecurityConfiguration` except feedback, comments and `POST /exports`; `AdvisorReadOnlyIT` sends every write operation of the contract as ADVISOR and expects 403. A new write endpoint for advisors needs an entry with a reason there (ADR 0032).
+- Exports are built by the worker (`export.build`) into the `erika-exports` bucket (s3-init creates it; after pulling Stage 9 run `docker compose -f infra/local/compose.yml restart s3` and `up -d`). The download is a 303 to a pre-signed URL, so the browser must reach S3 (`ERIKA_S3_PUBLIC_ENDPOINT`).
+- DATEV: enter consultant and client number in `/settings/datev`; without them the ZIP has no `EXTF_Buchungsstapel` file. `DatevCsvTest` covers the format.
+- Full export: modules contribute their data as `platform.export.AccountDataSection` beans; a new module with its own tables adds one.
+- A closed workspace (`POST /workspace/closure`) is read-only (`WorkspaceAccessInterceptor`); there is no reopening in the app. Locally: `UPDATE erika.workspace ...` is refused by the trigger too; use a fresh account.
+
 ## Operations (Stage 7)
 
 - Production layout, setup and routine work: [docs/ops/production.md](ops/production.md); backups and restore drills: [backup.md](ops/backup.md), [restore.md](ops/restore.md); alerts: [monitoring.md](ops/monitoring.md); beta: [beta.md](ops/beta.md).

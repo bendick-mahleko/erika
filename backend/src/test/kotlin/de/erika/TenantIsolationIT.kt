@@ -86,6 +86,22 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 .path("id")
                 .asString()
         val (invoiceB, deliveryB) = issuedInvoiceOf(userB.workspaceId, documentB)
+        val invitationB =
+            b
+                .post(
+                    "/api/v1/invitations",
+                    mapOf("email" to "berater-von-b@example.test", "role" to "ADVISOR"),
+                    key to UUID.randomUUID().toString(),
+                ).tree
+                .path("id")
+                .asString()
+        val exportB = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO data_export (id, workspace_id, kind, requested_by) VALUES (?, ?, 'FULL', ?)",
+            exportB,
+            userB.workspaceId,
+            userB.userId,
+        )
         fixturesB =
             mapOf(
                 "memberId" to memberB.path("id").asString(),
@@ -96,9 +112,12 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 "articleId" to articleB,
                 "invoiceId" to invoiceB.toString(),
                 "deliveryId" to deliveryB.toString(),
+                "invitationId" to invitationB,
+                "exportId" to exportB.toString(),
             )
         markersB =
-            setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH") + fixturesB.values - "0"
+            setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH", "berater-von-b@example.test") +
+            fixturesB.values - "0"
     }
 
     @TestFactory

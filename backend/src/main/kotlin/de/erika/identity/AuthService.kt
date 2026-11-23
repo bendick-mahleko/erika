@@ -18,10 +18,12 @@ internal data class SignUp(
     val email: String,
     val password: String,
     val displayName: String,
-    val workspaceName: String,
+    val workspaceName: String?,
     val locale: String,
     val termsAccepted: Boolean,
     val invitationCode: String? = null,
+    /** Token of a workspace invitation: join that workspace instead of creating one. */
+    val workspaceInvitation: String? = null,
 )
 
 /** Result of the password step: who is signing in, into which workspace, and what comes next. */
@@ -60,6 +62,7 @@ internal class AuthService(
     private val events: ApplicationEventPublisher,
     private val props: IdentityProperties,
     private val signupPolicy: SignupPolicy,
+    private val invitations: Invitations,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -73,9 +76,19 @@ internal class AuthService(
      * Needs accepted terms and, during the closed beta, an invitation for this address.
      */
     fun signUp(cmd: SignUp) {
-        signupPolicy.check(cmd.email, cmd.termsAccepted, cmd.invitationCode)
+        val invitation = cmd.workspaceInvitation?.takeIf { it.isNotBlank() }?.let(invitations::preview)
+        val workspaceName: String
+        if (invitation != null) {
+            // The invitation was sent to this address, so it also counts as the beta invitation.
+            signupPolicy.checkTerms(cmd.termsAccepted)
+            if (!invitation.email.equals(cmd.email.trim(), ignoreCase = true)) throw IdentityErrors.invitationForOtherAddress()
+            workspaceName = invitation.workspaceName
+        } else {
+            signupPolicy.check(cmd.email, cmd.termsAccepted, cmd.invitationCode)
+            workspaceName = cmd.workspaceName?.trim()?.takeIf { it.isNotEmpty() } ?: throw IdentityErrors.workspaceNameRequired()
+        }
         val lowered = cmd.password.lowercase()
-        if (lowered.contains(cmd.email.trim().lowercase()) || lowered.contains(cmd.workspaceName.trim().lowercase())) {
+        if (lowered.contains(cmd.email.trim().lowercase()) || lowered.contains(workspaceName.trim().lowercase())) {
             throw IdentityErrors.weakPassword()
         }
         val hash = passwords.hash(cmd.password)
@@ -86,13 +99,19 @@ internal class AuthService(
                 return@executeWithoutResult
             }
             val userId = UUID.randomUUID()
-            val workspaceId = UUID.randomUUID()
             users.insert(userId, cmd.email, cmd.displayName, hash, cmd.locale, signupPolicy.termsVersion)
-            tenant.enterWorkspace(workspaceId)
-            workspaces.insert(workspaceId, cmd.workspaceName)
-            memberships.insert(workspaceId, userId, WorkspaceRole.OWNER)
-            events.publishEvent(WorkspaceCreated(workspaceId, userId))
-            events.publishEvent(TermsAccepted(workspaceId, userId, signupPolicy.termsVersion))
+            if (invitation != null) {
+                // Joins the inviting workspace with the invited role (scopes the transaction to it).
+                val joined = invitations.accept(checkNotNull(cmd.workspaceInvitation), userId, cmd.email)
+                events.publishEvent(TermsAccepted(joined.workspaceId, userId, signupPolicy.termsVersion))
+            } else {
+                val workspaceId = UUID.randomUUID()
+                tenant.enterWorkspace(workspaceId)
+                workspaces.insert(workspaceId, workspaceName)
+                memberships.insert(workspaceId, userId, WorkspaceRole.OWNER)
+                events.publishEvent(WorkspaceCreated(workspaceId, userId))
+                events.publishEvent(TermsAccepted(workspaceId, userId, signupPolicy.termsVersion))
+            }
 
             val token = Tokens.newToken()
             users.insertToken(Tokens.sha256(token), userId, VERIFY_EMAIL, props.verificationTokenValidity)

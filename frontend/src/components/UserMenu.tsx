@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { fetchInboxSummary, fetchSession } from "@/lib/api/client";
 import { FeedbackButton } from "./FeedbackButton";
 import { LogoutButton } from "./LogoutButton";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 /** Header navigation: sign-in links or the signed-in user with settings and sign-out. */
 export async function UserMenu() {
@@ -31,6 +32,12 @@ export async function UserMenu() {
           <Link href="/invoices" className={link}>
             {t("invoices")}
           </Link>
+          <Link href="/exports" className={link}>
+            {t("exports")}
+          </Link>
+          {session.workspace && (session.workspaces?.length ?? 0) > 1 && (
+            <WorkspaceSwitcher current={session.workspace.id} workspaces={session.workspaces ?? []} />
+          )}
           <span className="text-slate-200">{t("signedInAs", { name: session.user.displayName })}</span>
           <Link href="/settings/workspace" className={link}>
             {t("settings")}

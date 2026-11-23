@@ -261,7 +261,11 @@ internal data class WorkspaceRow(
     val plan: String,
     val version: Int,
     val updatedAt: OffsetDateTime,
-)
+    val closedAt: OffsetDateTime? = null,
+    val deleteAfter: java.time.LocalDate? = null,
+) {
+    val closed get() = closedAt != null
+}
 
 internal data class WorkspaceChanges(
     val name: String,
@@ -326,6 +330,30 @@ internal class WorkspaceRepository(
             .optional()
             .orElse(null)
 
+    /**
+     * Closes the workspace (EX-04): read-only from now on, kept until [deleteAfter]. Returns
+     * the closed row, or null if it was already closed (a trigger keeps closed rows unchanged).
+     */
+    fun close(
+        id: UUID,
+        actorId: UUID,
+        deleteAfter: java.time.LocalDate,
+    ): WorkspaceRow? =
+        jdbc
+            .sql(
+                """
+                UPDATE workspace SET closed_at = now(), closed_by = :actor, delete_after = :deleteAfter,
+                                     version = version + 1, updated_at = now()
+                 WHERE id = :id AND closed_at IS NULL
+                RETURNING $COLUMNS
+                """.trimIndent(),
+            ).param("id", id)
+            .param("actor", actorId)
+            .param("deleteAfter", deleteAfter)
+            .query(::map)
+            .optional()
+            .orElse(null)
+
     private fun map(
         rs: ResultSet,
         @Suppress("UNUSED_PARAMETER") row: Int,
@@ -341,10 +369,13 @@ internal class WorkspaceRepository(
         plan = rs.getString("plan"),
         version = rs.getInt("version"),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
+        closedAt = rs.getObject("closed_at", OffsetDateTime::class.java),
+        deleteAfter = rs.getObject("delete_after", java.time.LocalDate::class.java),
     )
 
     private companion object {
-        const val COLUMNS = "id, name, street, postal_code, city, country_code, vat_id, tax_number, plan, version, updated_at"
+        const val COLUMNS =
+            "id, name, street, postal_code, city, country_code, vat_id, tax_number, plan, version, updated_at, closed_at, delete_after"
         const val SELECT = "SELECT $COLUMNS FROM workspace"
     }
 }
@@ -399,6 +430,76 @@ internal class MembershipRepository(
             .query(::map)
             .optional()
             .orElse(null)
+
+    /** The user's role in the current workspace and whether the workspace is closed, or null if not a member. */
+    fun access(userId: UUID): Pair<WorkspaceRole, Boolean>? =
+        jdbc
+            .sql(
+                """
+                SELECT m.role, w.closed_at IS NOT NULL AS closed
+                  FROM membership m JOIN workspace w ON w.id = m.workspace_id
+                 WHERE m.user_id = :user AND m.workspace_id = current_workspace_id()
+                """.trimIndent(),
+            ).param("user", userId)
+            .query { rs, _ -> WorkspaceRole.valueOf(rs.getString("role")) to rs.getBoolean("closed") }
+            .optional()
+            .orElse(null)
+
+    /** Whether a user with this email address is a member of the current workspace. */
+    fun isMemberByEmail(email: String): Boolean =
+        jdbc
+            .sql(
+                """
+                SELECT EXISTS (SELECT 1 FROM membership m JOIN app_user u ON u.id = m.user_id
+                                WHERE m.workspace_id = current_workspace_id() AND lower(u.email) = lower(:email))
+                """.trimIndent(),
+            ).param("email", email.trim())
+            .query(Boolean::class.java)
+            .single()
+
+    /** Adds the user to the current workspace unless already a member. Returns true if added. */
+    fun insertIfAbsent(
+        workspaceId: UUID,
+        userId: UUID,
+        role: WorkspaceRole,
+    ): Boolean =
+        jdbc
+            .sql(
+                """
+                INSERT INTO membership (id, workspace_id, user_id, role) VALUES (:id, :ws, :user, :role)
+                ON CONFLICT (workspace_id, user_id) DO NOTHING
+                """.trimIndent(),
+            ).param("id", UUID.randomUUID())
+            .param("ws", workspaceId)
+            .param("user", userId)
+            .param("role", role.name)
+            .update() == 1
+
+    /**
+     * Owners of the current workspace, locked until the end of the transaction, so two
+     * concurrent changes can't both remove "the other" owner.
+     */
+    fun lockOwners(): List<UUID> =
+        jdbc
+            .sql("SELECT id FROM membership WHERE workspace_id = current_workspace_id() AND role = 'OWNER' ORDER BY id FOR UPDATE")
+            .query { rs, _ -> rs.getObject("id", UUID::class.java) }
+            .list()
+
+    fun updateRole(
+        id: UUID,
+        role: WorkspaceRole,
+    ): Boolean =
+        jdbc
+            .sql("UPDATE membership SET role = :role WHERE id = :id AND workspace_id = current_workspace_id()")
+            .param("role", role.name)
+            .param("id", id)
+            .update() == 1
+
+    fun delete(id: UUID): Boolean =
+        jdbc
+            .sql("DELETE FROM membership WHERE id = :id AND workspace_id = current_workspace_id()")
+            .param("id", id)
+            .update() == 1
 
     /** The user's "email on new documents" flag in the current workspace, or null if not a member. */
     fun notifyNewDocuments(userId: UUID): Boolean? =
