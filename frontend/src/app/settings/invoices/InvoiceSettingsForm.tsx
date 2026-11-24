@@ -55,6 +55,7 @@ export function InvoiceSettingsForm({
           creditNotePattern: text("creditNotePattern") ?? "",
           defaultFormat: (text("defaultFormat") ?? "ZUGFERD_EN16931") as InvoiceSettings["defaultFormat"],
           paymentTermsDays: Number(text("paymentTermsDays") ?? "14"),
+          accentColor: form.get("accentEnabled") === "on" ? text("accentColor")?.toUpperCase() : undefined,
         },
       });
       if (data) {
@@ -233,6 +234,32 @@ export function InvoiceSettingsForm({
               required
               defaultValue={settings.paymentTermsDays}
             />
+          </fieldset>
+          <fieldset className="space-y-2">
+            <legend className="mb-2 font-semibold">{t("layoutHeading")}</legend>
+            <div className="flex items-center gap-2">
+              <input
+                id="accentEnabled"
+                name="accentEnabled"
+                type="checkbox"
+                defaultChecked={Boolean(settings.accentColor)}
+                aria-describedby="accent-hint"
+              />
+              <label htmlFor="accentEnabled">{t("accentEnabled")}</label>
+              <label htmlFor="accentColor" className="sr-only">
+                {t("accentColor")}
+              </label>
+              <input
+                id="accentColor"
+                name="accentColor"
+                type="color"
+                defaultValue={settings.accentColor ?? "#1A5FB4"}
+                className="h-8 w-12 rounded border border-slate-400"
+              />
+            </div>
+            <p id="accent-hint" className="text-sm text-slate-600">
+              {t("accentHint")}
+            </p>
           </fieldset>
         </fieldset>
         {canEdit && <SubmitButton busy={busy}>{t("save")}</SubmitButton>}

@@ -26,7 +26,7 @@ enum class IntakeOutcome { IMPORTED, ALREADY_IN_ARCHIVE, REJECTED }
 
 enum class IntakeSource { UPLOAD, EMAIL }
 
-enum class IntakeStatus { AWAITING_FILE, RECEIVED, PROCESSING, DONE, REJECTED, FAILED }
+enum class IntakeStatus { AWAITING_FILE, RECEIVED, PROCESSING, DONE, REJECTED, FAILED, QUARANTINED, DISCARDED }
 
 /** What happened to one file of an intake. */
 data class ItemResult(

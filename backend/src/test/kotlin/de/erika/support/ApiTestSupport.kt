@@ -65,6 +65,24 @@ class Response(
     override fun toString() = "HTTP $status $body"
 }
 
+/** A multipart/form-data body with one file part (e.g. the logo upload). */
+class MultipartFile(
+    val field: String,
+    val fileName: String,
+    val contentType: String,
+    val bytes: ByteArray,
+) {
+    companion object {
+        /** A 1×1 PNG: the sample body for multipart operations in the contract-driven harnesses. */
+        val PNG_1X1: ByteArray =
+            java.util.Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+            )
+
+        fun png(field: String = "file") = MultipartFile(field, "logo.png", "image/png", PNG_1X1)
+    }
+}
+
 /** One browser: keeps cookies (session, CSRF, device) and sends the CSRF header like the front end. */
 class TestClient(
     private val baseUrl: String,
@@ -110,6 +128,15 @@ class TestClient(
         val publisher =
             if (body == null) {
                 HttpRequest.BodyPublishers.noBody()
+            } else if (body is MultipartFile) {
+                val boundary = "erika-test-" + java.util.UUID.randomUUID()
+                builder.header("Content-Type", "multipart/form-data; boundary=$boundary")
+                val head =
+                    "--$boundary\r\nContent-Disposition: form-data; name=\"${body.field}\"; filename=\"${body.fileName}\"\r\n" +
+                        "Content-Type: ${body.contentType}\r\n\r\n"
+                HttpRequest.BodyPublishers.ofByteArray(
+                    head.toByteArray() + body.bytes + "\r\n--$boundary--\r\n".toByteArray(),
+                )
             } else {
                 builder.header("Content-Type", "application/json")
                 HttpRequest.BodyPublishers.ofString(if (body is String) body else json.writeValueAsString(body))

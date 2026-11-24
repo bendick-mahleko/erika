@@ -10,6 +10,7 @@ The e-invoice engine shared by ERIKA, the Nebenkosten app and the trades app. A 
 | `InvoiceParser.invoiceXml`: the invoice XML to validate (the file, or the XML embedded in a ZUGFeRD PDF) | VW-03 | 0.2 |
 | `InvoiceView.of`: every business term with its German label (`BtLabels`), grouped for display; `ViewRenderer.pdf`: PDF view copy marked "Ansichtskopie" on every page | VW-01, VW-02 | 0.3 |
 | `InvoiceWriter.write`: XRechnung CII, XRechnung UBL, ZUGFeRD EN 16931 (PDF/A-3 with embedded XML); `InvoiceCalculator` (EN 16931 amounts); `VatCase` (S 19/7 %, Z, AE, K, E with § 19 UStG note), ADR 0006 | CR-02, CR-04 | 0.4 |
+| English view (`InvoiceView.of(invoice, ViewLanguage.EN)`, `BtLabelsEn`, English code lists); `PdfLayout` (logo, accent colour) for ZUGFeRD, ADR 0007 | VW-07, CR-08 | 0.5 |
 
 ## Usage
 

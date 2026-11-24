@@ -9,6 +9,19 @@ public object BtLabels {
     /** German label for a business term or group ID such as `BT-31`; null if unknown. */
     public fun de(id: String): String? = DE[id]
 
+    /** English label (EN 16931-1 term names, VW-07); null if unknown. */
+    public fun en(id: String): String? = BtLabelsEn.EN[id]
+
+    /** The label in [language]. */
+    public fun of(
+        id: String,
+        language: ViewLanguage,
+    ): String? =
+        when (language) {
+            ViewLanguage.DE -> de(id)
+            ViewLanguage.EN -> en(id)
+        }
+
     /** Every ID with a label. */
     public val ids: Set<String> get() = DE.keys
 

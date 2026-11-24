@@ -12,7 +12,7 @@
     "dev": "pnpm gen:api && next dev",
     "build": "pnpm gen:api && next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-messages.mjs",
     "typecheck": "pnpm gen:api && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

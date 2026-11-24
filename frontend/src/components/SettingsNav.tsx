@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 const SECTIONS = [
   ["workspace", "/settings/workspace"],
+  ["intake", "/settings/intake"],
   ["invoices", "/settings/invoices"],
   ["team", "/settings/team"],
   ["datev", "/settings/datev"],

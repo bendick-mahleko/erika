@@ -129,6 +129,12 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
   - Trivy: `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image --severity HIGH,CRITICAL --ignore-unfixed erika-frontend:local`
 - Load tests: [loadtest/README.md](../loadtest/README.md). Security self-assessment: [docs/security/asvs-l1.md](security/asvs-l1.md). Traceability and go-live: [docs/testing/traceability.md](testing/traceability.md), [docs/ops/go-live.md](ops/go-live.md).
 
+### Release 1.1 (Stage 12, ADR 0035)
+- Sender allow-list: Settings → E-Mail-Eingang. Mail from the local SMTP port comes from `rechnung@lieferant.example`; with the list on and that sender missing, it lands in the quarantine.
+- Daily jobs: due reminders (`erika.documents.due-reminder-cron`, default 07:00) and recurring invoices (`erika.creator.recurring-cron`, default 05:30), both Europe/Berlin, worker only. Tests enqueue them with a fixed day (`DueReminderJobHandler.Payload(dueDate)`, `RecurringInvoicesJobHandler.Payload(day)`) and drain the worker.
+- English: the header switch sets the `NEXT_LOCALE` cookie; the viewer asks for `?lang=en`. Documents read before 1.1 show the German view until revalidated.
+- Logo and accent colour: Settings → Rechnungen; only ZUGFeRD files change. Multipart endpoints get a small PNG in the contract-driven harnesses (`MultipartFile.png()` in `ApiTestSupport`).
+
 ## Operations (Stage 7)
 
 - Production layout, setup and routine work: [docs/ops/production.md](ops/production.md); backups and restore drills: [backup.md](ops/backup.md), [restore.md](ops/restore.md); alerts: [monitoring.md](ops/monitoring.md); beta: [beta.md](ops/beta.md).

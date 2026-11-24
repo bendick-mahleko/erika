@@ -39,6 +39,7 @@ class AdvisorReadOnlyIT : ApiIntegrationTest() {
             "POST /auth/invitation/accept" to "joins another workspace with the advisor's own account",
             "POST /auth/workspace" to "switches the advisor's own session to another of their workspaces",
             "POST /auth/password" to "changes the advisor's own password, not workspace data",
+            "POST /auth/locale" to "changes the advisor's own language, not workspace data (NF-13)",
         )
 
     private val spec: Map<String, Any?> by lazy {
@@ -123,6 +124,9 @@ class AdvisorReadOnlyIT : ApiIntegrationTest() {
                 "deliveryId" to UUID.randomUUID().toString(),
                 "invitationId" to invitation,
                 "exportId" to export.toString(),
+                "senderId" to UUID.randomUUID().toString(),
+                "intakeId" to UUID.randomUUID().toString(),
+                "recurringId" to UUID.randomUUID().toString(),
             )
     }
 
@@ -241,7 +245,15 @@ class AdvisorReadOnlyIT : ApiIntegrationTest() {
                     }
                 val security = (op["security"] ?: globalSecurity) as List<*>?
                 val body = op["requestBody"] as Map<String, Any?>?
-                val example = ((body?.get("content") as Map<String, Any?>?)?.get("application/json") as Map<String, Any?>?)?.get("example")
+                val content = body?.get("content") as Map<String, Any?>?
+                val example =
+                    (content?.get("application/json") as Map<String, Any?>?)?.get("example")
+                        ?: if (content?.containsKey("multipart/form-data") == true) {
+                            de.erika.support.MultipartFile
+                                .png()
+                        } else {
+                            null
+                        }
                 Operation(
                     method = method.uppercase(),
                     path = path,

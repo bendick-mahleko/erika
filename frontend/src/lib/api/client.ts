@@ -111,9 +111,14 @@ export async function fetchDocuments(filter: DocumentFilter = {}): Promise<Docum
   return authed((init) => api.GET("/documents", { ...init, params: { query: { ...filter, limit: 50 } } }));
 }
 
-/** The invoice view (VW-01), or null if there is none (not an e-invoice, or still being read). */
-export async function fetchDocumentView(documentId: string): Promise<InvoiceView | null> {
-  return authed((init) => api.GET("/documents/{documentId}/view", { ...init, params: { path: { documentId } } }));
+/**
+ * The invoice view (VW-01) in the app's language (VW-07; German if no English view exists yet),
+ * or null if there is none (not an e-invoice, or still being read).
+ */
+export async function fetchDocumentView(documentId: string, lang: "de" | "en" = "de"): Promise<InvoiceView | null> {
+  return authed((init) =>
+    api.GET("/documents/{documentId}/view", { ...init, params: { path: { documentId }, query: { lang } } }),
+  );
 }
 
 export async function fetchDocument(documentId: string): Promise<Document | null> {
@@ -238,5 +243,25 @@ export async function fetchBilling(): Promise<BillingStatus | null> {
 
 export async function fetchBillingInvoices(): Promise<BillingInvoice[]> {
   const data = await authed((init) => api.GET("/billing/invoices", init));
+  return data?.items ?? [];
+}
+
+export type IntakeSettings = components["schemas"]["IntakeSettings"];
+export type QuarantinedMail = components["schemas"]["QuarantinedMail"];
+export type RecurringInvoice = components["schemas"]["RecurringInvoice"];
+
+/** Sender allow-list (IN-06), or null if not signed in. */
+export async function fetchIntakeSettings(): Promise<IntakeSettings | null> {
+  return authed((init) => api.GET("/intake/settings", init));
+}
+
+export async function fetchQuarantine(): Promise<QuarantinedMail[]> {
+  const data = await authed((init) => api.GET("/intake/quarantine", init));
+  return data?.items ?? [];
+}
+
+/** Recurring invoices (CR-09). */
+export async function fetchRecurringInvoices(): Promise<RecurringInvoice[]> {
+  const data = await authed((init) => api.GET("/recurring-invoices", init));
   return data?.items ?? [];
 }

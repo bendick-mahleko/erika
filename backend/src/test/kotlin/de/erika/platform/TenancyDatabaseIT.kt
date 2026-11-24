@@ -165,6 +165,23 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.userId,
         )
         TestDatabase.update("INSERT INTO datev_settings (workspace_id) VALUES (?) ON CONFLICT DO NOTHING", user.workspaceId)
+        TestDatabase.update("INSERT INTO intake_settings (workspace_id) VALUES (?) ON CONFLICT DO NOTHING", user.workspaceId)
+        TestDatabase.update(
+            "INSERT INTO intake_sender (id, workspace_id, pattern) VALUES (gen_random_uuid(), ?, '@rls.example')",
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            "INSERT INTO due_reminder (workspace_id, document_id, due_date) VALUES (?, ?, current_date)",
+            user.workspaceId,
+            doc,
+        )
+        TestDatabase.update(
+            """
+            INSERT INTO recurring_invoice (id, workspace_id, name, source_invoice_id, content, interval, next_run)
+            VALUES (gen_random_uuid(), ?, 'RLS', gen_random_uuid(), '{}', 'MONTHLY', current_date)
+            """.trimIndent(),
+            user.workspaceId,
+        )
         TestDatabase.update(
             "INSERT INTO data_export (id, workspace_id, kind, requested_by) VALUES (gen_random_uuid(), ?, 'FULL', ?)",
             user.workspaceId,

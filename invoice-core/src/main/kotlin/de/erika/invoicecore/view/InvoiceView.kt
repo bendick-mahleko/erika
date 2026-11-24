@@ -40,8 +40,9 @@ public data class ViewAttachment(
 
 /**
  * The invoice as a reader sees it (VW-01): every business term present in the file, with a
- * German label, grouped as on a paper invoice. Values are formatted for German readers
- * (dates `02.11.2026`, amounts `1.785,00 EUR`, codes with their meaning).
+ * label, grouped as on a paper invoice. In German (default) values are formatted for German
+ * readers (dates `02.11.2026`, amounts `1.785,00 EUR`); in English (VW-07) as `2026-11-02` and
+ * `1,785.00 EUR`. Codes come with their meaning in the same language.
  */
 public data class InvoiceView(
     val title: String,
@@ -54,19 +55,34 @@ public data class InvoiceView(
     private fun ViewSection.allFields(): List<ViewField> = fields + sections.flatMap { it.allFields() }
 
     public companion object {
-        /** Builds the view of [invoice]. */
-        public fun of(invoice: Invoice): InvoiceView = Builder(invoice).build()
+        /** Builds the view of [invoice] in [language] (German by default). */
+        public fun of(
+            invoice: Invoice,
+            language: ViewLanguage = ViewLanguage.DE,
+        ): InvoiceView = Builder(invoice, language).build()
     }
 }
 
 private class Builder(
     private val invoice: Invoice,
+    private val language: ViewLanguage,
 ) {
+    private val en = language == ViewLanguage.EN
     private val currency = invoice.currency
-    private val dates = DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMANY)
+    private val dates =
+        if (en) DateTimeFormatter.ISO_LOCAL_DATE else DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMANY)
+    private val numberLocale = if (en) Locale.UK else Locale.GERMANY
+
+    /** A code list in the view's language. */
+    private fun codes(l: Map<String, String>) = CodeLists.of(l, language)
+
+    private fun word(
+        de: String,
+        en: String,
+    ) = if (this.en) en else de
 
     fun build(): InvoiceView {
-        val type = invoice.typeCode?.let { CodeLists.invoiceType[it.trim()] } ?: "Rechnung"
+        val type = invoice.typeCode?.let { codes(CodeLists.invoiceType)[it.trim()] } ?: word("Rechnung", "Invoice")
         val title = listOfNotNull(type, invoice.number).joinToString(" ")
         val sections =
             listOfNotNull(
@@ -100,7 +116,7 @@ private class Builder(
     private fun header() =
         section(
             "HEADER",
-            "Rechnung",
+            word("Rechnung", "Invoice"),
             fields {
                 text("BT-1", invoice.number)
                 date("BT-2", invoice.issueDate)
@@ -119,7 +135,7 @@ private class Builder(
     private fun references() =
         section(
             "REFERENCES",
-            "Referenzen",
+            word("Referenzen", "References"),
             fields {
                 text("BT-10", invoice.buyerReference)
                 text("BT-11", invoice.projectReference)
@@ -354,7 +370,7 @@ private class Builder(
                         text("BT-124", doc.externalLocation)
                         doc.attachment?.let { a ->
                             val details = listOfNotNull(a.mimeCode, "${number(BigDecimal(a.size), 0)} Bytes").joinToString(", ")
-                            text("BT-125", "${a.filename ?: "Anhang"} ($details)")
+                            text("BT-125", "${a.filename ?: word("Anhang", "Attachment")} ($details)")
                         }
                     },
                 )
@@ -383,7 +399,7 @@ private class Builder(
         line: InvoiceLine,
         sub: Boolean,
     ): ViewSection? {
-        val title = listOfNotNull(if (sub) "Unterposition" else label("BG-25"), line.id).joinToString(" ")
+        val title = listOfNotNull(if (sub) word("Unterposition", "Sub-line") else label("BG-25"), line.id).joinToString(" ")
         return section(
             "BG-25",
             title,
@@ -562,18 +578,18 @@ private class Builder(
 
     private fun groupTitle(id: String): String =
         when (id) {
-            "BG-1" -> "Hinweise"
-            "BG-3" -> "Vorausgegangene Rechnungen"
-            "BG-20" -> "Nachlässe"
-            "BG-21" -> "Zuschläge"
-            "BG-23" -> "Umsatzsteuer"
-            "BG-24" -> "Rechnungsbegründende Unterlagen"
-            "BG-25" -> "Positionen"
-            "BG-DEX-09" -> "Zahlungen an Dritte"
+            "BG-1" -> word("Hinweise", "Notes")
+            "BG-3" -> word("Vorausgegangene Rechnungen", "Preceding invoices")
+            "BG-20" -> word("Nachlässe", "Allowances")
+            "BG-21" -> word("Zuschläge", "Charges")
+            "BG-23" -> word("Umsatzsteuer", "VAT")
+            "BG-24" -> word("Rechnungsbegründende Unterlagen", "Supporting documents")
+            "BG-25" -> word("Positionen", "Lines")
+            "BG-DEX-09" -> word("Zahlungen an Dritte", "Third-party payments")
             else -> label(id)
         }
 
-    private fun label(id: String): String = BtLabels.de(id) ?: id
+    private fun label(id: String): String = BtLabels.of(id, language) ?: id
 
     private inner class Fields {
         val list = mutableListOf<ViewField>()
@@ -591,7 +607,7 @@ private class Builder(
             value: Identifier?,
         ) {
             if (value == null || value.value.isBlank()) return
-            val scheme = value.scheme?.takeIf { it.isNotBlank() }?.let { " (Schema $it)" } ?: ""
+            val scheme = value.scheme?.takeIf { it.isNotBlank() }?.let { " (${word("Schema", "scheme")} $it)" } ?: ""
             text(bt, value.value.trim() + scheme)
         }
 
@@ -604,7 +620,7 @@ private class Builder(
             bt: String,
             value: String?,
             list: Map<String, String>,
-        ) = text(bt, value?.trim()?.takeIf { it.isNotEmpty() }?.let { CodeLists.describe(it, list) })
+        ) = text(bt, value?.trim()?.takeIf { it.isNotEmpty() }?.let { CodeLists.describe(it, codes(list)) })
 
         fun money(
             bt: String,
@@ -625,12 +641,12 @@ private class Builder(
 
     private fun fields(block: Fields.() -> Unit): List<ViewField> = Fields().apply(block).list
 
-    /** German number with at least [minDecimals] decimals, keeping any further decimals written in the file. */
+    /** Number with at least [minDecimals] decimals, keeping any further decimals written in the file. */
     private fun number(
         value: BigDecimal,
         minDecimals: Int,
     ): String {
-        val format = DecimalFormat("#,##0", DecimalFormatSymbols(Locale.GERMANY))
+        val format = DecimalFormat("#,##0", DecimalFormatSymbols(numberLocale))
         val scale = maxOf(minDecimals, value.stripTrailingZeros().scale().coerceAtLeast(0))
         format.minimumFractionDigits = scale
         format.maximumFractionDigits = scale

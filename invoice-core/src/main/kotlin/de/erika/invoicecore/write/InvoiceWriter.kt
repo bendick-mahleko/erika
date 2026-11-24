@@ -60,12 +60,19 @@ public object InvoiceWriter {
     public fun write(
         invoice: Invoice,
         format: OutputFormat,
+    ): ByteArray = write(invoice, format, PdfLayout.DEFAULT)
+
+    /** As [write], with [layout] for the readable PDF of ZUGFeRD (logo, accent colour; CR-08). */
+    public fun write(
+        invoice: Invoice,
+        format: OutputFormat,
+        layout: PdfLayout,
     ): ByteArray {
         val prepared = prepare(invoice, format)
         return when (format) {
             OutputFormat.XRECHNUNG_CII -> CiiWriter.write(prepared)
             OutputFormat.XRECHNUNG_UBL -> UblWriter.write(prepared)
-            OutputFormat.ZUGFERD_EN16931 -> ZugferdPdf.write(prepared, CiiWriter.write(prepared))
+            OutputFormat.ZUGFERD_EN16931 -> ZugferdPdf.write(prepared, CiiWriter.write(prepared), layout)
         }
     }
 

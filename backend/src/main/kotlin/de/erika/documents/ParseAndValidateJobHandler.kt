@@ -5,6 +5,7 @@ import de.erika.archive.Archive
 import de.erika.invoicecore.model.Attachment
 import de.erika.invoicecore.model.Invoice
 import de.erika.invoicecore.view.InvoiceView
+import de.erika.invoicecore.view.ViewLanguage
 import de.erika.invoicecore.view.ViewRenderer
 import de.erika.platform.jobs.JobContext
 import de.erika.platform.jobs.JobHandler
@@ -107,6 +108,7 @@ class ParseAndValidateJobHandler internal constructor(
                 modelJson.writeValueAsString(invoice),
                 modelJson.writeValueAsString(view),
                 searchTextOf(invoice),
+                modelJson.writeValueAsString(InvoiceView.of(invoice, ViewLanguage.EN)),
             )
             derived.storeViewPdf(document.workspaceId, document.id, ViewRenderer.pdf(view), view.title)
             invoice.supportingDocuments.forEachIndexed { i, doc ->

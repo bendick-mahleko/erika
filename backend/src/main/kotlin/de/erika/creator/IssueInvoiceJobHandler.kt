@@ -5,6 +5,7 @@ import de.erika.documents.DocumentStatus
 import de.erika.documents.Documents
 import de.erika.identity.WorkspaceProfiles
 import de.erika.invoicecore.write.InvoiceWriter
+import de.erika.invoicecore.write.PdfLayout
 import de.erika.platform.jobs.JobContext
 import de.erika.platform.jobs.JobHandler
 import de.erika.validation.InvoiceValidator
@@ -155,7 +156,9 @@ class InvoiceIssuer internal constructor(
                 issueDate,
                 original?.let { OriginalReference(it.number, it.issueDate) },
             )
-        val bytes = InvoiceWriter.write(model, format)
+        // CR-08: the workspace's logo and accent colour on the readable PDF (ZUGFeRD only).
+        val layout = PdfLayout(settingsRepo.logo(ws)?.first, settings.accentColor)
+        val bytes = InvoiceWriter.write(model, format, layout)
         val report = validator.getObject().validate(bytes, today)
         if (report.level == ValidationLevel.ERROR) throw IssueRejectedException(report.errors)
 

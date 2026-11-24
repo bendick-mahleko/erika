@@ -6,6 +6,7 @@ import { fetchArticles, fetchCustomers, fetchInvoice, fetchInvoiceSettings, fetc
 import { InvoiceEditor } from "./InvoiceEditor";
 import { IssuedInvoice } from "./IssuedInvoice";
 import { IssuingWatcher } from "./IssuingWatcher";
+import { MakeRecurring } from "./MakeRecurring";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Creator");
@@ -51,6 +52,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ invoic
         </div>
       )}
       {invoice.state === "ISSUED" && <IssuedInvoice invoice={invoice} canEdit={canEdit} />}
+      {canEdit && invoice.kind === "INVOICE" && invoice.state !== "ISSUING" && (
+        <MakeRecurring invoiceId={invoice.id} defaultName={invoice.content.buyer?.name ?? ""} />
+      )}
     </div>
   );
 }

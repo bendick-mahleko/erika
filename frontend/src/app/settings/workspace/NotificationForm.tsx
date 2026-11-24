@@ -6,30 +6,34 @@ import { browserApi, problemCode } from "@/lib/api/browser";
 import { useErrorText } from "@/lib/useErrorText";
 import { ErrorAlert } from "@/components/forms";
 
-/** "Email me when new documents arrive" (Stage 5 notifications); saved as soon as it changes. */
-export function NotificationForm({ initial, canEdit }: { initial: boolean; canEdit: boolean }) {
+type Settings = { emailOnNewDocuments: boolean; emailOnDueDates: boolean };
+
+/** Email notifications: new documents (Stage 5) and due dates (AR-05); saved as soon as they change. */
+export function NotificationForm({ initial, canEdit }: { initial: Settings; canEdit: boolean }) {
   const t = useTranslations("Notifications");
   const te = useErrorText();
-  const [checked, setChecked] = useState(initial);
+  const [settings, setSettings] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  async function change(value: boolean) {
+  async function change(next: Settings) {
+    const before = settings;
+    setSettings(next); // shown at once; put back if saving fails
     setBusy(true);
     setError(null);
     setSaved(false);
     try {
-      const { data, error: problem } = await browserApi.PUT("/notification-settings", {
-        body: { emailOnNewDocuments: value },
-      });
+      const { data, error: problem } = await browserApi.PUT("/notification-settings", { body: next });
       if (data) {
-        setChecked(data.emailOnNewDocuments);
+        setSettings({ emailOnNewDocuments: data.emailOnNewDocuments, emailOnDueDates: data.emailOnDueDates ?? true });
         setSaved(true);
       } else {
+        setSettings(before);
         setError(te(problemCode(problem)));
       }
     } catch {
+      setSettings(before);
       setError(te("generic"));
     } finally {
       setBusy(false);
@@ -42,16 +46,19 @@ export function NotificationForm({ initial, canEdit }: { initial: boolean; canEd
         {t("heading")}
       </h2>
       <ErrorAlert message={error} />
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={!canEdit || busy}
-          onChange={(e) => change(e.target.checked)}
-          className="h-4 w-4"
-        />
-        {t("emailOnNewDocuments")}
-      </label>
+      {(["emailOnNewDocuments", "emailOnDueDates"] as const).map((key) => (
+        <label key={key} className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name={key}
+            checked={settings[key]}
+            disabled={!canEdit || busy}
+            onChange={(e) => change({ ...settings, [key]: e.target.checked })}
+            className="h-4 w-4"
+          />
+          {t(key)}
+        </label>
+      ))}
       <p role="status" className="text-green-800">
         {saved ? t("saved") : ""}
       </p>

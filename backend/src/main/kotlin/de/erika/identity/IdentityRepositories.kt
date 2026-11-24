@@ -512,6 +512,36 @@ internal class MembershipRepository(
             .param("id", id)
             .update() == 1
 
+    /** The user's due-date reminder flag in the current workspace, or null if not a member (AR-05). */
+    fun notifyDueDates(userId: UUID): Boolean? =
+        jdbc
+            .sql("SELECT notify_due_dates FROM membership WHERE user_id = :user AND workspace_id = current_workspace_id()")
+            .param("user", userId)
+            .query(Boolean::class.java)
+            .optional()
+            .orElse(null)
+
+    fun setNotifyDueDates(
+        userId: UUID,
+        notify: Boolean,
+    ): Boolean =
+        jdbc
+            .sql("UPDATE membership SET notify_due_dates = :notify WHERE user_id = :user AND workspace_id = current_workspace_id()")
+            .param("notify", notify)
+            .param("user", userId)
+            .update() == 1
+
+    fun setLocale(
+        userId: UUID,
+        locale: String,
+    ) {
+        jdbc
+            .sql("UPDATE app_user SET locale = :locale WHERE id = :id")
+            .param("locale", locale)
+            .param("id", userId)
+            .update()
+    }
+
     /** The user's "email on new documents" flag in the current workspace, or null if not a member. */
     fun notifyNewDocuments(userId: UUID): Boolean? =
         jdbc

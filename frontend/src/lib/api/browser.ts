@@ -80,3 +80,9 @@ export type Comment = components["schemas"]["Comment"];
 
 export type BillingStatus = components["schemas"]["BillingStatus"];
 export type BillingPlan = components["schemas"]["BillingPlan"];
+
+export type IntakeSettings = components["schemas"]["IntakeSettings"];
+export type IntakeSender = components["schemas"]["IntakeSender"];
+export type QuarantinedMail = components["schemas"]["QuarantinedMail"];
+export type RecurringInvoice = components["schemas"]["RecurringInvoice"];
+export type RecurringInterval = components["schemas"]["RecurringInterval"];

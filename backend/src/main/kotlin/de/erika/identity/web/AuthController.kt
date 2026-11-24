@@ -5,6 +5,7 @@ import de.erika.contract.model.InvitationPreview
 import de.erika.contract.model.InvitationRole
 import de.erika.contract.model.InvitationState
 import de.erika.contract.model.InvitationTokenRequest
+import de.erika.contract.model.LocaleChange
 import de.erika.contract.model.LoginRequest
 import de.erika.contract.model.PasswordChange
 import de.erika.contract.model.PasswordResetConfirm
@@ -27,6 +28,7 @@ import de.erika.identity.IdentityProperties
 import de.erika.identity.InvitationRepository
 import de.erika.identity.Invitations
 import de.erika.identity.LoginCompleted
+import de.erika.identity.MembershipRepository
 import de.erika.identity.PasswordService
 import de.erika.identity.PendingLogin
 import de.erika.identity.SignUp
@@ -66,6 +68,7 @@ internal class AuthController(
     private val tenant: TenantContext,
     private val events: ApplicationEventPublisher,
     private val passwords: PasswordService,
+    private val memberships: MembershipRepository,
     props: IdentityProperties,
 ) : AuthApi {
     private val attempts = RateLimiter(props.loginRateLimit, props.loginRateWindow)
@@ -214,6 +217,13 @@ internal class AuthController(
             passwordChange.newPassword,
             request.getSession(false)?.id,
         )
+        return ResponseEntity.noContent().build()
+    }
+
+    /** NF-13: the user's language, for emails and as the app's default. Open to every role (own account). */
+    override fun changeLocale(localeChange: LocaleChange): ResponseEntity<Unit> {
+        val principal = ErikaPrincipal.currentOrNull() ?: throw IdentityErrors.loginRequired()
+        memberships.setLocale(principal.userId, localeChange.locale.value)
         return ResponseEntity.noContent().build()
     }
 

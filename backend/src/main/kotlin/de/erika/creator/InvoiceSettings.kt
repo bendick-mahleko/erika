@@ -26,6 +26,10 @@ data class InvoiceSettings(
     val paymentTermsDays: Int = 14,
     val version: Int = 0,
     val updatedAt: OffsetDateTime? = null,
+    /** Colour of the title and table rule in the ZUGFeRD PDF (CR-08); null = black. */
+    val accentColor: String? = null,
+    /** A logo is stored (the bytes are read only when needed: [InvoiceSettingsRepository.logo]). */
+    val hasLogo: Boolean = false,
 ) {
     fun patternFor(kind: InvoiceKind): NumberPattern =
         checkNotNull(NumberPattern.parse(if (kind.usesCreditNotePattern) creditNotePattern else numberPattern)) {
@@ -70,7 +74,7 @@ internal class InvoiceSettingsRepository(
 ) {
     fun find(workspaceId: UUID): InvoiceSettings =
         jdbc
-            .sql("SELECT * FROM invoice_settings WHERE workspace_id = :ws")
+            .sql("SELECT $COLUMNS FROM invoice_settings WHERE workspace_id = :ws")
             .param("ws", workspaceId)
             .query(::map)
             .optional()
@@ -94,7 +98,8 @@ internal class InvoiceSettingsRepository(
                        SET contact_name = :contactName, contact_phone = :contactPhone, contact_email = :contactEmail,
                            legal_registration = :legal, iban = :iban, bic = :bic, account_holder = :holder,
                            kleinunternehmer = :klein, number_pattern = :pattern, credit_note_pattern = :creditPattern,
-                           default_format = :format, payment_terms_days = :days, version = version + 1, updated_at = now()
+                           default_format = :format, payment_terms_days = :days, accent_color = :accent,
+                           version = version + 1, updated_at = now()
                      WHERE workspace_id = :ws AND version = :expected
                     """.trimIndent(),
                 ).param("ws", workspaceId)
@@ -110,6 +115,7 @@ internal class InvoiceSettingsRepository(
                 .param("creditPattern", s.creditNotePattern)
                 .param("format", s.defaultFormat.name)
                 .param("days", s.paymentTermsDays)
+                .param("accent", s.accentColor)
                 .param("expected", expectedVersion)
                 .update()
         return if (updated == 1) find(workspaceId) else null
@@ -133,7 +139,41 @@ internal class InvoiceSettingsRepository(
         paymentTermsDays = rs.getInt("payment_terms_days"),
         version = rs.getInt("version"),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
+        accentColor = rs.getString("accent_color"),
+        hasLogo = rs.getBoolean("has_logo"),
     )
+
+    /** The logo and its media type, or null (CR-08). */
+    fun logo(workspaceId: UUID): Pair<ByteArray, String>? =
+        jdbc
+            .sql("SELECT logo, logo_media_type FROM invoice_settings WHERE workspace_id = :ws AND logo IS NOT NULL")
+            .param("ws", workspaceId)
+            .query { rs, _ -> rs.getBytes("logo") to rs.getString("logo_media_type") }
+            .optional()
+            .orElse(null)
+
+    fun setLogo(
+        workspaceId: UUID,
+        bytes: ByteArray?,
+        mediaType: String?,
+    ) {
+        jdbc.sql("INSERT INTO invoice_settings (workspace_id) VALUES (:ws) ON CONFLICT DO NOTHING").param("ws", workspaceId).update()
+        // The logo is its own resource: the settings form's version (ETag) stays valid.
+        jdbc
+            .sql(
+                "UPDATE invoice_settings SET logo = :logo, logo_media_type = :type, updated_at = now() WHERE workspace_id = :ws",
+            ).param("logo", bytes)
+            .param("type", mediaType)
+            .param("ws", workspaceId)
+            .update()
+    }
+
+    private companion object {
+        const val COLUMNS =
+            "contact_name, contact_phone, contact_email, legal_registration, iban, bic, account_holder, kleinunternehmer, " +
+                "number_pattern, credit_note_pattern, default_format, payment_terms_days, version, updated_at, accent_color, " +
+                "logo IS NOT NULL AS has_logo"
+    }
 }
 
 /**

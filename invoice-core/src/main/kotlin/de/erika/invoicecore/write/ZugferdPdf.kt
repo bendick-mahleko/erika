@@ -17,6 +17,9 @@ import org.apache.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecifica
 import org.apache.pdfbox.pdmodel.common.filespecification.PDEmbeddedFile
 import org.apache.pdfbox.pdmodel.font.PDType0Font
 import org.apache.pdfbox.pdmodel.graphics.color.PDOutputIntent
+import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject
 import java.awt.color.ColorSpace
 import java.awt.color.ICC_Profile
 import java.io.ByteArrayOutputStream
@@ -31,6 +34,7 @@ import java.time.format.DateTimeFormatter
 import java.util.GregorianCalendar
 import java.util.Locale
 import java.util.TimeZone
+import javax.imageio.ImageIO
 
 /**
  * Builds a ZUGFeRD 2.x / Factur-X hybrid (profile EN 16931): a PDF/A-3b invoice that people can
@@ -49,14 +53,17 @@ internal object ZugferdPdf {
     fun write(
         invoice: Invoice,
         xml: ByteArray,
+        layout: PdfLayout = PdfLayout.DEFAULT,
     ): ByteArray =
         PDDocument().use { doc ->
             val font = loadFont(doc)
-            val pages = Layout(invoice, font).build()
+            val pages = Layout(invoice, font, layout.accentRgb).build()
+            val logo = layout.logo?.let { image(doc, it) }
             pages.forEachIndexed { index, ops ->
                 val page = PDPage(PDRectangle.A4).also(doc::addPage)
                 PDPageContentStream(doc, page).use { cs ->
                     ops.forEach { it(cs) }
+                    if (index == 0 && logo != null) drawLogo(cs, logo)
                     Layout.footer(cs, font, invoice, index + 1, pages.size)
                 }
             }
@@ -90,6 +97,31 @@ internal object ZugferdPdf {
             Invoice.TYPE_CORRECTED_INVOICE -> "Rechnungskorrektur"
             else -> "Rechnung"
         }
+
+    /** The logo as an image XObject: JPEG passed through, PNG re-encoded losslessly (with its alpha channel). */
+    private fun image(
+        doc: PDDocument,
+        bytes: ByteArray,
+    ): PDImageXObject =
+        when (PdfLayout.imageType(bytes)) {
+            "image/jpeg" -> JPEGFactory.createFromByteArray(doc, bytes)
+            else -> LosslessFactory.createFromImage(doc, requireNotNull(ImageIO.read(bytes.inputStream())) { "Unreadable logo" })
+        }
+
+    /** Top right of the first page, inside 160 × 44 pt, aspect ratio kept. */
+    private fun drawLogo(
+        cs: PDPageContentStream,
+        image: PDImageXObject,
+    ) {
+        val scale = minOf(LOGO_MAX_W / image.width, LOGO_MAX_H / image.height)
+        val w = image.width * scale
+        val h = image.height * scale
+        cs.drawImage(image, Layout.RIGHT - w, LOGO_TOP - h, w, h)
+    }
+
+    private const val LOGO_MAX_W = 160f
+    private const val LOGO_MAX_H = 44f
+    private const val LOGO_TOP = 812f
 
     private fun loadFont(doc: PDDocument): PDType0Font =
         PDDocument::class.java.getResourceAsStream("/org/apache/pdfbox/resources/ttf/LiberationSans-Regular.ttf")!!.use {
@@ -148,7 +180,7 @@ internal object ZugferdPdf {
         }
         val xmp =
             """
-            |<?xpacket begin="${'﻿'}" id="W5M0MpCehiHzreSzNTczkc9d"?>
+            |<?xpacket begin="${'\uFEFF'}" id="W5M0MpCehiHzreSzNTczkc9d"?>
             |<x:xmpmeta xmlns:x="adobe:ns:meta/">
             |  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
             |    <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
@@ -245,7 +277,22 @@ private typealias Op = (PDPageContentStream) -> Unit
 private class Layout(
     private val invoice: Invoice,
     private val font: PDType0Font,
+    private val accent: FloatArray? = null,
 ) {
+    /** Draws what [block] adds in the accent colour (if any), then returns to black. */
+    private fun accented(block: () -> Unit) {
+        val rgb = accent ?: return block()
+        ops += { cs ->
+            cs.setNonStrokingColor(rgb[0], rgb[1], rgb[2])
+            cs.setStrokingColor(rgb[0], rgb[1], rgb[2])
+        }
+        block()
+        ops += { cs ->
+            cs.setNonStrokingColor(0f, 0f, 0f)
+            cs.setStrokingColor(0f, 0f, 0f)
+        }
+    }
+
     private val pages = mutableListOf<MutableList<Op>>()
     private var ops = mutableListOf<Op>()
     private var y = 0f
@@ -315,7 +362,7 @@ private class Layout(
             my -= 12f
         }
         y = minOf(y, my) - 24f
-        text(LEFT, y, "${ZugferdPdf.titleOf(invoice)} ${invoice.number ?: ""}", 14f)
+        accented { text(LEFT, y, "${ZugferdPdf.titleOf(invoice)} ${invoice.number ?: ""}", 14f) }
         y -= 18f
         invoice.precedingInvoices.firstOrNull()?.let { ref ->
             text(LEFT, y, "Bezieht sich auf Rechnung ${ref.number}" + (ref.issueDate?.let { " vom ${Text.date(it)}" } ?: ""))
@@ -349,7 +396,7 @@ private class Layout(
         text(COL_VAT, y, "USt.", h, right = true)
         text(RIGHT, y, "Betrag", h, right = true)
         val lineY = y - 4f
-        ops += { cs -> rule(cs, lineY) }
+        accented { ops += { cs -> rule(cs, lineY) } }
         y -= 16f
     }
 

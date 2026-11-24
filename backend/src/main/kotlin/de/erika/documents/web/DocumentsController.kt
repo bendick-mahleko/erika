@@ -21,6 +21,7 @@ import de.erika.contract.model.NotEInvoiceReason
 import de.erika.contract.model.ProcessingState
 import de.erika.contract.model.ReceivedVia
 import de.erika.contract.model.StatusEvent
+import de.erika.contract.model.TransferDetails
 import de.erika.contract.model.ValidationLevel
 import de.erika.contract.model.ValidationMessage
 import de.erika.contract.model.ValidationResult
@@ -151,10 +152,16 @@ internal class DocumentsController(
         return ResponseEntity.ok(BulkStatusResult(changed = changed))
     }
 
-    override fun getDocumentView(documentId: UUID): ResponseEntity<InvoiceView> {
+    override fun getDocumentView(
+        documentId: UUID,
+        lang: String,
+    ): ResponseEntity<InvoiceView> {
         find(documentId)
-        val view = documents.viewJson(documentId) ?: throw viewNotAvailable()
-        return ResponseEntity.ok(json.readValue(view, InvoiceView::class.java))
+        // VW-07: English if asked for and built; documents read before 1.1 have only German.
+        val english = if (lang == "en") documents.viewEnJson(documentId) else null
+        val view = english ?: documents.viewJson(documentId) ?: throw viewNotAvailable()
+        val language = if (english != null) InvoiceView.Language.EN else InvoiceView.Language.DE
+        return ResponseEntity.ok(json.readValue(view, InvoiceView::class.java).copy(language = language))
     }
 
     override fun getDocumentViewPdf(documentId: UUID): ResponseEntity<Resource> {
@@ -254,6 +261,18 @@ internal class DocumentsController(
             tags = doc.tags,
             note = doc.note,
             viewAvailable = documents.derived(doc.id, DerivedObjects.VIEW_PDF, 0) != null,
+            transfer =
+                documents.transfer(doc.id)?.takeIf { doc.direction == "IN" }?.let {
+                    TransferDetails(
+                        name = it.name,
+                        iban = it.iban,
+                        currency = it.currency,
+                        epcPayload = it.epcPayload,
+                        bic = it.bic,
+                        amount = it.amount?.toPlainString(),
+                        reference = it.reference,
+                    )
+                },
             history =
                 history.map {
                     StatusEvent(

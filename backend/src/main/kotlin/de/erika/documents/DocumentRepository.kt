@@ -299,19 +299,21 @@ internal class DocumentRepository(
         dataJson: String,
         viewJson: String,
         searchText: String,
+        viewEnJson: String? = null,
     ) {
         jdbc
             .sql(
                 """
                 INSERT INTO parsed_invoice (document_id, workspace_id, invoice_no, issue_date, due_date, currency, seller_name,
-                                            seller_tax_id, buyer_name, net, tax, gross, data, view, search_text)
+                                            seller_tax_id, buyer_name, net, tax, gross, data, view, search_text, view_en)
                 VALUES (:id, :ws, :no, :issue, :due, :currency, :seller, :taxId, :buyer, :net, :tax, :gross, CAST(:data AS jsonb),
-                        CAST(:view AS jsonb), :searchText)
+                        CAST(:view AS jsonb), :searchText, CAST(:viewEn AS jsonb))
                 ON CONFLICT (document_id) DO UPDATE
                    SET invoice_no = EXCLUDED.invoice_no, issue_date = EXCLUDED.issue_date, due_date = EXCLUDED.due_date,
                        currency = EXCLUDED.currency, seller_name = EXCLUDED.seller_name, seller_tax_id = EXCLUDED.seller_tax_id,
                        buyer_name = EXCLUDED.buyer_name, net = EXCLUDED.net, tax = EXCLUDED.tax, gross = EXCLUDED.gross,
-                       data = EXCLUDED.data, view = EXCLUDED.view, search_text = EXCLUDED.search_text, parsed_at = now()
+                       data = EXCLUDED.data, view = EXCLUDED.view, search_text = EXCLUDED.search_text, view_en = EXCLUDED.view_en,
+                       parsed_at = now()
                 """.trimIndent(),
             ).param("id", documentId)
             .param("ws", workspaceId)
@@ -328,8 +330,46 @@ internal class DocumentRepository(
             .param("data", dataJson)
             .param("view", viewJson)
             .param("searchText", searchText)
+            .param("viewEn", viewEnJson)
             .update()
     }
+
+    /** The English view (JSON), or null for documents read before release 1.1 (VW-07). */
+    fun viewEnJson(documentId: UUID): String? =
+        jdbc
+            .sql("SELECT view_en::text FROM parsed_invoice WHERE document_id = :id AND workspace_id = current_workspace_id()")
+            .param("id", documentId)
+            .query(String::class.java)
+            .optional()
+            .orElse(null)
+
+    /** Bank transfer details from the stored invoice data (AR-06), or null. */
+    fun transfer(documentId: UUID): Transfer? =
+        jdbc
+            .sql(
+                """
+                SELECT data->'payee'->>'name' AS payee, data->'seller'->>'name' AS seller,
+                       data->'paymentInstructions'->'creditTransfers'->0->>'accountId' AS iban,
+                       data->'paymentInstructions'->'creditTransfers'->0->>'serviceProviderId' AS bic,
+                       data->'paymentInstructions'->>'remittanceInformation' AS remittance,
+                       coalesce(data->'totals'->>'amountDue', data->'totals'->>'totalWithVat') AS amount,
+                       data->>'currency' AS currency, data->>'number' AS number
+                  FROM parsed_invoice WHERE document_id = :id AND workspace_id = current_workspace_id()
+                """.trimIndent(),
+            ).param("id", documentId)
+            .query { rs, _ ->
+                GiroCode.transferOf(
+                    payeeName = rs.getString("payee"),
+                    sellerName = rs.getString("seller"),
+                    iban = rs.getString("iban"),
+                    bic = rs.getString("bic"),
+                    amountDue = rs.getString("amount")?.toBigDecimalOrNull(),
+                    currency = rs.getString("currency"),
+                    remittance = rs.getString("remittance"),
+                    invoiceNumber = rs.getString("number"),
+                )
+            }.optional()
+            .orElse(null)
 
     /** The stored invoice view (JSON), or null if there is none. */
     fun viewJson(documentId: UUID): String? =

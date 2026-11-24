@@ -40,3 +40,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0032](0032-export-roles-account-lifecycle.md) | Export, roles and account lifecycle | Accepted (DATEV import pending S9-a) |
 | [0033](0033-billing-with-stripe.md) | Billing with Stripe: trial, subscription, entitlements, ERIKA's own e-invoices | Accepted (pricing, test-clock run pending) |
 | [0034](0034-hardening-and-go-live.md) | Hardening and go-live: password reset, CSP, scans in CI, load test, launch | Accepted |
+| [0035](0035-release-1-1.md) | Release 1.1: allow-list and quarantine, due reminders, GiroCode, logo, recurring invoices, English | Accepted |

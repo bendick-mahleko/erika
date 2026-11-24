@@ -220,7 +220,16 @@
     "BILLING_ACCOUNT_MISSING": "Für diesen Arbeitsbereich gibt es kein Abrechnungskonto.",
     "PAYMENT_PROVIDER_ERROR": "Der Zahlungsdienstleister ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.",
     "PASSWORD_BREACHED": "Dieses Passwort taucht in bekannten Datenlecks auf. Bitte wählen Sie ein anderes.",
-    "CURRENT_PASSWORD_WRONG": "Das aktuelle Passwort ist falsch."
+    "CURRENT_PASSWORD_WRONG": "Das aktuelle Passwort ist falsch.",
+    "SENDER_PATTERN_INVALID": "Bitte geben Sie eine E-Mail-Adresse oder eine Domain wie @lieferant.de ein.",
+    "SENDER_NOT_FOUND": "Dieser Absender steht nicht (mehr) auf der Liste.",
+    "QUARANTINED_MAIL_NOT_FOUND": "Diese E-Mail ist nicht (mehr) in der Quarantäne.",
+    "LOGO_TOO_LARGE": "Das Logo darf höchstens 512 KB groß sein.",
+    "LOGO_TYPE_UNSUPPORTED": "Das Logo muss ein PNG- oder JPEG-Bild sein.",
+    "LOGO_NOT_FOUND": "Es ist kein Logo hinterlegt.",
+    "ACCENT_COLOR_INVALID": "Die Akzentfarbe muss wie #1A2B3C aussehen.",
+    "RECURRING_NOT_FOUND": "Diese wiederkehrende Rechnung gibt es nicht (mehr).",
+    "RECURRING_NOT_POSSIBLE": "Nur Rechnungen können wiederkehrend sein, keine Gutschriften oder Korrekturen."
   },
   "Inbox": {
     "title": "Eingang",
@@ -394,7 +403,8 @@
   "Notifications": {
     "heading": "Benachrichtigungen",
     "emailOnNewDocuments": "E-Mail an mich, wenn neue Dokumente eingehen",
-    "saved": "Gespeichert."
+    "saved": "Gespeichert.",
+    "emailOnDueDates": "E-Mail an mich 3 Tage bevor erhaltene Rechnungen fällig sind"
   },
   "Correction": {
     "button": "Korrigierte Rechnung anfordern",
@@ -499,7 +509,8 @@
       "SET": "Satz",
       "KWH": "Kilowattstunde"
     },
-    "back": "Zurück zu den Rechnungen"
+    "back": "Zurück zu den Rechnungen",
+    "recurringLink": "Wiederkehrende Rechnungen"
   },
   "Editor": {
     "titleDraft": "{kind} – Entwurf",
@@ -737,7 +748,20 @@
     "paymentTermsDays": "Zahlungsziel (Tage)",
     "save": "Speichern",
     "saved": "Gespeichert.",
-    "readOnly": "Nur Inhaber können die Rechnungseinstellungen ändern."
+    "readOnly": "Nur Inhaber können die Rechnungseinstellungen ändern.",
+    "layoutHeading": "Gestaltung der PDF-Rechnung",
+    "accentEnabled": "Akzentfarbe für Titel und Tabellenkopf verwenden",
+    "accentColor": "Akzentfarbe",
+    "accentHint": "Gilt für ZUGFeRD-Rechnungen (PDF). Ohne Akzentfarbe ist alles schwarz.",
+    "logoHeading": "Logo",
+    "logoHint": "Erscheint oben rechts auf ZUGFeRD-Rechnungen. PNG oder JPEG, höchstens 512 KB. Bereits ausgestellte Rechnungen ändern sich nicht.",
+    "logoNone": "Kein Logo hinterlegt.",
+    "logoAlt": "Ihr Logo",
+    "logoFile": "Logo-Datei",
+    "logoUpload": "Logo hochladen",
+    "logoRemove": "Logo entfernen",
+    "logoSaved": "Das Logo wurde gespeichert.",
+    "logoRemoved": "Das Logo wurde entfernt."
   },
   "Settings": {
     "nav": "Bereiche der Einstellungen",
@@ -746,7 +770,8 @@
     "team": "Team",
     "datev": "DATEV",
     "billing": "Abrechnung",
-    "account": "Konto"
+    "account": "Konto",
+    "intake": "E-Mail-Eingang"
   },
   "Team": {
     "title": "Team und Steuerberatung",
@@ -945,5 +970,83 @@
     "changed": "Passwort geändert. Andere Anmeldungen wurden beendet.",
     "accountTitle": "Ihr Konto",
     "accountIntro": "Angemeldet als {email}."
+  },
+  "Language": {
+    "label": "Sprache",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "IntakeSettings": {
+    "title": "E-Mail-Eingang",
+    "intro": "Rechnungen, die an Ihre Eingangsadresse gesendet werden, landen im Eingang. Mit der Absenderliste nimmt ERIKA nur E-Mails von bekannten Absendern direkt an; alle anderen warten in der Quarantäne auf Ihre Entscheidung.",
+    "allowListHeading": "Absenderliste",
+    "allowListEnabled": "Nur E-Mails von Absendern auf der Liste direkt übernehmen",
+    "allowListHint": "E-Mails anderer Absender werden archiviert, aber erst übernommen, wenn jemand sie freigibt.",
+    "sendersHeading": "Erlaubte Absender",
+    "noSenders": "Noch keine Absender eingetragen.",
+    "senderPattern": "Absender hinzufügen",
+    "senderPatternHint": "Eine Adresse (rechnung@lieferant.de) oder eine ganze Domain (@lieferant.de).",
+    "addSender": "Hinzufügen",
+    "remove": "Entfernen",
+    "removeSender": "{pattern} entfernen",
+    "senderAdded": "{pattern} wurde hinzugefügt.",
+    "senderRemoved": "{pattern} wurde entfernt.",
+    "quarantineHeading": "Quarantäne",
+    "quarantineIntro": "E-Mails von Absendern, die nicht auf der Liste stehen. Übernehmen Sie sie in den Eingang oder verwerfen Sie sie. Verworfene E-Mails bleiben im Archiv.",
+    "quarantineEmpty": "Keine E-Mails in der Quarantäne.",
+    "unknownSender": "Unbekannter Absender",
+    "release": "Übernehmen",
+    "releaseAndAllow": "Übernehmen und Absender erlauben",
+    "discard": "Verwerfen",
+    "released": "Die E-Mail wird übernommen; ihre Rechnungen erscheinen gleich im Eingang.",
+    "discarded": "Die E-Mail wurde verworfen.",
+    "saved": "Gespeichert."
+  },
+  "Payment": {
+    "heading": "Überweisung",
+    "qrAlt": "GiroCode zum Bezahlen dieser Rechnung",
+    "qrHint": "Mit der Banking-App scannen: Die Überweisung wird ausgefüllt.",
+    "payee": "Empfänger",
+    "iban": "IBAN",
+    "bic": "BIC",
+    "amount": "Betrag",
+    "reference": "Verwendungszweck",
+    "copy": "{field} kopieren",
+    "copied": "Kopiert"
+  },
+  "Recurring": {
+    "title": "Wiederkehrende Rechnungen",
+    "intro": "ERIKA legt am Ausführungstag einen Entwurf mit dem Leistungszeitraum an und benachrichtigt Sie per E-Mail. Sie prüfen den Entwurf und stellen ihn aus – automatisch ausgestellt wird nichts.",
+    "empty": "Noch keine wiederkehrenden Rechnungen. Öffnen Sie eine Rechnung und wählen Sie „Als wiederkehrende Rechnung anlegen“.",
+    "column": {
+      "name": "Bezeichnung",
+      "customer": "Kunde",
+      "interval": "Rhythmus",
+      "nextRun": "Nächster Entwurf",
+      "lastDraft": "Letzter Entwurf",
+      "actions": "Aktionen"
+    },
+    "interval": {
+      "MONTHLY": "Monatlich",
+      "QUARTERLY": "Vierteljährlich"
+    },
+    "pausedLabel": "Pausiert",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "pauseLabel": "{name} pausieren",
+    "resumeLabel": "{name} fortsetzen",
+    "paused": "{name} ist pausiert.",
+    "resumed": "{name} läuft wieder.",
+    "delete": "Löschen",
+    "deleteLabel": "{name} löschen",
+    "deleteConfirm": "Wiederkehrende Rechnung „{name}“ löschen? Bereits erstellte Entwürfe bleiben erhalten.",
+    "deleted": "{name} wurde gelöscht.",
+    "makeRecurring": "Als wiederkehrende Rechnung anlegen",
+    "makeRecurringHint": "Kunde, Positionen und Format werden übernommen. Jeder Entwurf erhält den Leistungszeitraum ab dem Ausführungstag (einen Monat oder ein Quartal).",
+    "name": "Name der wiederkehrenden Rechnung",
+    "firstRun": "Erster Entwurf am",
+    "firstRunHint": "Beginn des ersten Leistungszeitraums.",
+    "create": "Anlegen",
+    "created": "Die wiederkehrende Rechnung wurde angelegt."
   }
 }

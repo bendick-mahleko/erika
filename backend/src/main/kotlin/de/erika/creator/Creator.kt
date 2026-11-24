@@ -7,6 +7,7 @@ import de.erika.identity.WorkspaceProfiles
 import de.erika.invoicecore.model.Invoice
 import de.erika.invoicecore.write.InvoiceWriter
 import de.erika.invoicecore.write.OutputFormat
+import de.erika.invoicecore.write.PdfLayout
 import de.erika.platform.jobs.JobQueue
 import de.erika.platform.web.ErikaException
 import de.erika.platform.web.Etags
@@ -92,6 +93,33 @@ class Creator internal constructor(
         return saved
     }
 
+    fun logo(workspaceId: UUID): Pair<ByteArray, String>? = settingsRepo.logo(workspaceId)
+
+    /**
+     * Sets (or with null removes) the logo for the ZUGFeRD PDF (CR-08). Only PNG and JPEG up to
+     * [PdfLayout.MAX_LOGO_BYTES]; the type is taken from the file's bytes, not its name.
+     */
+    internal fun setLogo(
+        workspaceId: UUID,
+        actorId: UUID,
+        bytes: ByteArray?,
+    ) {
+        val type =
+            bytes?.let {
+                if (it.size > PdfLayout.MAX_LOGO_BYTES) {
+                    throw ErikaException("LOGO_TOO_LARGE", HttpStatus.PAYLOAD_TOO_LARGE, "The logo may be at most 512 KB.")
+                }
+                PdfLayout.imageType(it)
+                    ?: throw ErikaException(
+                        "LOGO_TYPE_UNSUPPORTED",
+                        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                        "The logo must be a PNG or JPEG image.",
+                    )
+            }
+        settingsRepo.setLogo(workspaceId, bytes, type)
+        events.publishEvent(InvoiceSettingsChanged(workspaceId, actorId, listOf(if (bytes == null) "logoRemoved" else "logo")))
+    }
+
     private fun changedFields(
         a: InvoiceSettings,
         b: InvoiceSettings,
@@ -103,6 +131,7 @@ class Creator internal constructor(
         if (a.numberPattern != b.numberPattern || a.creditNotePattern != b.creditNotePattern) add("numberPattern")
         if (a.defaultFormat != b.defaultFormat) add("defaultFormat")
         if (a.paymentTermsDays != b.paymentTermsDays) add("paymentTermsDays")
+        if (a.accentColor != b.accentColor) add("accentColor")
     }
 
     // --- drafts -----------------------------------------------------------------------

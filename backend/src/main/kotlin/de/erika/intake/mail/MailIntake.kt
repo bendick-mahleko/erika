@@ -157,6 +157,7 @@ internal class ProcessMailJobHandler(
     private val repository: IntakeRepository,
     private val archive: Archive,
     private val pipeline: IntakePipeline,
+    private val allowList: de.erika.intake.AllowList,
 ) : JobHandler<ProcessMailJobHandler.Payload> {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -176,6 +177,12 @@ internal class ProcessMailJobHandler(
         val raw =
             archive.open(intake.workspaceId, intake.rawSha256!!)?.bytes
                 ?: error("Email of intake ${intake.id} is not in the archive")
+        // IN-06: with the allow-list on, mail from other senders waits in quarantine (it is archived already).
+        val (from, subject) = MailParser.headers(raw)
+        if (allowList.holdsBack(intake, from)) {
+            allowList.quarantine(intake, from, subject)
+            return
+        }
         val files =
             try {
                 MailParser.attachments(raw)

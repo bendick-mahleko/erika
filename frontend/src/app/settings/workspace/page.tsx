@@ -32,7 +32,13 @@ export default async function WorkspaceSettingsPage() {
       <WorkspaceForm initial={result.workspace} etag={result.etag} canEdit={session.role === "OWNER"} />
       {address && <IntakeAddress address={address} />}
       {notifications && (
-        <NotificationForm initial={notifications.emailOnNewDocuments} canEdit={session.role !== "ADVISOR"} />
+        <NotificationForm
+          initial={{
+            emailOnNewDocuments: notifications.emailOnNewDocuments,
+            emailOnDueDates: notifications.emailOnDueDates ?? true,
+          }}
+          canEdit={session.role !== "ADVISOR"}
+        />
       )}
       {session.role === "OWNER" && <CloseAccount workspace={result.workspace} />}
     </div>

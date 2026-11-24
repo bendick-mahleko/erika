@@ -20,6 +20,8 @@ internal data class IntakeRow(
     val sender: String?,
     val createdBy: UUID?,
     val createdAt: OffsetDateTime,
+    val fromAddress: String? = null,
+    val releasedAt: OffsetDateTime? = null,
 )
 
 /** Tenant tables `intake`, `intake_item`, `intake_address`; every query runs under RLS. */
@@ -198,6 +200,8 @@ internal class IntakeRepository(
         sender = rs.getString("sender"),
         createdBy = rs.getObject("created_by", UUID::class.java),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+        fromAddress = rs.getString("from_address"),
+        releasedAt = rs.getObject("released_at", OffsetDateTime::class.java),
     )
 
     private companion object {

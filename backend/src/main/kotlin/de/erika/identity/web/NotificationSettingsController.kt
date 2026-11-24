@@ -20,7 +20,9 @@ internal class NotificationSettingsController(
     override fun getNotificationSettings(): ResponseEntity<NotificationSettings> {
         val principal = ErikaPrincipal.current()
         val notify = memberships.notifyNewDocuments(principal.userId) ?: throw IdentityErrors.notFound("MEMBER")
-        return ResponseEntity.ok(NotificationSettings(emailOnNewDocuments = notify))
+        return ResponseEntity.ok(
+            NotificationSettings(emailOnNewDocuments = notify, emailOnDueDates = memberships.notifyDueDates(principal.userId)),
+        )
     }
 
     @PreAuthorize("hasAnyRole('OWNER', 'MEMBER')")
@@ -29,6 +31,7 @@ internal class NotificationSettingsController(
         if (!memberships.setNotifyNewDocuments(principal.userId, notificationSettings.emailOnNewDocuments)) {
             throw IdentityErrors.notFound("MEMBER")
         }
-        return ResponseEntity.ok(notificationSettings)
+        notificationSettings.emailOnDueDates?.let { memberships.setNotifyDueDates(principal.userId, it) }
+        return ResponseEntity.ok(notificationSettings.copy(emailOnDueDates = memberships.notifyDueDates(principal.userId)))
     }
 }

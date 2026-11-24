@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.8.0
+  version: 0.9.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -362,6 +362,20 @@ paths:
       responses:
         "204": { description: Changed. }
         default: { $ref: "#/components/responses/Problem" }
+  /auth/locale:
+    post:
+      tags: [auth]
+      operationId: changeLocale
+      summary: Set the signed-in user's language (emails and the default for the app)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocaleChange" }
+            example: { locale: "en" }
+      responses:
+        "204": { description: Saved. }
+        default: { $ref: "#/components/responses/Problem" }
   /workspace:
     get:
       tags: [workspace]
@@ -576,6 +590,108 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/IntakeAddress" }
         default: { $ref: "#/components/responses/Problem" }
+  /intake/settings:
+    get:
+      tags: [intake]
+      operationId: getIntakeSettings
+      summary: Sender allow-list for email intake (IN-06)
+      responses:
+        "200":
+          description: The settings and the allowed senders.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntakeSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [intake]
+      operationId: updateIntakeSettings
+      summary: Switch the allow-list on or off
+      description: |
+        With the allow-list on, emails from other senders are kept in quarantine: they are
+        archived as received, but their attachments are imported only when someone releases
+        them. A sender matches by the envelope sender or the From address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntakeSettingsUpdate" }
+            example: { allowListEnabled: true }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntakeSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+  /intake/senders:
+    post:
+      tags: [intake]
+      operationId: addIntakeSender
+      summary: Allow a sender address or domain
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntakeSenderRequest" }
+            example: { pattern: "@lieferant.example" }
+      responses:
+        "201":
+          description: Allowed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntakeSender" }
+        default: { $ref: "#/components/responses/Problem" }
+  /intake/senders/{senderId}:
+    delete:
+      tags: [intake]
+      operationId: removeIntakeSender
+      summary: Remove a sender from the allow-list
+      parameters:
+        - $ref: "#/components/parameters/SenderId"
+      responses:
+        "204": { description: Removed. }
+        default: { $ref: "#/components/responses/Problem" }
+  /intake/quarantine:
+    get:
+      tags: [intake]
+      operationId: listQuarantine
+      summary: Emails held back because their sender is not allowed
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuarantineList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /intake/quarantine/{intakeId}/release:
+    post:
+      tags: [intake]
+      operationId: releaseQuarantinedMail
+      summary: Import the attachments of a quarantined email
+      description: With `allowSender`, the sender's address is also added to the allow-list.
+      parameters:
+        - $ref: "#/components/parameters/IntakeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuarantineRelease" }
+            example: { allowSender: true }
+      responses:
+        "202": { description: Being imported. }
+        default: { $ref: "#/components/responses/Problem" }
+  /intake/quarantine/{intakeId}/discard:
+    post:
+      tags: [intake]
+      operationId: discardQuarantinedMail
+      summary: Discard a quarantined email (nothing is imported; the received email stays archived)
+      parameters:
+        - $ref: "#/components/parameters/IntakeId"
+      responses:
+        "204": { description: Discarded. }
+        default: { $ref: "#/components/responses/Problem" }
   /uploads:
     post:
       tags: [intake]
@@ -789,10 +905,20 @@ paths:
     get:
       tags: [documents]
       operationId: getDocumentView
-      summary: The invoice for reading, every business term with its German label (VW-01)
-      description: 404 `VIEW_NOT_AVAILABLE` for documents that aren't structured invoices or are still being read.
+      summary: The invoice for reading, every business term with its label (VW-01, VW-07)
+      description: |
+        404 `VIEW_NOT_AVAILABLE` for documents that aren't structured invoices or are still being
+        read. With `lang=en` the English view; documents read before release 1.1 have only the
+        German one until they are read again (`language` in the answer says which).
       parameters:
         - $ref: "#/components/parameters/DocumentId"
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [de, en]
+            default: de
       responses:
         "200":
           description: The invoice view.
@@ -940,6 +1066,129 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/InvoiceSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoice-settings/logo:
+    get:
+      tags: [invoices]
+      operationId: getInvoiceLogo
+      summary: The logo printed on ZUGFeRD invoices
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [invoices]
+      operationId: uploadInvoiceLogo
+      summary: Set the logo for ZUGFeRD invoices (owner only, CR-08)
+      description: PNG or JPEG, at most 512 KB, as the form field `file`. It is printed top right on the first page; the invoice data doesn't change.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "204": { description: Saved. }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [invoices]
+      operationId: deleteInvoiceLogo
+      summary: Remove the logo (owner only)
+      responses:
+        "204": { description: Removed. }
+        default: { $ref: "#/components/responses/Problem" }
+  /recurring-invoices:
+    get:
+      tags: [invoices]
+      operationId: listRecurringInvoices
+      summary: Recurring invoices (CR-09)
+      responses:
+        "200":
+          description: All templates.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecurringInvoiceList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [invoices]
+      operationId: createRecurringInvoice
+      summary: Make an invoice recur monthly or quarterly
+      description: |
+        Copies the content of the draft or invoice `sourceInvoiceId`. On every run date ERIKA
+        creates a new draft from it, with the service period of that run (the month or quarter
+        starting on the run date) and no invoice date, and tells the person who set it up.
+        Drafts are never issued automatically.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecurringInvoiceRequest" }
+            example: { sourceInvoiceId: "7c9e6679-7425-40de-944b-e07fc1f90ae7", name: "Wartungsvertrag Kunde AG", interval: "MONTHLY", nextRun: "2027-01-01" }
+      responses:
+        "201":
+          description: Created.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecurringInvoice" }
+        default: { $ref: "#/components/responses/Problem" }
+  /recurring-invoices/{recurringId}:
+    get:
+      tags: [invoices]
+      operationId: getRecurringInvoice
+      summary: One recurring invoice
+      parameters:
+        - $ref: "#/components/parameters/RecurringId"
+      responses:
+        "200":
+          description: The template.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecurringInvoice" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [invoices]
+      operationId: updateRecurringInvoice
+      summary: Rename, change the interval or the next run, pause or resume
+      parameters:
+        - $ref: "#/components/parameters/RecurringId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecurringInvoiceUpdate" }
+            example: { name: "Wartungsvertrag Kunde AG", interval: "QUARTERLY", nextRun: "2027-04-01", active: true }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecurringInvoice" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [invoices]
+      operationId: deleteRecurringInvoice
+      summary: Stop and delete a recurring invoice (drafts already created stay)
+      parameters:
+        - $ref: "#/components/parameters/RecurringId"
+      responses:
+        "204": { description: Deleted. }
         default: { $ref: "#/components/responses/Problem" }
   /customers:
     get:
@@ -1553,6 +1802,21 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    SenderId:
+      name: senderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IntakeId:
+      name: intakeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RecurringId:
+      name: recurringId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
   responses:
     Problem:
       description: Error as RFC 9457 problem details.
@@ -1816,6 +2080,9 @@ components:
         emailOnNewDocuments:
           type: boolean
           description: Send an email when new documents arrive (one email per upload or incoming email).
+        emailOnDueDates:
+          type: boolean
+          description: Send an email 3 days before received invoices are due (AR-05). Absent in an update = unchanged.
     IntakeAddress:
       type: object
       required: [address]
@@ -2063,6 +2330,7 @@ components:
         viewAvailable:
           type: boolean
           description: The invoice view and PDF view copy exist (structured invoices, once read).
+        transfer: { $ref: "#/components/schemas/TransferDetails" }
         history:
           type: array
           description: Status changes, oldest first (AR-03).
@@ -2141,6 +2409,10 @@ components:
       type: object
       required: [title, sections, attachments]
       properties:
+        language:
+          type: string
+          enum: [de, en]
+          description: Language of the labels and values.
         title: { type: string }
         sections:
           type: array
@@ -2267,10 +2539,15 @@ components:
           description: Numbers of credit notes and cancellations; the same pattern as invoices shares their counter.
         defaultFormat: { $ref: "#/components/schemas/InvoiceFormat" }
         paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
+        accentColor: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", description: "Empty or absent = black" }
     InvoiceSettings:
       type: object
       required: [kleinunternehmer, numberPattern, creditNotePattern, defaultFormat, paymentTermsDays, seller, missing, nextNumber, version]
       properties:
+        hasLogo:
+          type: boolean
+          description: A logo is set for the ZUGFeRD PDF (CR-08); `GET /invoice-settings/logo` returns it.
+        accentColor: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", description: "Colour of the title and table rule in the ZUGFeRD PDF" }
         contactName: { type: string, maxLength: 200, description: "BT-41, mandatory for XRechnung" }
         contactPhone: { type: string, maxLength: 50, description: "BT-42, mandatory for XRechnung" }
         contactEmail: { type: string, maxLength: 320, description: "BT-43 and the seller's electronic address (BT-34)" }
@@ -2789,3 +3066,107 @@ components:
       properties:
         currentPassword: { type: string, minLength: 1, maxLength: 128 }
         newPassword: { type: string, minLength: 12, maxLength: 128 }
+    LocaleChange:
+      type: object
+      required: [locale]
+      properties:
+        locale: { $ref: "#/components/schemas/Locale" }
+    IntakeSender:
+      type: object
+      required: [id, pattern, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        pattern: { type: string, description: "An address (rechnung@lieferant.de) or a domain (@lieferant.de)" }
+        createdAt: { type: string, format: date-time }
+    IntakeSettings:
+      type: object
+      required: [allowListEnabled, senders]
+      properties:
+        allowListEnabled: { type: boolean }
+        senders:
+          type: array
+          items: { $ref: "#/components/schemas/IntakeSender" }
+    IntakeSettingsUpdate:
+      type: object
+      required: [allowListEnabled]
+      properties:
+        allowListEnabled: { type: boolean }
+    IntakeSenderRequest:
+      type: object
+      required: [pattern]
+      properties:
+        pattern: { type: string, minLength: 3, maxLength: 320 }
+    QuarantinedMail:
+      type: object
+      required: [id, receivedAt]
+      properties:
+        id: { type: string, format: uuid }
+        receivedAt: { type: string, format: date-time }
+        sender: { type: string, description: Envelope sender }
+        fromAddress: { type: string, description: From header }
+        subject: { type: string }
+    QuarantineList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/QuarantinedMail" }
+    QuarantineRelease:
+      type: object
+      properties:
+        allowSender: { type: boolean, default: false }
+    TransferDetails:
+      type: object
+      description: |
+        The supplier's bank transfer details (AR-06) for a credit transfer in EUR, and the EPC
+        QR code payload ("GiroCode", EPC069-12 version 002) that banking apps read.
+      required: [name, iban, currency, epcPayload]
+      properties:
+        name: { type: string, description: "Payee (BT-59), else seller (BT-27)" }
+        iban: { type: string, description: BT-84 }
+        bic: { type: string, description: BT-86 }
+        amount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+        reference: { type: string, description: "Remittance information (BT-83), else the invoice number" }
+        epcPayload: { type: string }
+    RecurringInterval:
+      type: string
+      enum: [MONTHLY, QUARTERLY]
+    RecurringInvoiceRequest:
+      type: object
+      required: [sourceInvoiceId, name, interval, nextRun]
+      properties:
+        sourceInvoiceId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        interval: { $ref: "#/components/schemas/RecurringInterval" }
+        nextRun: { type: string, format: date }
+    RecurringInvoiceUpdate:
+      type: object
+      required: [name, interval, nextRun, active]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        interval: { $ref: "#/components/schemas/RecurringInterval" }
+        nextRun: { type: string, format: date }
+        active: { type: boolean }
+    RecurringInvoice:
+      type: object
+      required: [id, name, interval, nextRun, active, sourceInvoiceId, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        interval: { $ref: "#/components/schemas/RecurringInterval" }
+        nextRun: { type: string, format: date }
+        active: { type: boolean }
+        sourceInvoiceId: { type: string, format: uuid }
+        buyerName: { type: string }
+        lastRun: { type: string, format: date }
+        lastDraftId: { type: string, format: uuid }
+        version: { type: integer, format: int32 }
+    RecurringInvoiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RecurringInvoice" }

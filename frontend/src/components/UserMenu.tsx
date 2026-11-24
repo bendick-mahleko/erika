@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { fetchInboxSummary, fetchSession } from "@/lib/api/client";
 import { FeedbackButton } from "./FeedbackButton";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { LogoutButton } from "./LogoutButton";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -44,6 +45,7 @@ export async function UserMenu() {
           </Link>
           <FeedbackButton />
           <LogoutButton label={t("signOut")} />
+          <LanguageSwitcher signedIn />
         </>
       ) : (
         <>
@@ -53,6 +55,7 @@ export async function UserMenu() {
           <Link href="/signup" className={link}>
             {t("signUp")}
           </Link>
+          <LanguageSwitcher signedIn={false} />
         </>
       )}
     </nav>

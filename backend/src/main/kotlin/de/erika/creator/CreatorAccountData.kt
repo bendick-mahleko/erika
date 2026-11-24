@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
 import java.util.UUID
 
-/** Invoice settings, customers, articles, drafts, issued invoices and deliveries (EX-04, NF-09). */
+/** Invoice settings, customers, articles, drafts, issued invoices, deliveries and recurring invoices (EX-04, NF-09). */
 @Component
 internal class CreatorAccountData(
     private val jdbc: JdbcClient,
@@ -25,6 +25,7 @@ internal class CreatorAccountData(
             "drafts" to jdbc.jsonRows(json, "SELECT * FROM invoice_draft $ws ORDER BY created_at, id"),
             "invoices" to jdbc.jsonRows(json, "SELECT * FROM invoice $ws ORDER BY issued_at, id"),
             "deliveries" to jdbc.jsonRows(json, "SELECT * FROM invoice_delivery $ws ORDER BY created_at, id"),
+            "recurringInvoices" to jdbc.jsonRows(json, "SELECT * FROM recurring_invoice $ws ORDER BY created_at, id"),
         )
     }
 }

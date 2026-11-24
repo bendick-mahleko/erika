@@ -31,6 +31,14 @@ internal object MailParser {
         )
     private val acceptedExtensions = listOf(".xml", ".pdf", ".zip")
 
+    /** From header and subject (decoded), for the quarantine list (IN-06). Null when missing or unreadable. */
+    fun headers(raw: ByteArray): Pair<String?, String?> =
+        runCatching {
+            val message = MimeMessage(Session.getInstance(Properties()), ByteArrayInputStream(raw))
+            val from = message.getHeader("From", null)?.let { runCatching { MimeUtility.decodeText(it) }.getOrDefault(it) }
+            from to message.subject
+        }.getOrDefault(null to null)
+
     fun attachments(raw: ByteArray): List<IncomingFile> {
         // A session without any server: only used to parse.
         val message = MimeMessage(Session.getInstance(Properties()), ByteArrayInputStream(raw))

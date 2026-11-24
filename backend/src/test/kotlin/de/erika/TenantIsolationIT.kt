@@ -102,6 +102,29 @@ class TenantIsolationIT : ApiIntegrationTest() {
             userB.workspaceId,
             userB.userId,
         )
+        // Release 1.1: an allowed sender, a quarantined email and a recurring invoice of B.
+        val senderB = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO intake_sender (id, workspace_id, pattern) VALUES (?, ?, '@lieferant-von-b.example')",
+            senderB,
+            userB.workspaceId,
+        )
+        val intakeB = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO intake (id, workspace_id, source, status, sender, subject) VALUES (?, ?, 'EMAIL', 'QUARANTINED', 'x@unbekannt.example', 'Rechnung')",
+            intakeB,
+            userB.workspaceId,
+        )
+        val recurringB = UUID.randomUUID()
+        TestDatabase.update(
+            """
+            INSERT INTO recurring_invoice (id, workspace_id, name, source_invoice_id, content, interval, next_run)
+            VALUES (?, ?, 'Wartung B', ?, '{}', 'MONTHLY', current_date + 30)
+            """.trimIndent(),
+            recurringB,
+            userB.workspaceId,
+            invoiceB,
+        )
         fixturesB =
             mapOf(
                 "memberId" to memberB.path("id").asString(),
@@ -114,6 +137,9 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 "deliveryId" to deliveryB.toString(),
                 "invitationId" to invitationB,
                 "exportId" to exportB.toString(),
+                "senderId" to senderB.toString(),
+                "intakeId" to intakeB.toString(),
+                "recurringId" to recurringB.toString(),
             )
         markersB =
             setOf(userB.workspaceId.toString(), userB.userId.toString(), userB.email, "Tenant B GmbH", "berater-von-b@example.test") +
@@ -275,15 +301,17 @@ class TenantIsolationIT : ApiIntegrationTest() {
                     val params = (op["parameters"] as List<Map<String, Any?>>?).orEmpty().map(::resolve)
                     val security = (op["security"] ?: globalSecurity) as List<*>?
                     val body = op["requestBody"] as Map<String, Any?>?
+                    val json = ((body?.get("content") as Map<String, Any?>?)?.get("application/json")) as Map<String, Any?>?
+                    val multipart = ((body?.get("content") as Map<String, Any?>?)?.containsKey("multipart/form-data")) == true
                     val example =
-                        (
-                            (
-                                body?.get(
-                                    "content",
-                                ) as Map<String, Any?>?
-                            )?.get("application/json") as Map<String, Any?>?
-                        )?.get("example")
-                    if (body != null && example == null) fail("$method $path: request bodies need an `example` for the isolation harness")
+                        json?.get("example") ?: if (multipart) {
+                            de.erika.support.MultipartFile
+                                .png()
+                        } else {
+                            null
+                        }
+                    // JSON bodies need an example; multipart uploads (the logo) get a small PNG.
+                    if (json != null && example == null) fail("$method $path: request bodies need an `example` for the isolation harness")
                     Operation(
                         method = method.uppercase(),
                         path = path,

@@ -193,7 +193,7 @@ class ExportIT : ApiIntegrationTest() {
             val (sha, name) = line.split("  ", limit = 2)
             assertEquals(sha, sha256(entries.getValue(name)), name)
         }
-        listOf("arbeitsbereich.json", "dokumente.json", "rechnungserstellung.json", "protokoll.json").forEach {
+        listOf("arbeitsbereich.json", "dokumente.json", "eingang.json", "rechnungserstellung.json", "protokoll.json").forEach {
             assertTrue(entries.containsKey("daten/$it"), it)
         }
         val documents = json.readTree(entries.getValue("daten/dokumente.json"))

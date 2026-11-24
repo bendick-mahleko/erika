@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { fetchInvoiceSettings, fetchSession } from "@/lib/api/client";
 import { SettingsNav } from "@/components/SettingsNav";
 import { InvoiceSettingsForm } from "./InvoiceSettingsForm";
+import { LogoSettings } from "./LogoSettings";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("InvoiceSettings");
@@ -27,6 +28,7 @@ export default async function InvoiceSettingsPage() {
       </div>
       {/* The back end allows only owners to change these; this only avoids offering what would be refused. */}
       <InvoiceSettingsForm initial={result.settings} etag={result.etag} canEdit={session.role === "OWNER"} />
+      <LogoSettings initialHasLogo={result.settings.hasLogo ?? false} canEdit={session.role === "OWNER"} />
     </div>
   );
 }

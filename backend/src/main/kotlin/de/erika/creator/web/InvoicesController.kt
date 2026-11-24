@@ -21,6 +21,10 @@ import de.erika.contract.model.InvoiceState
 import de.erika.contract.model.InvoiceTotals
 import de.erika.contract.model.IssuedInfo
 import de.erika.contract.model.MessageSeverity
+import de.erika.contract.model.RecurringInvoice
+import de.erika.contract.model.RecurringInvoiceList
+import de.erika.contract.model.RecurringInvoiceRequest
+import de.erika.contract.model.RecurringInvoiceUpdate
 import de.erika.contract.model.SellerProfile
 import de.erika.contract.model.SendInvoiceRequest
 import de.erika.contract.model.ValidationMessage
@@ -35,7 +39,12 @@ import de.erika.creator.DraftState
 import de.erika.creator.InvoiceDetails
 import de.erika.creator.IssuedRow
 import de.erika.creator.LineVatRate
+import de.erika.creator.RecurringInterval
+import de.erika.creator.RecurringInvoices
+import de.erika.creator.RecurringRepository
+import de.erika.creator.RecurringRow
 import de.erika.creator.VatTreatment
+import de.erika.creator.withProperty
 import de.erika.invoicecore.write.OutputFormat
 import de.erika.invoicecore.write.VatCase
 import de.erika.platform.runtime.RuntimeInstance
@@ -54,6 +63,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.multipart.MultipartFile
 import java.nio.charset.StandardCharsets
 import java.time.OffsetDateTime
 import java.util.Base64
@@ -74,6 +84,8 @@ internal class InvoicesController(
     private val creator: Creator,
     private val idempotency: Idempotency,
     private val archive: Archive,
+    private val recurring: RecurringInvoices,
+    private val recurringRepo: RecurringRepository,
 ) : InvoicesApi {
     // --- settings ---------------------------------------------------------------------
 
@@ -117,6 +129,11 @@ internal class InvoicesController(
                     creditNotePattern = u.creditNotePattern.trim(),
                     defaultFormat = OutputFormat.valueOf(u.defaultFormat.value),
                     paymentTermsDays = u.paymentTermsDays,
+                    accentColor =
+                        u.accentColor
+                            .clean()
+                            ?.uppercase()
+                            ?.also(::checkColor),
                 ),
             )
         return ResponseEntity.ok().eTag(Etags.of(saved.version)).body(settingsToApi(p.workspaceId, saved))
@@ -153,8 +170,121 @@ internal class InvoicesController(
             iban = s.iban,
             bic = s.bic,
             accountHolder = s.accountHolder,
+            hasLogo = s.hasLogo,
+            accentColor = s.accentColor,
         )
     }
+
+    private fun checkColor(color: String) {
+        if (!COLOR.matches(color)) {
+            throw ErikaException("ACCENT_COLOR_INVALID", HttpStatus.BAD_REQUEST, "The accent colour must look like #1A2B3C.")
+                .withProperty("field", "accentColor")
+        }
+    }
+
+    // --- logo (CR-08) -----------------------------------------------------------------
+
+    override fun getInvoiceLogo(): ResponseEntity<Resource> {
+        val (bytes, type) = creator.logo(ErikaPrincipal.current().workspaceId) ?: throw logoNotFound()
+        return ResponseEntity
+            .ok()
+            .contentType(MediaType.parseMediaType(type))
+            .cacheControl(CacheControl.noStore())
+            .header("X-Content-Type-Options", "nosniff")
+            .header("Content-Security-Policy", "default-src 'none'; sandbox")
+            .body(ByteArrayResource(bytes))
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun uploadInvoiceLogo(file: MultipartFile): ResponseEntity<Unit> {
+        val p = ErikaPrincipal.current()
+        if (file.size > de.erika.invoicecore.write.PdfLayout.MAX_LOGO_BYTES) {
+            throw ErikaException("LOGO_TOO_LARGE", HttpStatus.PAYLOAD_TOO_LARGE, "The logo may be at most 512 KB.")
+        }
+        creator.setLogo(p.workspaceId, p.userId, file.bytes)
+        return ResponseEntity.noContent().build()
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun deleteInvoiceLogo(): ResponseEntity<Unit> {
+        val p = ErikaPrincipal.current()
+        if (creator.logo(p.workspaceId) == null) throw logoNotFound()
+        creator.setLogo(p.workspaceId, p.userId, null)
+        return ResponseEntity.noContent().build()
+    }
+
+    private fun logoNotFound() = ErikaException("LOGO_NOT_FOUND", HttpStatus.NOT_FOUND, "No logo is set.")
+
+    // --- recurring invoices (CR-09) ---------------------------------------------------
+
+    override fun listRecurringInvoices(): ResponseEntity<RecurringInvoiceList> =
+        ResponseEntity.ok(RecurringInvoiceList(recurringRepo.list().map(::recurringToApi)))
+
+    override fun getRecurringInvoice(recurringId: UUID): ResponseEntity<RecurringInvoice> {
+        val r = recurringRepo.find(recurringId) ?: throw recurringNotFound()
+        return ResponseEntity.ok().eTag(Etags.of(r.version)).body(recurringToApi(r))
+    }
+
+    @PreAuthorize("hasAnyRole('OWNER', 'MEMBER')")
+    override fun createRecurringInvoice(
+        idempotencyKey: String,
+        recurringInvoiceRequest: RecurringInvoiceRequest,
+    ): ResponseEntity<RecurringInvoice> {
+        val p = ErikaPrincipal.current()
+        val r = recurringInvoiceRequest
+        val result =
+            idempotency.once(p.workspaceId, idempotencyKey, "createRecurringInvoice") {
+                recurring.create(p.workspaceId, p.userId, r.sourceInvoiceId, r.name, RecurringInterval.valueOf(r.interval.value), r.nextRun)
+            }
+        val row = recurringRepo.find(result.resourceId) ?: throw recurringNotFound()
+        return ResponseEntity.status(HttpStatus.CREATED).eTag(Etags.of(row.version)).body(recurringToApi(row))
+    }
+
+    @PreAuthorize("hasAnyRole('OWNER', 'MEMBER')")
+    override fun updateRecurringInvoice(
+        recurringId: UUID,
+        recurringInvoiceUpdate: RecurringInvoiceUpdate,
+        ifMatch: String?,
+    ): ResponseEntity<RecurringInvoice> {
+        val p = ErikaPrincipal.current()
+        val u = recurringInvoiceUpdate
+        recurring.update(
+            p.workspaceId,
+            p.userId,
+            recurringId,
+            ifMatch,
+            u.name,
+            RecurringInterval.valueOf(u.interval.value),
+            u.nextRun,
+            u.active,
+        )
+        return getRecurringInvoice(recurringId)
+    }
+
+    @PreAuthorize("hasAnyRole('OWNER', 'MEMBER')")
+    override fun deleteRecurringInvoice(recurringId: UUID): ResponseEntity<Unit> {
+        val p = ErikaPrincipal.current()
+        recurring.delete(p.workspaceId, p.userId, recurringId)
+        return ResponseEntity.noContent().build()
+    }
+
+    private fun recurringToApi(r: RecurringRow) =
+        RecurringInvoice(
+            id = r.id,
+            name = r.name,
+            interval =
+                de.erika.contract.model.RecurringInterval
+                    .forValue(r.interval.name),
+            nextRun = r.nextRun,
+            active = r.active,
+            sourceInvoiceId = r.sourceInvoiceId,
+            version = r.version,
+            buyerName = r.content.buyer.name,
+            lastRun = r.lastRun,
+            lastDraftId = r.lastDraftId,
+        )
+
+    private fun recurringNotFound() = ErikaException("RECURRING_NOT_FOUND", HttpStatus.NOT_FOUND, "Recurring invoice not found.")
 
     // --- drafts -----------------------------------------------------------------------
 
@@ -473,4 +603,8 @@ internal class InvoicesController(
         ) {
             throw ErikaException("INVALID_CURSOR", HttpStatus.BAD_REQUEST, "The cursor is not valid.", e)
         }
+
+    private companion object {
+        val COLOR = Regex("^#[0-9A-F]{6}$")
+    }
 }

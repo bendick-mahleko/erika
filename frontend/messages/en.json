@@ -220,7 +220,16 @@
     "BILLING_ACCOUNT_MISSING": "This workspace has no billing account.",
     "PAYMENT_PROVIDER_ERROR": "The payment provider is not reachable right now. Please try again.",
     "PASSWORD_BREACHED": "This password appears in known data breaches. Please choose another one.",
-    "CURRENT_PASSWORD_WRONG": "The current password is wrong."
+    "CURRENT_PASSWORD_WRONG": "The current password is wrong.",
+    "SENDER_PATTERN_INVALID": "Please enter an email address or a domain like @supplier.com.",
+    "SENDER_NOT_FOUND": "This sender is not on the list (any more).",
+    "QUARANTINED_MAIL_NOT_FOUND": "This email is not in quarantine (any more).",
+    "LOGO_TOO_LARGE": "The logo may be at most 512 KB.",
+    "LOGO_TYPE_UNSUPPORTED": "The logo must be a PNG or JPEG image.",
+    "LOGO_NOT_FOUND": "No logo is set.",
+    "ACCENT_COLOR_INVALID": "The accent colour must look like #1A2B3C.",
+    "RECURRING_NOT_FOUND": "This recurring invoice doesn't exist (any more).",
+    "RECURRING_NOT_POSSIBLE": "Only invoices can recur, not credit notes or corrections."
   },
   "Inbox": {
     "title": "Inbox",
@@ -394,7 +403,8 @@
   "Notifications": {
     "heading": "Notifications",
     "emailOnNewDocuments": "Email me when new documents arrive",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "emailOnDueDates": "Email me 3 days before received invoices are due"
   },
   "Correction": {
     "button": "Request a corrected invoice",
@@ -499,7 +509,8 @@
       "SET": "Set",
       "KWH": "Kilowatt hour"
     },
-    "back": "Back to invoices"
+    "back": "Back to invoices",
+    "recurringLink": "Recurring invoices"
   },
   "Editor": {
     "titleDraft": "{kind} – draft",
@@ -737,7 +748,20 @@
     "paymentTermsDays": "Payment terms (days)",
     "save": "Save",
     "saved": "Saved.",
-    "readOnly": "Only owners can change the invoice settings."
+    "readOnly": "Only owners can change the invoice settings.",
+    "layoutHeading": "PDF invoice design",
+    "accentEnabled": "Use an accent colour for the title and table header",
+    "accentColor": "Accent colour",
+    "accentHint": "Applies to ZUGFeRD invoices (PDF). Without an accent colour everything is black.",
+    "logoHeading": "Logo",
+    "logoHint": "Shown top right on ZUGFeRD invoices. PNG or JPEG, at most 512 KB. Invoices already issued don't change.",
+    "logoNone": "No logo set.",
+    "logoAlt": "Your logo",
+    "logoFile": "Logo file",
+    "logoUpload": "Upload logo",
+    "logoRemove": "Remove logo",
+    "logoSaved": "The logo was saved.",
+    "logoRemoved": "The logo was removed."
   },
   "Settings": {
     "nav": "Settings sections",
@@ -746,7 +770,8 @@
     "team": "Team",
     "datev": "DATEV",
     "billing": "Billing",
-    "account": "Account"
+    "account": "Account",
+    "intake": "Email intake"
   },
   "Team": {
     "title": "Team and tax advisor",
@@ -945,5 +970,83 @@
     "changed": "Password changed. Other sign-ins were ended.",
     "accountTitle": "Your account",
     "accountIntro": "Signed in as {email}."
+  },
+  "Language": {
+    "label": "Language",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "IntakeSettings": {
+    "title": "Email intake",
+    "intro": "Invoices sent to your intake address arrive in the inbox. With the sender list, ERIKA accepts email from known senders directly; everything else waits in quarantine for your decision.",
+    "allowListHeading": "Sender list",
+    "allowListEnabled": "Only import email from senders on the list directly",
+    "allowListHint": "Email from other senders is archived but imported only once someone releases it.",
+    "sendersHeading": "Allowed senders",
+    "noSenders": "No senders yet.",
+    "senderPattern": "Add sender",
+    "senderPatternHint": "An address (invoices@supplier.com) or a whole domain (@supplier.com).",
+    "addSender": "Add",
+    "remove": "Remove",
+    "removeSender": "Remove {pattern}",
+    "senderAdded": "{pattern} was added.",
+    "senderRemoved": "{pattern} was removed.",
+    "quarantineHeading": "Quarantine",
+    "quarantineIntro": "Email from senders who are not on the list. Import it into the inbox or discard it. Discarded email stays in the archive.",
+    "quarantineEmpty": "No email in quarantine.",
+    "unknownSender": "Unknown sender",
+    "release": "Import",
+    "releaseAndAllow": "Import and allow sender",
+    "discard": "Discard",
+    "released": "The email is being imported; its invoices will appear in the inbox shortly.",
+    "discarded": "The email was discarded.",
+    "saved": "Saved."
+  },
+  "Payment": {
+    "heading": "Bank transfer",
+    "qrAlt": "GiroCode for paying this invoice",
+    "qrHint": "Scan with your banking app to fill in the transfer.",
+    "payee": "Payee",
+    "iban": "IBAN",
+    "bic": "BIC",
+    "amount": "Amount",
+    "reference": "Reference",
+    "copy": "Copy {field}",
+    "copied": "Copied"
+  },
+  "Recurring": {
+    "title": "Recurring invoices",
+    "intro": "On each run date ERIKA creates a draft with the service period and notifies you by email. You check the draft and issue it – nothing is issued automatically.",
+    "empty": "No recurring invoices yet. Open an invoice and choose “Make this a recurring invoice”.",
+    "column": {
+      "name": "Name",
+      "customer": "Customer",
+      "interval": "Interval",
+      "nextRun": "Next draft",
+      "lastDraft": "Last draft",
+      "actions": "Actions"
+    },
+    "interval": {
+      "MONTHLY": "Monthly",
+      "QUARTERLY": "Quarterly"
+    },
+    "pausedLabel": "Paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "pauseLabel": "Pause {name}",
+    "resumeLabel": "Resume {name}",
+    "paused": "{name} is paused.",
+    "resumed": "{name} is running again.",
+    "delete": "Delete",
+    "deleteLabel": "Delete {name}",
+    "deleteConfirm": "Delete the recurring invoice “{name}”? Drafts already created are kept.",
+    "deleted": "{name} was deleted.",
+    "makeRecurring": "Make this a recurring invoice",
+    "makeRecurringHint": "Customer, lines and format are copied. Each draft gets the service period starting on its run date (one month or one quarter).",
+    "name": "Name of the recurring invoice",
+    "firstRun": "First draft on",
+    "firstRunHint": "Start of the first service period.",
+    "create": "Create",
+    "created": "The recurring invoice was created."
   }
 }

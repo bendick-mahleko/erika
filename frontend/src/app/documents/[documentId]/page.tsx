@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { fetchComments, fetchDocument, fetchDocumentView, fetchSession, type ViewSection } from "@/lib/api/client";
 import { CorrectionRequest } from "./CorrectionRequest";
 import { DocumentActions } from "./DocumentActions";
 import { DocumentComments } from "./DocumentComments";
+import { PaymentPanel } from "./PaymentPanel";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Document");
@@ -15,7 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 /**
- * The viewer (VW-01, VW-04, VW-06): the invoice with a German label for every business term,
+ * The viewer (VW-01, VW-04, VW-06, VW-07): the invoice with a label for every business term in the
+ * app's language (German or English),
  * the validation result with plain-language reasons, downloads of the original, the PDF
  * view copy and embedded attachments, and the status with its history (AR-03).
  */
@@ -25,8 +27,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
   const { documentId } = await params;
   const doc = await fetchDocument(documentId);
   if (!doc) notFound();
+  const lang = (await getLocale()) === "en" ? "en" : "de";
   const [view, comments] = await Promise.all([
-    doc.viewAvailable ? fetchDocumentView(documentId) : Promise.resolve(null),
+    doc.viewAvailable ? fetchDocumentView(documentId, lang) : Promise.resolve(null),
     fetchComments(documentId),
   ]);
   const t = await getTranslations("Document");
@@ -179,11 +182,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ docum
         </p>
       </section>
 
+      {doc.transfer && <PaymentPanel transfer={doc.transfer} />}
+
       <DocumentActions doc={doc} canChange={canChange} />
       <DocumentComments documentId={doc.id} initial={comments} canComment={!session.workspace?.closed} />
 
       {view ? (
-        <section aria-labelledby="invoice-heading" className="space-y-4">
+        <section aria-labelledby="invoice-heading" className="space-y-4" lang={view.language ?? "de"}>
           <h2 id="invoice-heading" className="text-lg font-semibold">
             {t("invoiceHeading")}
           </h2>
