@@ -57,7 +57,12 @@ export function WorkspaceForm({ initial, etag, canEdit }: { initial: Workspace; 
   }
 
   return (
-    <form onSubmit={submit} className="max-w-xl space-y-4" aria-describedby={canEdit ? undefined : "read-only-note"}>
+    <form
+      method="post"
+      onSubmit={submit}
+      className="max-w-xl space-y-4"
+      aria-describedby={canEdit ? undefined : "read-only-note"}
+    >
       {!canEdit && (
         <p id="read-only-note" className="rounded border border-slate-300 bg-slate-50 px-4 py-3">
           {t("readOnly")}

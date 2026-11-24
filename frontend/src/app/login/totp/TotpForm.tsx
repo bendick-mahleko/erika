@@ -40,7 +40,7 @@ export function TotpForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form method="post" onSubmit={submit} className="space-y-4">
       <p className="text-slate-700">{t("totp.intro")}</p>
       <ErrorAlert message={error} />
       {recovery ? (

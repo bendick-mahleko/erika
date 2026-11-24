@@ -132,6 +132,8 @@ services:
     image: erika-frontend:local
     environment:
       ERIKA_API_INTERNAL_URL: http://api:8080
+      # Content Security Policy: the browser uploads straight to S3 (ADR 0034).
+      ERIKA_CSP_CONNECT_SRC: http://localhost:${ERIKA_S3_PORT:-9000}
     ports: ["127.0.0.1:${ERIKA_WEB_PORT:-3000}:3000"]
     depends_on:
       api: { condition: service_healthy }

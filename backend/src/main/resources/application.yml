@@ -148,6 +148,9 @@ erika:
   creator:
     # Shared secret of the mail provider's delivery webhook (POST /webhooks/mail); empty disables it.
     webhook-secret: ${ERIKA_MAIL_WEBHOOK_SECRET:}
+  passwords:
+    # Breached-password check (ASVS 2.1.7, k-anonymity: only 5 hex characters of the SHA-1 leave).
+    breach-check: ${ERIKA_PASSWORD_BREACH_CHECK:true}
   billing:
     # Off until go-live (closed beta): no trial limits, no Stripe (ADR 0033, docs/ops/billing.md).
     enabled: ${ERIKA_BILLING_ENABLED:false}

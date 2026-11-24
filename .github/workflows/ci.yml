@@ -36,7 +36,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 -S warning -x --source-path=SCRIPTDIR \
             infra/backup/*.sh infra/backup/drill/run-local-drill.sh infra/production/app/deploy.sh \
-            infra/staging/deploy.sh infra/postgres/erika-entrypoint.sh infra/postgres/init/01-roles.sh infra/mail/entrypoint.sh
+            infra/staging/deploy.sh infra/postgres/erika-entrypoint.sh infra/postgres/gosu-setpriv.sh infra/postgres/init/01-roles.sh infra/mail/entrypoint.sh
       - name: Alert rules and their unit tests ("alerts fire in a test")
         run: |
           docker run --rm -v "$PWD/infra/monitoring:/m" -w /m --entrypoint promtool prom/prometheus:v3.5.0 check rules alerts.yml
@@ -156,6 +156,23 @@ jobs:
       - working-directory: frontend
         env: { E2E_BASE_URL: "http://localhost:3000", E2E_EXPECT_API: "true" }
         run: pnpm test:e2e
+      # Stage 11 (ADR 0034): passive security scan of the running web app; fails on the rules marked
+      # FAIL in .zap/rules.tsv (missing CSP or security headers, secrets in URLs, error disclosure).
+      - name: ZAP baseline scan
+        run: |
+          mkdir -p zap && chmod 777 zap
+          docker run --rm --network host -v "$PWD/.zap:/zap/rules:ro" -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable             zap-baseline.py -t http://localhost:3000 -m 3 -I -c /zap/rules/rules.tsv -r zap-report.html
+      # Known vulnerabilities with an available fix in the images we ship (HIGH and CRITICAL fail the build).
+      - name: Image vulnerability scan (Trivy)
+        run: |
+          for image in erika-backend:local erika-frontend:local erika-mail:local; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image               --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress "$image"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: zap/zap-report.html
       - name: Mail server delivered to the API (email intake test)
         run: docker compose -f infra/local/compose.yml --profile app logs mail | grep -q "status=sent"
       - name: Worker processed the API's startup probe

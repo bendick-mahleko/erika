@@ -186,7 +186,7 @@ export function TeamManager({
           <h2 id="invite-title" className="text-xl font-semibold">
             {t("invite")}
           </h2>
-          <form onSubmit={invite} className="grid max-w-xl gap-4 sm:grid-cols-[1fr_auto]">
+          <form method="post" onSubmit={invite} className="grid max-w-xl gap-4 sm:grid-cols-[1fr_auto]">
             <Field id="inviteEmail" label={t("inviteEmail")} type="email" required maxLength={254} autoComplete="off" />
             <div className="space-y-1">
               <label htmlFor="inviteRole" className="block font-medium">

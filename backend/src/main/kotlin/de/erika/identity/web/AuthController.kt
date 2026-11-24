@@ -6,6 +6,9 @@ import de.erika.contract.model.InvitationRole
 import de.erika.contract.model.InvitationState
 import de.erika.contract.model.InvitationTokenRequest
 import de.erika.contract.model.LoginRequest
+import de.erika.contract.model.PasswordChange
+import de.erika.contract.model.PasswordResetConfirm
+import de.erika.contract.model.PasswordResetRequest
 import de.erika.contract.model.RecoveryCodes
 import de.erika.contract.model.Session
 import de.erika.contract.model.SessionState
@@ -24,6 +27,7 @@ import de.erika.identity.IdentityProperties
 import de.erika.identity.InvitationRepository
 import de.erika.identity.Invitations
 import de.erika.identity.LoginCompleted
+import de.erika.identity.PasswordService
 import de.erika.identity.PendingLogin
 import de.erika.identity.SignUp
 import de.erika.identity.SignupPolicy
@@ -61,6 +65,7 @@ internal class AuthController(
     private val invitationRepository: InvitationRepository,
     private val tenant: TenantContext,
     private val events: ApplicationEventPublisher,
+    private val passwords: PasswordService,
     props: IdentityProperties,
 ) : AuthApi {
     private val attempts = RateLimiter(props.loginRateLimit, props.loginRateWindow)
@@ -184,6 +189,32 @@ internal class AuthController(
     ) {
         sessions.signIn(ErikaPrincipal(principal.userId, workspaceId, role))
         events.publishEvent(WorkspaceEntered(workspaceId, principal.userId))
+    }
+
+    override fun requestPasswordReset(passwordResetRequest: PasswordResetRequest): ResponseEntity<Unit> {
+        limit()
+        passwords.requestReset(passwordResetRequest.email)
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build()
+    }
+
+    override fun confirmPasswordReset(passwordResetConfirm: PasswordResetConfirm): ResponseEntity<Unit> {
+        limit()
+        passwords.confirmReset(passwordResetConfirm.token, passwordResetConfirm.password)
+        sessions.signOut()
+        return ResponseEntity.noContent().build()
+    }
+
+    override fun changePassword(passwordChange: PasswordChange): ResponseEntity<Unit> {
+        limit()
+        val principal = ErikaPrincipal.currentOrNull() ?: throw IdentityErrors.loginRequired()
+        passwords.change(
+            principal.userId,
+            principal.workspaceId,
+            passwordChange.currentPassword,
+            passwordChange.newPassword,
+            request.getSession(false)?.id,
+        )
+        return ResponseEntity.noContent().build()
     }
 
     override fun logOut(): ResponseEntity<Unit> {

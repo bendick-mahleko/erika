@@ -106,6 +106,7 @@ export function CustomersManager({ initial, canEdit }: { initial: Customer[]; ca
 
       {editing !== null && (
         <form
+          method="post"
           onSubmit={submit}
           className="max-w-2xl space-y-4 rounded border border-slate-300 p-4"
           key={current?.id ?? "new"}

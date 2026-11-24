@@ -90,7 +90,7 @@ export function ExportsManager({
         <h2 id="period-title" className="text-xl font-semibold">
           {t("period")}
         </h2>
-        <form onSubmit={submitPeriod} className="grid max-w-3xl gap-4 sm:grid-cols-3">
+        <form method="post" onSubmit={submitPeriod} className="grid max-w-3xl gap-4 sm:grid-cols-3">
           <Field id="from" label={t("from")} type="date" required defaultValue={defaultFrom} />
           <Field id="to" label={t("to")} type="date" required defaultValue={defaultTo} />
           <div className="space-y-1">

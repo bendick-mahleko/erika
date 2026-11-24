@@ -133,6 +133,10 @@ services:
       ERIKA_API_INTERNAL_URL: http://api:8080
       # Footer link to the public status page (NF-06) and the beta contact on the sign-up page.
       ERIKA_STATUS_URL: https://status.${ERIKA_DOMAIN}
+      # Price line on the landing page once pricing is decided (go-live, docs/ops/go-live.md).
+      ERIKA_PRICE_TEXT: ${ERIKA_PRICE_TEXT:-}
+      # Content Security Policy: the browser uploads straight to the object store (ADR 0034).
+      ERIKA_CSP_CONNECT_SRC: ${ERIKA_S3_PUBLIC_ENDPOINT:-${ERIKA_S3_ENDPOINT:?}}
       ERIKA_BETA_CONTACT: ${ERIKA_FEEDBACK_TO:?}
     logging: *logging
 

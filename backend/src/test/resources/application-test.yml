@@ -17,6 +17,9 @@ erika:
     mail-secret: test-intake-secret
   creator:
     webhook-secret: test-webhook-secret
+  # No calls to the breach API from tests (PasswordPolicyTest covers it with a fake server).
+  passwords:
+    breach-check: false
   # Billing on in tests, against FakeStripe (base URL from TestInfrastructure); issuer = ERIKA's
   # own workspace, created by BillingIT.
   billing:

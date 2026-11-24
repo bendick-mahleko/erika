@@ -57,7 +57,7 @@ export function DatevForm({ initial, etag, canEdit }: { initial: DatevSettings; 
 
   const s = settings;
   return (
-    <form onSubmit={submit} className="max-w-xl space-y-4">
+    <form method="post" onSubmit={submit} className="max-w-xl space-y-4">
       {!canEdit && <p className="text-slate-700">{t("readOnly")}</p>}
       <ErrorAlert message={error} />
       <fieldset disabled={!canEdit} className="space-y-4">

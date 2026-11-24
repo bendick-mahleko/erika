@@ -95,7 +95,7 @@ export function TotpSetup() {
               {enrolment.secret}
             </code>
           </p>
-          <form onSubmit={confirm} className="space-y-4">
+          <form method="post" onSubmit={confirm} className="space-y-4">
             <Field
               id="code"
               label={t("setup.code")}

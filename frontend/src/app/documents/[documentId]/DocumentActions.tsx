@@ -88,6 +88,7 @@ export function DocumentActions({ doc: initial, canChange }: { doc: Document; ca
       <ErrorAlert message={error} />
       {canChange && (
         <form
+          method="post"
           className="grid gap-3 sm:grid-cols-[max-content_1fr_max-content] sm:items-end"
           onSubmit={(e) => {
             e.preventDefault();
@@ -155,6 +156,7 @@ export function DocumentActions({ doc: initial, canChange }: { doc: Document; ca
       </div>
 
       <form
+        method="post"
         className="grid gap-3"
         onSubmit={(e) => {
           e.preventDefault();

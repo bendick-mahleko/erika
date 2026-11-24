@@ -5,8 +5,50 @@
     "productTagline": "Receive, read, check, archive and create e-invoices"
   },
   "Home": {
-    "title": "Welcome to ERIKA",
-    "intro": "ERIKA is in a closed beta. This page shows whether all parts of the system can be reached."
+    "title": "Receive, understand and safely keep your e-invoices",
+    "intro": "ERIKA receives your XRechnung and ZUGFeRD invoices by upload or email, checks them against the official rules, shows them in readable form and keeps the originals unchangeable. You create your own e-invoices in minutes – no accounting software needed.",
+    "metaDescription": "ERIKA: receive, check, read, archive unchangeably and create e-invoices (XRechnung, ZUGFeRD). Servers in Germany.",
+    "ctaSignup": "Try 14 days free",
+    "ctaLogin": "Sign in",
+    "ctaBeta": "Ask for beta access",
+    "betaSubject": "Beta access for ERIKA",
+    "betaNote": "ERIKA is in a closed beta. Accounts are by personal invitation.",
+    "trialNote": "No credit card needed. You can export all your data at any time.",
+    "whyTitle": "Why now?",
+    "why2025": "Since 1 January 2025 every business in Germany must be able to receive e-invoices.",
+    "why2027": "From 2027 businesses with more than €800,000 turnover in the previous year must issue e-invoices.",
+    "why2028": "From 2028 every business must issue e-invoices in B2B trade.",
+    "featuresTitle": "What ERIKA does for you",
+    "feature": {
+      "receive": {
+        "title": "Receive",
+        "text": "Upload invoices or forward them to your personal ERIKA address – several files as a ZIP, too."
+      },
+      "check": {
+        "title": "Check and understand",
+        "text": "Every e-invoice is checked with the official rules (KoSIT) and shown with readable field names; ERIKA explains errors in plain words."
+      },
+      "archive": {
+        "title": "Keep unchangeable",
+        "text": "Originals are stored with a checksum and technically locked against change and deletion until the end of the statutory retention period."
+      },
+      "create": {
+        "title": "Create invoices",
+        "text": "XRechnung or ZUGFeRD from saved customers and articles, numbered in sequence, checked before sending."
+      },
+      "advisor": {
+        "title": "Work with your tax advisor",
+        "text": "Invite your advisor with read access and export documents with a DATEV booking batch."
+      },
+      "security": {
+        "title": "Secure, in Germany",
+        "text": "Servers and backups in Germany, sign-in with a second factor, strict separation of customers."
+      }
+    },
+    "statusLink": "Show system status",
+    "statusTitle": "System status",
+    "statusIntro": "This page shows whether all parts of the system are reachable.",
+    "statusPage": "Public status page"
   },
   "Health": {
     "heading": "System status",
@@ -71,7 +113,8 @@
     "login": {
       "title": "Sign in",
       "submit": "Continue",
-      "noAccount": "No account yet?"
+      "noAccount": "No account yet?",
+      "forgot": "Forgot your password?"
     },
     "totp": {
       "title": "Verification code",
@@ -175,7 +218,9 @@
     "BILLING_DISABLED": "Billing is not active.",
     "BILLING_NOT_CONFIGURED": "Payments are not set up yet.",
     "BILLING_ACCOUNT_MISSING": "This workspace has no billing account.",
-    "PAYMENT_PROVIDER_ERROR": "The payment provider is not reachable right now. Please try again."
+    "PAYMENT_PROVIDER_ERROR": "The payment provider is not reachable right now. Please try again.",
+    "PASSWORD_BREACHED": "This password appears in known data breaches. Please choose another one.",
+    "CURRENT_PASSWORD_WRONG": "The current password is wrong."
   },
   "Inbox": {
     "title": "Inbox",
@@ -700,7 +745,8 @@
     "invoices": "Invoices",
     "team": "Team",
     "datev": "DATEV",
-    "billing": "Billing"
+    "billing": "Billing",
+    "account": "Account"
   },
   "Team": {
     "title": "Team and tax advisor",
@@ -883,5 +929,21 @@
     "amount": "Amount (gross)",
     "success": "Thank you! Your subscription appears here as soon as Stripe confirms the payment.",
     "cancelled": "The payment was cancelled."
+  },
+  "Password": {
+    "forgotTitle": "Forgot password",
+    "forgotIntro": "Enter your email address. If it has an account, we send you a link to set a new password.",
+    "send": "Send link",
+    "sent": "If this address has an account, an email is on its way. The link is valid for one hour.",
+    "resetTitle": "Set a new password",
+    "noToken": "The link is incomplete. Please ask for a new one.",
+    "newPassword": "New password",
+    "currentPassword": "Current password",
+    "save": "Save password",
+    "resetDone": "Your password was changed. Sign in again now; your second factor stays the same.",
+    "changeTitle": "Change password",
+    "changed": "Password changed. Other sign-ins were ended.",
+    "accountTitle": "Your account",
+    "accountIntro": "Signed in as {email}."
   }
 }

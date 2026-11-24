@@ -110,6 +110,13 @@ internal class IdentityMails(
 
     fun alreadyRegistered(user: UserRow) = mail(user, "exists", user.displayName, "${props.webBaseUrl}/login")
 
+    fun passwordReset(
+        user: UserRow,
+        token: String,
+    ) = mail(user, "reset", user.displayName, "${props.webBaseUrl}/reset-password?token=$token")
+
+    fun passwordChanged(user: UserRow) = mail(user, "pwchanged", user.displayName, "${props.webBaseUrl}/login/forgot")
+
     fun accountLocked(
         user: UserRow,
         minutes: Long,

@@ -5,8 +5,50 @@
     "productTagline": "E-Rechnungen empfangen, lesen, prüfen, archivieren und erstellen"
   },
   "Home": {
-    "title": "Willkommen bei ERIKA",
-    "intro": "ERIKA ist in der geschlossenen Beta. Diese Seite zeigt, ob alle Systemteile erreichbar sind."
+    "title": "E-Rechnungen empfangen, verstehen und sicher aufbewahren",
+    "intro": "ERIKA nimmt Ihre XRechnungen und ZUGFeRD-Rechnungen per Upload oder E-Mail an, prüft sie nach den amtlichen Regeln, zeigt sie lesbar an und bewahrt die Originale unveränderbar auf. Eigene E-Rechnungen erstellen Sie in wenigen Minuten – ganz ohne Buchhaltungssoftware.",
+    "metaDescription": "ERIKA: E-Rechnungen (XRechnung, ZUGFeRD) empfangen, prüfen, lesbar anzeigen, unveränderbar archivieren und selbst erstellen. Server in Deutschland.",
+    "ctaSignup": "14 Tage kostenlos testen",
+    "ctaLogin": "Anmelden",
+    "ctaBeta": "Beta-Zugang anfragen",
+    "betaSubject": "Beta-Zugang für ERIKA",
+    "betaNote": "ERIKA ist in der geschlossenen Beta. Ein Konto gibt es mit persönlicher Einladung.",
+    "trialNote": "Keine Kreditkarte nötig. Ihre Daten können Sie jederzeit vollständig exportieren.",
+    "whyTitle": "Warum jetzt?",
+    "why2025": "Seit 1. Januar 2025 müssen alle Unternehmen in Deutschland E-Rechnungen empfangen können.",
+    "why2027": "Ab 2027 müssen Unternehmen mit mehr als 800.000 € Vorjahresumsatz E-Rechnungen ausstellen.",
+    "why2028": "Ab 2028 gilt die Pflicht zum Ausstellen für alle Unternehmen im B2B-Geschäft.",
+    "featuresTitle": "Was ERIKA für Sie erledigt",
+    "feature": {
+      "receive": {
+        "title": "Empfangen",
+        "text": "Rechnungen hochladen oder an Ihre persönliche ERIKA-Adresse weiterleiten – auch mehrere Dateien als ZIP."
+      },
+      "check": {
+        "title": "Prüfen und verstehen",
+        "text": "Jede E-Rechnung wird mit den amtlichen Prüfregeln (KoSIT) geprüft und mit deutschen Feldnamen lesbar angezeigt; Fehler erklärt ERIKA in klaren Worten."
+      },
+      "archive": {
+        "title": "Unveränderbar aufbewahren",
+        "text": "Originale werden mit Prüfsumme gespeichert und sind bis zum Ende der gesetzlichen Aufbewahrungsfrist technisch gegen Änderung und Löschung gesperrt."
+      },
+      "create": {
+        "title": "Rechnungen erstellen",
+        "text": "XRechnung oder ZUGFeRD aus gespeicherten Kunden und Artikeln, mit fortlaufender Nummer, geprüft vor dem Versand."
+      },
+      "advisor": {
+        "title": "Steuerberatung einbinden",
+        "text": "Laden Sie Ihre Kanzlei mit Lesezugriff ein und exportieren Sie Belege mit DATEV-Buchungsstapel."
+      },
+      "security": {
+        "title": "Sicher in Deutschland",
+        "text": "Server und Backups in Deutschland, Anmeldung mit zweitem Faktor, strikte Trennung der Mandanten."
+      }
+    },
+    "statusLink": "Systemstatus anzeigen",
+    "statusTitle": "Systemstatus",
+    "statusIntro": "Diese Seite zeigt, ob alle Systemteile erreichbar sind.",
+    "statusPage": "Öffentliche Statusseite"
   },
   "Health": {
     "heading": "Systemstatus",
@@ -71,7 +113,8 @@
     "login": {
       "title": "Anmelden",
       "submit": "Weiter",
-      "noAccount": "Noch kein Konto?"
+      "noAccount": "Noch kein Konto?",
+      "forgot": "Passwort vergessen?"
     },
     "totp": {
       "title": "Bestätigungscode",
@@ -175,7 +218,9 @@
     "BILLING_DISABLED": "Die Abrechnung ist nicht aktiv.",
     "BILLING_NOT_CONFIGURED": "Die Bezahlung ist noch nicht eingerichtet.",
     "BILLING_ACCOUNT_MISSING": "Für diesen Arbeitsbereich gibt es kein Abrechnungskonto.",
-    "PAYMENT_PROVIDER_ERROR": "Der Zahlungsdienstleister ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
+    "PAYMENT_PROVIDER_ERROR": "Der Zahlungsdienstleister ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.",
+    "PASSWORD_BREACHED": "Dieses Passwort taucht in bekannten Datenlecks auf. Bitte wählen Sie ein anderes.",
+    "CURRENT_PASSWORD_WRONG": "Das aktuelle Passwort ist falsch."
   },
   "Inbox": {
     "title": "Eingang",
@@ -700,7 +745,8 @@
     "invoices": "Rechnungen",
     "team": "Team",
     "datev": "DATEV",
-    "billing": "Abrechnung"
+    "billing": "Abrechnung",
+    "account": "Konto"
   },
   "Team": {
     "title": "Team und Steuerberatung",
@@ -883,5 +929,21 @@
     "amount": "Betrag (brutto)",
     "success": "Danke! Sobald Stripe die Zahlung bestätigt, erscheint Ihr Abonnement hier.",
     "cancelled": "Der Bezahlvorgang wurde abgebrochen."
+  },
+  "Password": {
+    "forgotTitle": "Passwort vergessen",
+    "forgotIntro": "Geben Sie Ihre E-Mail-Adresse ein. Gibt es dazu ein Konto, schicken wir Ihnen einen Link, mit dem Sie ein neues Passwort festlegen.",
+    "send": "Link senden",
+    "sent": "Wenn es zu dieser Adresse ein Konto gibt, ist eine E-Mail unterwegs. Der Link ist eine Stunde gültig.",
+    "resetTitle": "Neues Passwort festlegen",
+    "noToken": "Der Link ist unvollständig. Bitte fordern Sie einen neuen an.",
+    "newPassword": "Neues Passwort",
+    "currentPassword": "Aktuelles Passwort",
+    "save": "Passwort speichern",
+    "resetDone": "Ihr Passwort wurde geändert. Melden Sie sich jetzt neu an; Ihr zweiter Faktor bleibt unverändert.",
+    "changeTitle": "Passwort ändern",
+    "changed": "Passwort geändert. Andere Anmeldungen wurden beendet.",
+    "accountTitle": "Ihr Konto",
+    "accountIntro": "Angemeldet als {email}."
   }
 }

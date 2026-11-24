@@ -153,8 +153,25 @@ internal class IntakePipeline(
             if (bytes.size >= 5 && String(bytes, 0, 5, Charsets.US_ASCII) == "%PDF-") return "application/pdf"
             var i = if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()) 3 else 0
             while (i < bytes.size && bytes[i].toInt().toChar().isWhitespace()) i++
-            return if (i < bytes.size && bytes[i] == '<'.code.toByte()) "application/xml" else null
+            if (i >= bytes.size || bytes[i] != '<'.code.toByte()) return null
+            // Active web content is not an invoice, even when it is well-formed XML (NF-04, ASVS 12.2).
+            return if (ACTIVE_CONTENT.containsMatchIn(
+                    String(bytes, i, minOf(bytes.size - i, HEAD), Charsets.ISO_8859_1),
+                )
+            ) {
+                null
+            } else {
+                "application/xml"
+            }
         }
+
+        /** HTML, SVG or script as the document element (after declaration, comments and doctype). */
+        private val ACTIVE_CONTENT =
+            Regex(
+                """^(?:<\?xml[^>]*\?>\s*)?(?:<!--.*?-->\s*)*(?:<!DOCTYPE\s+(?:html|svg)\b|<(?:[\w-]+:)?(?:html|svg|script)\b)""",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+            )
+        private const val HEAD = 4096
 
         /** The last path segment, without control characters: "rechnungen.zip/2026/re-1.xml" → "re-1.xml". */
         fun displayName(path: String): String =

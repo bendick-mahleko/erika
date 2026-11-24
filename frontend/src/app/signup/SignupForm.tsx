@@ -71,7 +71,7 @@ export function SignupForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4" noValidate={false}>
+    <form method="post" onSubmit={submit} className="space-y-4" noValidate={false}>
       <p className="text-slate-700">{t("signup.intro")}</p>
       {joining && (
         <p className="rounded border border-brand-700 bg-slate-50 px-3 py-2 text-sm" data-testid="joining">

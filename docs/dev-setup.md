@@ -120,6 +120,15 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - Entitlement: a READ_ONLY workspace gets 403 `SUBSCRIPTION_REQUIRED` on writes (`EntitlementInterceptor`); exports, feedback, `/auth` and `/billing` stay open. To see it locally: `UPDATE erika.billing_account SET trial_ends_at = now() - interval '1 day' WHERE workspace_id = '…';` (with billing on).
 - ERIKA's own invoices go through `creator.SystemInvoices` (issued in the worker, emailed via `invoice_draft.send_to`); the runbook is [docs/ops/billing.md](ops/billing.md).
 
+### Hardening (Stage 11)
+
+- Passwords: reset by email (`/login/forgot`, link in Mailpit) and change in `/settings/account`. The breach check calls the Pwned Passwords range API; switch it off offline with `ERIKA_PASSWORD_BREACH_CHECK=false` (tests do).
+- The web app sends a nonce-based CSP (`frontend/src/proxy.ts`). If the browser must talk to another origin (e.g. S3 in another place), add it to `ERIKA_CSP_CONNECT_SRC`. `e2e/hardening.spec.ts` fails on CSP violations.
+- Security scans as in CI, against the running stack:
+  - ZAP: `docker run --rm -v "$PWD/.zap:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://host.docker.internal:3000 -I -c rules.tsv`
+  - Trivy: `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image --severity HIGH,CRITICAL --ignore-unfixed erika-frontend:local`
+- Load tests: [loadtest/README.md](../loadtest/README.md). Security self-assessment: [docs/security/asvs-l1.md](security/asvs-l1.md). Traceability and go-live: [docs/testing/traceability.md](testing/traceability.md), [docs/ops/go-live.md](ops/go-live.md).
+
 ## Operations (Stage 7)
 
 - Production layout, setup and routine work: [docs/ops/production.md](ops/production.md); backups and restore drills: [backup.md](ops/backup.md), [restore.md](ops/restore.md); alerts: [monitoring.md](ops/monitoring.md); beta: [beta.md](ops/beta.md).

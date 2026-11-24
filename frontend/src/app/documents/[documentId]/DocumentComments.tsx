@@ -67,7 +67,7 @@ export function DocumentComments({
         </ol>
       )}
       {canComment && (
-        <form onSubmit={submit} className="max-w-2xl space-y-2">
+        <form method="post" onSubmit={submit} className="max-w-2xl space-y-2">
           <ErrorAlert message={error} />
           <label htmlFor="comment" className="block font-medium">
             {t("label")}

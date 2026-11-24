@@ -38,6 +38,7 @@ class AdvisorReadOnlyIT : ApiIntegrationTest() {
             "POST /exports" to "advisors export periods for bookkeeping (EX-01)",
             "POST /auth/invitation/accept" to "joins another workspace with the advisor's own account",
             "POST /auth/workspace" to "switches the advisor's own session to another of their workspaces",
+            "POST /auth/password" to "changes the advisor's own password, not workspace data",
         )
 
     private val spec: Map<String, Any?> by lazy {

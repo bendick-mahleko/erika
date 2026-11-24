@@ -70,6 +70,17 @@ internal class UserRepository(
             .update()
     }
 
+    fun updatePassword(
+        id: UUID,
+        hash: String,
+    ) {
+        jdbc
+            .sql("UPDATE app_user SET password_hash = :hash WHERE id = :id")
+            .param("hash", hash)
+            .param("id", id)
+            .update()
+    }
+
     fun markEmailVerified(id: UUID) {
         jdbc.sql("UPDATE app_user SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = :id").param("id", id).update()
     }

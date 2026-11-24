@@ -24,6 +24,8 @@ Not sub-processors (no personal data): the external heartbeat service for the de
 | Vertrag zur Auftragsverarbeitung incl. TOM | `/auftragsverarbeitung` | Draft; TOM match the implementation as of Stage 7 |
 | Unterauftragsverarbeiter | `/unterauftragsverarbeiter` | Mail provider missing |
 | Verfahrensdokumentation (first draft) | [verfahrensdokumentation.md](verfahrensdokumentation.md) | Draft; review with a tax advisor in Stage 11 |
+| Brief for the lawyer's review (incl. GoBD wording) | [lawyer-review.md](lawyer-review.md) | Ready to send (Stage 11) |
+| Tax-advisor review and DATEV import | [tax-advisor-review.md](tax-advisor-review.md) | Ready (Stage 11) |
 | Record of processing activities (Art. 30 GDPR) | [verarbeitungsverzeichnis.md](verarbeitungsverzeichnis.md) | Draft (Stage 9); lawyer's review in Stage 11 |
 | Data-subject requests and deletion of closed accounts | [docs/ops/gdpr.md](../ops/gdpr.md) | Runbook (Stage 9) |
 

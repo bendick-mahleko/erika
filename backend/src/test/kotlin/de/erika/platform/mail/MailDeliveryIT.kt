@@ -27,7 +27,8 @@ class MailDeliveryIT : WorkerIntegrationTest() {
     fun `queued mail is sent by the worker`() {
         val to = "delivery-${UUID.randomUUID()}@example.test"
         tx.executeWithoutResult { outbox.send(Mail(to, "Grüße aus dem Test", "Hallo,\nschöne Grüße.")) }
-        worker.runOnce()
+        // Other tests may have left jobs in the queue: run the worker until it is empty.
+        while (worker.runOnce() > 0) Unit
 
         val search = URLEncoder.encode("to:$to", Charsets.UTF_8)
         val response =
@@ -54,7 +55,8 @@ class MailDeliveryIT : WorkerIntegrationTest() {
                 error("roll back")
             }
         }
-        worker.runOnce()
+        // Other tests may have left jobs in the queue: run the worker until it is empty.
+        while (worker.runOnce() > 0) Unit
         val search = URLEncoder.encode("to:$to", Charsets.UTF_8)
         val body =
             HttpClient

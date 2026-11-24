@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.7.0
+  version: 0.8.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -305,6 +305,62 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Session" }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/password-reset:
+    post:
+      tags: [auth]
+      operationId: requestPasswordReset
+      summary: Send a link to set a new password
+      description: |
+        Always answers 202, whether or not the address belongs to an account (no account
+        enumeration). The link is valid for one hour and works once. The second factor stays as it
+        is: signing in afterwards still needs the authenticator app or a recovery code.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetRequest" }
+            example: { email: "erika@example.de" }
+      responses:
+        "202": { description: "If the address has an account, a link is on its way." }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/password-reset/confirm:
+    post:
+      tags: [auth]
+      operationId: confirmPasswordReset
+      summary: Set a new password with the token from the email
+      description: |
+        Ends every session of the user. 400 `INVALID_TOKEN` for an unknown, used or expired
+        token; 400 `WEAK_PASSWORD` or `PASSWORD_BREACHED` for a password that is too weak or
+        appears in known data breaches.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetConfirm" }
+            example: { token: "q3J1cHRvZ3JhcGhpY2FsbHktcmFuZG9tLXRva2Vu", password: "ein neuer langer Satz als Passwort" }
+      responses:
+        "204": { description: "Password changed; sign in again." }
+        default: { $ref: "#/components/responses/Problem" }
+  /auth/password:
+    post:
+      tags: [auth]
+      operationId: changePassword
+      summary: Change the signed-in user's password
+      description: |
+        Needs the current password (400 `CURRENT_PASSWORD_WRONG`). Every other session of the user
+        ends; this one stays signed in. Open to every role: it changes the user's own account,
+        not workspace data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChange" }
+            example: { currentPassword: "correct horse battery staple", newPassword: "ein neuer langer Satz als Passwort" }
+      responses:
+        "204": { description: Changed. }
         default: { $ref: "#/components/responses/Problem" }
   /workspace:
     get:
@@ -2716,3 +2772,20 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/BillingInvoice" }
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    PasswordResetConfirm:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 200 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    PasswordChange:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
+        newPassword: { type: string, minLength: 12, maxLength: 128 }

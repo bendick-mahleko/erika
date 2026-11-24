@@ -63,6 +63,7 @@ internal class AuthService(
     private val props: IdentityProperties,
     private val signupPolicy: SignupPolicy,
     private val invitations: Invitations,
+    private val passwordPolicy: PasswordPolicy,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -87,10 +88,7 @@ internal class AuthService(
             signupPolicy.check(cmd.email, cmd.termsAccepted, cmd.invitationCode)
             workspaceName = cmd.workspaceName?.trim()?.takeIf { it.isNotEmpty() } ?: throw IdentityErrors.workspaceNameRequired()
         }
-        val lowered = cmd.password.lowercase()
-        if (lowered.contains(cmd.email.trim().lowercase()) || lowered.contains(workspaceName.trim().lowercase())) {
-            throw IdentityErrors.weakPassword()
-        }
+        passwordPolicy.check(cmd.password, cmd.email, workspaceName)
         val hash = passwords.hash(cmd.password)
         tx.executeWithoutResult {
             val existing = users.findByEmail(cmd.email)

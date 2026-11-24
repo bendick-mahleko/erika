@@ -35,7 +35,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form method="post" onSubmit={submit} className="space-y-4">
       <ErrorAlert message={error} />
       <Field id="email" label={t("email")} type="email" required maxLength={254} autoComplete="username" />
       <Field
@@ -47,6 +47,11 @@ export function LoginForm() {
         autoComplete="current-password"
       />
       <SubmitButton busy={busy}>{t("login.submit")}</SubmitButton>
+      <p className="text-sm">
+        <Link href="/login/forgot" className="text-brand-700 underline">
+          {t("login.forgot")}
+        </Link>
+      </p>
       <p className="text-sm">
         {t("login.noAccount")}{" "}
         <Link href="/signup" className="text-brand-700 underline">

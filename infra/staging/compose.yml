@@ -136,6 +136,8 @@ services:
     environment:
       ERIKA_API_INTERNAL_URL: http://api:8080
       ERIKA_BETA_CONTACT: ${ERIKA_FEEDBACK_TO:-}
+      # Content Security Policy: the browser uploads straight to the object store (ADR 0034).
+      ERIKA_CSP_CONNECT_SRC: ${ERIKA_S3_PUBLIC_ENDPOINT:-${ERIKA_S3_ENDPOINT:-}}
 
 volumes:
   pgdata:

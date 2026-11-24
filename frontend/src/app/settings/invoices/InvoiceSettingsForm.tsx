@@ -100,6 +100,7 @@ export function InvoiceSettingsForm({
       </section>
 
       <form
+        method="post"
         onSubmit={submit}
         className="max-w-2xl space-y-6"
         aria-describedby={canEdit ? undefined : "settings-read-only"}

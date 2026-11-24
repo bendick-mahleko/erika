@@ -37,3 +37,6 @@ frontend/*.tsbuildinfo
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Load test session (live cookie)
+loadtest/.session.json

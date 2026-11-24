@@ -20,7 +20,10 @@ RUN pnpm build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-RUN addgroup --system erika && adduser --system --ingroup erika erika
+# Current Alpine fixes; npm (and its bundled packages) isn't needed at run time (Trivy, ADR 0034).
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+    && addgroup --system erika && adduser --system --ingroup erika erika
 COPY --from=build --chown=erika:erika /src/frontend/.next/standalone ./
 COPY --from=build --chown=erika:erika /src/frontend/.next/static ./.next/static
 USER erika

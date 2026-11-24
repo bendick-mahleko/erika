@@ -166,7 +166,7 @@ export function IssuedInvoice({ invoice, canEdit }: { invoice: Invoice; canEdit:
           <h2 id="send-heading" className="text-lg font-semibold">
             {t("sendHeading")}
           </h2>
-          <form onSubmit={send} className="space-y-3">
+          <form method="post" onSubmit={send} className="space-y-3">
             <fieldset disabled={busy} className="space-y-3">
               <Field
                 id="to"

@@ -66,6 +66,7 @@ Decide first: **whole database** (server lost, data corrupted) or **point in tim
 |---|---|---|---|---|---|---|---|
 | 2026-11-23 | local (run-local-drill.sh, pgBackRest 2.60.1, TLS S3) | dev database: 101 workspaces, 180 documents, 1,175 audit entries; 34 MB | 12 s | 8 s | 11 s | **31 s** | OK; the change after the backup was present (WAL replay) |
 | 2026-11-23 | local, point in time before the change | same | 7 s | 9 s | 6 s | **22 s** | OK; the change was absent as intended |
+| 2026-11-24 | local, Stage 11, after the load test (postgres image with tini, ADR 0034) | 264 workspaces, 10,581 documents, 10,784 originals, 4,137 audit entries; 98.6 MB | 12 s | 8 s | 9 s | **29 s** | OK, incl. point-in-time restore. The first attempt found the PID-1 problem: pgBackRest's async archiver crashed PostgreSQL while the repository had no stanza yet; fixed with tini |
 | _open_ | **staging** (first drill, build plan Stage 7) | | | | | | |
 | _open_ | production, first monthly drill after go-live | | | | | | |
 

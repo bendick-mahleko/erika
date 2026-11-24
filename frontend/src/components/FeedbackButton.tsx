@@ -86,7 +86,7 @@ export function FeedbackButton() {
               </button>
             </>
           ) : (
-            <form onSubmit={submit} className="space-y-4">
+            <form method="post" onSubmit={submit} className="space-y-4">
               <p className="text-sm text-slate-700">{t("intro")}</p>
               <ErrorAlert message={error} />
               <fieldset className="space-y-1">

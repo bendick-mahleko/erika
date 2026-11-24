@@ -57,7 +57,7 @@ export function CloseAccount({ workspace }: { workspace: Workspace }) {
           {t("exportFirst")}
         </Link>
       </p>
-      <form onSubmit={submit} className="max-w-xl space-y-3">
+      <form method="post" onSubmit={submit} className="max-w-xl space-y-3">
         <ErrorAlert message={error} />
         <Field id="confirmName" label={t("confirm", { name: workspace.name })} required autoComplete="off" />
         <button
