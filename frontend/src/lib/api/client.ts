@@ -228,3 +228,15 @@ export async function fetchComments(documentId: string): Promise<Comment[]> {
   );
   return data?.items ?? [];
 }
+
+export type BillingStatus = components["schemas"]["BillingStatus"];
+export type BillingInvoice = components["schemas"]["BillingInvoice"];
+
+export async function fetchBilling(): Promise<BillingStatus | null> {
+  return authed((init) => api.GET("/billing", init));
+}
+
+export async function fetchBillingInvoices(): Promise<BillingInvoice[]> {
+  const data = await authed((init) => api.GET("/billing/invoices", init));
+  return data?.items ?? [];
+}

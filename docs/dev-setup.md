@@ -113,6 +113,13 @@ The local profile uses a fixed dev key for TOTP secrets (`ERIKA_TOTP_ENCRYPTION_
 - Full export: modules contribute their data as `platform.export.AccountDataSection` beans; a new module with its own tables adds one.
 - A closed workspace (`POST /workspace/closure`) is read-only (`WorkspaceAccessInterceptor`); there is no reopening in the app. Locally: `UPDATE erika.workspace ...` is refused by the trigger too; use a fresh account.
 
+### Billing (Stage 10)
+
+- Billing is off locally (`ERIKA_BILLING_ENABLED=false`): no trial limits; `/settings/billing` says so. Tests run with billing on against `support/FakeStripe` (`application-test.yml`); `BillingIT` signs webhook payloads with `StripeSignature("whsec_test_erika")`.
+- Trying it with Stripe test mode: set `ERIKA_BILLING_ENABLED=true`, `ERIKA_STRIPE_SECRET_KEY=sk_test_…`, the price and tax-rate IDs, and `ERIKA_BILLING_ISSUER_WORKSPACE` (a local workspace with complete company data), then forward webhooks with `stripe listen --forward-to localhost:8080/webhooks/stripe` and put the printed `whsec_…` into `ERIKA_STRIPE_WEBHOOK_SECRET`.
+- Entitlement: a READ_ONLY workspace gets 403 `SUBSCRIPTION_REQUIRED` on writes (`EntitlementInterceptor`); exports, feedback, `/auth` and `/billing` stay open. To see it locally: `UPDATE erika.billing_account SET trial_ends_at = now() - interval '1 day' WHERE workspace_id = '…';` (with billing on).
+- ERIKA's own invoices go through `creator.SystemInvoices` (issued in the worker, emailed via `invoice_draft.send_to`); the runbook is [docs/ops/billing.md](ops/billing.md).
+
 ## Operations (Stage 7)
 
 - Production layout, setup and routine work: [docs/ops/production.md](ops/production.md); backups and restore drills: [backup.md](ops/backup.md), [restore.md](ops/restore.md); alerts: [monitoring.md](ops/monitoring.md); beta: [beta.md](ops/beta.md).

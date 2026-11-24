@@ -31,6 +31,7 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             "spring_session" to "sessions exist before a workspace is chosen",
             "spring_session_attributes" to "part of spring_session",
             "workspace" to "the tenant itself: RLS on id (checked separately)",
+            "stripe_event" to "Stripe webhook events arrive without a workspace; the worker maps them (ADR 0033)",
         )
 
     @Test
@@ -168,6 +169,16 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             "INSERT INTO data_export (id, workspace_id, kind, requested_by) VALUES (gen_random_uuid(), ?, 'FULL', ?)",
             user.workspaceId,
             user.userId,
+        )
+        // Stage 10: billing (billing_account comes with the sign-up).
+        TestDatabase.update(
+            """
+            INSERT INTO billing_invoice (id, workspace_id, customer_workspace_id, stripe_invoice_id, erika_invoice_id, currency,
+                                         net, tax, gross, paid_at)
+            VALUES (gen_random_uuid(), ?, ?, 'in_rls_' || gen_random_uuid(), gen_random_uuid(), 'EUR', 1, 0, 1, now())
+            """.trimIndent(),
+            user.workspaceId,
+            user.workspaceId,
         )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"

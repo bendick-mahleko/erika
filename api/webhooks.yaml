@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: ERIKA webhooks (provider callbacks)
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Callbacks from external providers. Not part of the public API (`openapi.yaml`): they live
     outside `/api/v1`, need no session or CSRF token, and authenticate with a shared secret.
-    Implemented by hand in `de.erika.creator.web.MailWebhookController` (ADR 0031).
+    Implemented by hand: `de.erika.creator.web.MailWebhookController` (ADR 0031) and
+    `de.erika.billing.web.StripeWebhookController` (ADR 0033).
 
     The outgoing mail provider is not chosen yet (docs/legal/README.md). This endpoint takes
     a provider-neutral event; when the provider is chosen, its own payload is mapped here (or a
@@ -33,12 +34,37 @@ paths:
         "202": { description: Received. }
         "400": { description: Malformed event. }
         "401": { description: Missing or wrong secret. }
+  /webhooks/stripe:
+    post:
+      operationId: receiveStripeEvent
+      summary: Stripe event (subscriptions, invoices, checkout) (EX-03)
+      description: |
+        Authenticated by Stripe's signature (`Stripe-Signature`, HMAC-SHA256 over the raw body
+        with the endpoint secret, at most 5 minutes old). Stored by event ID, so a repeated
+        delivery is acknowledged without being processed twice; the worker processes it.
+        Handled: `checkout.session.completed`, `customer.subscription.created|updated|deleted`,
+        `invoice.paid`, `invoice.payment_failed`; others are acknowledged and ignored.
+      security:
+        - stripeSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StripeEvent" }
+            example: { id: "evt_1QaBcD", type: "invoice.paid", created: 1767225600, data: { object: { id: "in_1QaBcD", object: "invoice" } } }
+      responses:
+        "200": { description: Received. }
+        "400": { description: "Wrong or missing signature, or not an event." }
 components:
   securitySchemes:
     webhookSecret:
       type: apiKey
       in: header
       name: X-Erika-Webhook-Secret
+    stripeSignature:
+      type: apiKey
+      in: header
+      name: Stripe-Signature
   schemas:
     MailEvent:
       type: object
@@ -53,3 +79,15 @@ components:
           maxLength: 500
           description: The provider's reason (SMTP status text). Stored as it is; must not contain invoice content.
         occurredAt: { type: string, format: date-time }
+    StripeEvent:
+      type: object
+      required: [id, type, created, data]
+      description: Stripe's event object; only the fields ERIKA reads are listed.
+      properties:
+        id: { type: string }
+        type: { type: string }
+        created: { type: integer, format: int64, description: Unix time }
+        data:
+          type: object
+          properties:
+            object: { type: object }

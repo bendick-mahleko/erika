@@ -37,7 +37,10 @@
     "invoices": "Rechnungen",
     "exports": "Export",
     "workspace": "Arbeitsbereich",
-    "closedBanner": "Dieses Konto ist geschlossen. Sie können Daten lesen, herunterladen und exportieren, aber nichts mehr ändern."
+    "closedBanner": "Dieses Konto ist geschlossen. Sie können Daten lesen, herunterladen und exportieren, aber nichts mehr ändern.",
+    "readOnlyBanner": "Ihr Arbeitsbereich ist schreibgeschützt: Die Testphase ist abgelaufen oder das Abonnement nicht bezahlt.",
+    "pastDueBanner": "Eine Zahlung für ERIKA ist fehlgeschlagen. Bitte prüfen Sie Ihre Zahlungsart.",
+    "billingLink": "Zur Abrechnung"
   },
   "Auth": {
     "email": "E-Mail-Adresse",
@@ -164,7 +167,15 @@
     "EXPORT_FAILED": "Dieser Export ist fehlgeschlagen. Starten Sie einen neuen.",
     "EXPORT_PERIOD_INVALID": "Bitte prüfen Sie den Zeitraum (höchstens drei Jahre, „bis“ nicht vor „von“).",
     "EXPORTS_PENDING": "Es werden noch mehrere Exporte erstellt. Bitte warten Sie, bis sie fertig sind.",
-    "COMMENT_EMPTY": "Der Kommentar ist leer."
+    "COMMENT_EMPTY": "Der Kommentar ist leer.",
+    "SUBSCRIPTION_REQUIRED": "Die Testphase ist abgelaufen oder das Abonnement nicht bezahlt. Daten können gelesen und exportiert, aber nicht geändert werden.",
+    "ALREADY_SUBSCRIBED": "Es gibt bereits ein Abonnement. Ändern Sie es über die Verwaltung.",
+    "PLAN_NOT_AVAILABLE": "Dieser Tarif wird nicht angeboten.",
+    "NO_SUBSCRIPTION": "Schließen Sie zuerst ein Abonnement ab.",
+    "BILLING_DISABLED": "Die Abrechnung ist nicht aktiv.",
+    "BILLING_NOT_CONFIGURED": "Die Bezahlung ist noch nicht eingerichtet.",
+    "BILLING_ACCOUNT_MISSING": "Für diesen Arbeitsbereich gibt es kein Abrechnungskonto.",
+    "PAYMENT_PROVIDER_ERROR": "Der Zahlungsdienstleister ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
   },
   "Inbox": {
     "title": "Eingang",
@@ -688,7 +699,8 @@
     "workspace": "Unternehmen",
     "invoices": "Rechnungen",
     "team": "Team",
-    "datev": "DATEV"
+    "datev": "DATEV",
+    "billing": "Abrechnung"
   },
   "Team": {
     "title": "Team und Steuerberatung",
@@ -827,5 +839,49 @@
     "confirm": "Zur Bestätigung den Namen des Arbeitsbereichs eingeben: {name}",
     "submit": "Konto endgültig schließen",
     "closed": "Das Konto wurde am {date} geschlossen. Die Daten werden bis {deleteAfter} aufbewahrt."
+  },
+  "Billing": {
+    "title": "Abrechnung",
+    "intro": "Ihr Abonnement für ERIKA. Bezahlt wird über Stripe per Karte oder SEPA-Lastschrift; Ihre Rechnungen erhalten Sie von uns als E-Rechnung.",
+    "disabled": "Die Abrechnung ist in dieser Umgebung nicht aktiv. Während der geschlossenen Beta ist ERIKA kostenlos.",
+    "exempt": "Für diesen Arbeitsbereich fallen keine Gebühren an.",
+    "state": {
+      "TRIAL": "Testphase bis {date}",
+      "ACTIVE": "Abonnement aktiv",
+      "PAST_DUE": "Zahlung offen – Stripe versucht den Einzug erneut. Bitte prüfen Sie Ihre Zahlungsart.",
+      "READ_ONLY": "Schreibgeschützt: Die Testphase ist abgelaufen oder das Abonnement ist nicht bezahlt. Ihre Daten können Sie weiterhin lesen und exportieren.",
+      "DISABLED": "Nicht aktiv",
+      "EXEMPT": "Gebührenfrei"
+    },
+    "renews": "Nächste Abrechnung am {date}",
+    "endsAt": "Endet am {date}",
+    "plans": "Tarif wählen",
+    "plan": {
+      "MONTHLY": "Monatlich",
+      "ANNUAL": "Jährlich"
+    },
+    "price": {
+      "MONTHLY": "{amount} netto pro Monat",
+      "ANNUAL": "{amount} netto pro Jahr"
+    },
+    "priceUnknown": "Preis wird auf der Zahlungsseite angezeigt",
+    "trialKept": "Die restliche Testphase bleibt erhalten: Der erste Einzug erfolgt erst an ihrem Ende.",
+    "choose": "{plan} abonnieren",
+    "chooseLabel": "Tarif {plan} abonnieren",
+    "portal": "Zahlungsart, Tarif und Kündigung verwalten",
+    "invoices": "Ihre Rechnungen von ERIKA",
+    "noInvoices": "Noch keine Rechnungen.",
+    "invoiceStates": {
+      "ISSUING": "wird erstellt …",
+      "ISSUED": "ausgestellt",
+      "REJECTED": "in Klärung"
+    },
+    "invoiceCopy": "Jede Rechnung erhalten Sie per E-Mail und zusätzlich in Ihrem Eingang.",
+    "number": "Nummer",
+    "date": "Datum",
+    "period": "Zeitraum",
+    "amount": "Betrag (brutto)",
+    "success": "Danke! Sobald Stripe die Zahlung bestätigt, erscheint Ihr Abonnement hier.",
+    "cancelled": "Der Bezahlvorgang wurde abgebrochen."
   }
 }

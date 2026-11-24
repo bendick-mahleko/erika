@@ -69,7 +69,11 @@ Das Original kann jederzeit unverändert heruntergeladen werden; die Prüfsumme 
 
 Exporte werden im Hintergrund erstellt, nur nach Anmeldung heruntergeladen und nach 7 Tagen gelöscht. Anforderung und jeder Download stehen im Audit-Protokoll.
 
-### 2.7 Kündigung und Schließung des Kontos
+### 2.7 Abonnement und Zahlungsverzug
+
+Nach der Testphase ist ein Abonnement nötig (Zahlung über Stripe per Karte oder SEPA-Lastschrift). Ohne Abonnement oder wenn die Zahlung endgültig scheitert, wird der Arbeitsbereich schreibgeschützt: Lesen, Herunterladen und Exportieren der Originale bleiben jederzeit möglich, die Aufbewahrung läuft unverändert weiter. Für jede Zahlung stellt ERIKA eine E-Rechnung (ZUGFeRD, geprüft wie jede ausgestellte Rechnung) aus und sendet sie per E-Mail und in den Eingang des Kunden. Statuswechsel des Abonnements und Zahlungen stehen im Audit-Protokoll.
+
+### 2.8 Kündigung und Schließung des Kontos
 
 Der Inhaber kann das Konto schließen. Danach ist der Arbeitsbereich schreibgeschützt: Lesen, Herunterladen und Exportieren bleiben möglich, Änderungen nicht; E-Mails an die Eingangsadresse werden abgewiesen. Die Daten bleiben bis zum Ende der längsten Aufbewahrungsfrist der archivierten Originale erhalten und werden danach gelöscht (docs/ops/gdpr.md). Die Schließung steht im Audit-Protokoll und kann in ERIKA nicht rückgängig gemacht werden.
 

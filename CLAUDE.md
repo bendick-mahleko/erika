@@ -37,4 +37,5 @@ Plan: `docs/BUILD_PLAN.md` (stages, exit criteria, traceability). Decisions: `do
 - UI texts in `frontend/messages/{de,en}.json`; German first.
 - Membership and closure are checked on every signed-in request (`WorkspaceAccessInterceptor`); a closed workspace is read-only except exports, feedback and `/auth`. Comments are append-only.
 - Exports (ADR 0032) are built by the worker; originals only via `Archive.open`, documents via `documents.DocumentExports`; the full export collects `platform.export.AccountDataSection` beans (each module exports its own tables). Downloads are 303 redirects to pre-signed URLs; ZIPs expire after 7 days.
+- Billing (ADR 0033): Stripe only through `billing.StripeClient` (pinned API version, Idempotency-Key); webhook events are verified by signature, stored by ID in `stripe_event` and processed by the worker. A READ_ONLY workspace may still read, export and pay (`EntitlementInterceptor`). ERIKA's own invoices only via `creator.SystemInvoices`; never call Stripe or send ERIKA invoices from the API request path except Checkout/portal sessions.
 - Spring Boot 4 / Jackson 3 (`tools.jackson.*`), not Jackson 2.

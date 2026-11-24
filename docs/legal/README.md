@@ -8,7 +8,7 @@ Everything in this folder and in `frontend/src/content/legal/` is a **draft writ
 |---|---|---|---|---|
 | Hetzner Online GmbH, Gunzenhausen | Servers, volumes, object storage (projects erika-prod and erika-backup) | Nuremberg, Falkenstein (DE) | Concluded online in the Hetzner account (Cloud Console → account → "Auftragsverarbeitung"); download the PDF and keep it with the contract records | ☐ to do |
 | Outgoing mail provider (EU, still to choose) | System emails | EU | From the provider's dashboard or terms | ☐ provider not chosen |
-| Stripe Payments Europe Ltd. | Payments (from Stage 10) | EU | Not needed for the beta | – |
+| Stripe Payments Europe Ltd. | Payments: subscriptions, card and SEPA data (implemented in Stage 10, off during the beta) | EU (Ireland); Stripe may transfer data to the US (SCCs) | Stripe's data-processing agreement (accepted in the Stripe account); before billing goes live, add Stripe to `/datenschutz`, `/unterauftragsverarbeiter` and the record of processing activities | ☐ before go-live of billing |
 
 Choosing the mail provider: EU company, servers in the EU, data-processing agreement available, SPF/DKIM support, a reasonable price for transactional mail. Then fill in the provider in `/unterauftragsverarbeiter` and `docs/ops/production.md#dns`.
 

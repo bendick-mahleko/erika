@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.6.0
+  version: 0.7.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -49,6 +49,8 @@ tags:
     description: Inviting team members and the tax advisor (EX-02)
   - name: exports
     description: Period export with DATEV CSV and full account export (EX-01, EX-04)
+  - name: billing
+    description: Trial, Stripe subscription and ERIKA's own invoices (EX-03)
 paths:
   /health:
     get:
@@ -1366,6 +1368,75 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/DatevSettings" }
         default: { $ref: "#/components/responses/Problem" }
+  /billing:
+    get:
+      tags: [billing]
+      operationId: getBilling
+      summary: Subscription and trial state of the workspace (EX-03)
+      description: |
+        `state` decides what the workspace may do: TRIAL and ACTIVE (and PAST_DUE while Stripe
+        retries a payment) allow everything; READ_ONLY (trial over without a subscription, or
+        the subscription unpaid or cancelled) allows reading, downloading, exporting and paying,
+        but no changes (403 `SUBSCRIPTION_REQUIRED`). DISABLED: billing is switched off here.
+      responses:
+        "200":
+          description: The billing state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillingStatus" }
+        default: { $ref: "#/components/responses/Problem" }
+  /billing/checkout:
+    post:
+      tags: [billing]
+      operationId: startCheckout
+      summary: Start a subscription with Stripe Checkout (owner only)
+      description: |
+        Answers with the URL of the Stripe payment page (card or SEPA Direct Debit). The
+        remaining trial is kept: Stripe charges first when it ends. The result arrives by
+        webhook. 409 `ALREADY_SUBSCRIBED` with a running subscription (use the portal).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckoutRequest" }
+            example: { plan: "MONTHLY" }
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RedirectUrl" }
+        default: { $ref: "#/components/responses/Problem" }
+  /billing/portal:
+    post:
+      tags: [billing]
+      operationId: openBillingPortal
+      summary: Open the Stripe customer portal (owner only)
+      description: Change the payment method, switch plan, cancel. 409 `NO_SUBSCRIPTION` before the first checkout.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RedirectUrl" }
+        default: { $ref: "#/components/responses/Problem" }
+  /billing/invoices:
+    get:
+      tags: [billing]
+      operationId: listBillingInvoices
+      summary: ERIKA's e-invoices to this workspace
+      description: Each paid Stripe invoice becomes an XRechnung-conformant ZUGFeRD invoice from ERIKA, emailed and copied into the inbox.
+      responses:
+        "200":
+          description: Newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillingInvoiceList" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     session:
@@ -2571,3 +2642,77 @@ components:
         complete:
           type: boolean
           description: Consultant and client number are set; without them the DATEV file can't be imported.
+    BillingState:
+      type: string
+      enum: [DISABLED, EXEMPT, TRIAL, ACTIVE, PAST_DUE, READ_ONLY]
+    BillingPlan:
+      type: string
+      enum: [MONTHLY, ANNUAL]
+    PlanOffer:
+      type: object
+      required: [plan, available]
+      properties:
+        plan: { $ref: "#/components/schemas/BillingPlan" }
+        available:
+          type: boolean
+          description: A Stripe price is configured for this plan.
+        netAmount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+    SubscriptionInfo:
+      type: object
+      required: [status, cancelAtPeriodEnd]
+      properties:
+        status:
+          type: string
+          description: Stripe's subscription status (active, trialing, past_due, unpaid, canceled …).
+        plan: { $ref: "#/components/schemas/BillingPlan" }
+        currentPeriodEnd: { type: string, format: date-time }
+        cancelAtPeriodEnd: { type: boolean }
+    BillingStatus:
+      type: object
+      required: [enabled, state, plans, hasCustomer]
+      properties:
+        enabled: { type: boolean }
+        state: { $ref: "#/components/schemas/BillingState" }
+        trialEndsAt: { type: string, format: date-time }
+        subscription: { $ref: "#/components/schemas/SubscriptionInfo" }
+        plans:
+          type: array
+          items: { $ref: "#/components/schemas/PlanOffer" }
+        hasCustomer:
+          type: boolean
+          description: A Stripe customer exists, so the portal can be opened.
+    CheckoutRequest:
+      type: object
+      required: [plan]
+      properties:
+        plan: { $ref: "#/components/schemas/BillingPlan" }
+    RedirectUrl:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, format: uri }
+    BillingInvoice:
+      type: object
+      required: [id, state, currency, netAmount, taxAmount, grossAmount, paidAt]
+      properties:
+        id: { type: string, format: uuid }
+        state:
+          type: string
+          enum: [ISSUING, ISSUED, REJECTED]
+        number: { type: string }
+        issueDate: { type: string, format: date }
+        currency: { type: string }
+        netAmount: { $ref: "#/components/schemas/Money" }
+        taxAmount: { $ref: "#/components/schemas/Money" }
+        grossAmount: { $ref: "#/components/schemas/Money" }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        paidAt: { type: string, format: date-time }
+    BillingInvoiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/BillingInvoice" }

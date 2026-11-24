@@ -17,6 +17,16 @@ erika:
     mail-secret: test-intake-secret
   creator:
     webhook-secret: test-webhook-secret
+  # Billing on in tests, against FakeStripe (base URL from TestInfrastructure); issuer = ERIKA's
+  # own workspace, created by BillingIT.
+  billing:
+    enabled: true
+    stripe-secret-key: sk_test_erika
+    stripe-webhook-secret: whsec_test_erika
+    price-monthly: price_monthly
+    price-annual: price_annual
+    tax-rate-id: txr_test_19
+    issuer-workspace-id: 00000000-0000-4000-8000-0000000e41ca
 
 logging:
   structured:

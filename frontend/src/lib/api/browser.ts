@@ -77,3 +77,6 @@ export type ExportScope = components["schemas"]["ExportScope"];
 export type DatevSettings = components["schemas"]["DatevSettings"];
 export type DatevSettingsUpdate = components["schemas"]["DatevSettingsUpdate"];
 export type Comment = components["schemas"]["Comment"];
+
+export type BillingStatus = components["schemas"]["BillingStatus"];
+export type BillingPlan = components["schemas"]["BillingPlan"];

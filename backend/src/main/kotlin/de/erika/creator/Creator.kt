@@ -201,7 +201,7 @@ class Creator internal constructor(
      */
     internal fun requestIssue(
         workspaceId: UUID,
-        actorId: UUID,
+        actorId: UUID?,
         id: UUID,
     ) {
         val draft = drafts.find(id) ?: throw notFound()
@@ -252,7 +252,7 @@ class Creator internal constructor(
     /** CR-07: queues the email with the invoice file attached. */
     internal fun requestSend(
         workspaceId: UUID,
-        actorId: UUID,
+        actorId: UUID?,
         invoiceId: UUID,
         to: String,
         subject: String?,

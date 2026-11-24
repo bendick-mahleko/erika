@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { UserMenu } from "@/components/UserMenu";
-import { fetchSession } from "@/lib/api/client";
+import { fetchBilling, fetchSession } from "@/lib/api/client";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,6 +21,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await fetchSession();
   const closed = session.state === "AUTHENTICATED" && session.workspace?.closed === true;
   const tn = await getTranslations("Nav");
+  const billing = session.state === "AUTHENTICATED" && !closed ? await fetchBilling() : null;
+  const billingBanner =
+    billing?.state === "READ_ONLY" ? "readOnlyBanner" : billing?.state === "PAST_DUE" ? "pastDueBanner" : null;
 
   return (
     <html lang={locale}>
@@ -49,6 +52,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 data-testid="closed-banner"
               >
                 {tn("closedBanner")}
+              </p>
+            )}
+            {billingBanner && (
+              <p
+                role="status"
+                className="mb-6 rounded border border-amber-700 bg-amber-50 px-4 py-3 text-amber-900"
+                data-testid="billing-banner"
+              >
+                {tn(billingBanner)}{" "}
+                <Link href="/settings/billing" className="underline">
+                  {tn("billingLink")}
+                </Link>
               </p>
             )}
             {children}

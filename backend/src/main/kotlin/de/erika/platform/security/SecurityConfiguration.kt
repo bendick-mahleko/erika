@@ -63,7 +63,7 @@ class SecurityConfiguration {
                     .requestMatchers(HttpMethod.POST, "/internal/intake/**")
                     .permitAll()
                     // Provider callbacks (api/webhooks.yaml): checked against their shared secret in the controller.
-                    .requestMatchers(HttpMethod.POST, "/webhooks/mail")
+                    .requestMatchers(HttpMethod.POST, "/webhooks/mail", "/webhooks/stripe")
                     .permitAll()
                     // Actuator runs on the separate management port, which the reverse proxy
                     // doesn't route (container health checks, Prometheus scraping).

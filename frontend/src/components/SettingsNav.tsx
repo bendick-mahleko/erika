@@ -6,6 +6,7 @@ const SECTIONS = [
   ["invoices", "/settings/invoices"],
   ["team", "/settings/team"],
   ["datev", "/settings/datev"],
+  ["billing", "/settings/billing"],
 ] as const;
 
 /** Links between the settings pages; the current one is marked for assistive technology. */

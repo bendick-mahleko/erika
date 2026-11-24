@@ -148,3 +148,14 @@ erika:
   creator:
     # Shared secret of the mail provider's delivery webhook (POST /webhooks/mail); empty disables it.
     webhook-secret: ${ERIKA_MAIL_WEBHOOK_SECRET:}
+  billing:
+    # Off until go-live (closed beta): no trial limits, no Stripe (ADR 0033, docs/ops/billing.md).
+    enabled: ${ERIKA_BILLING_ENABLED:false}
+    trial-days: ${ERIKA_BILLING_TRIAL_DAYS:14}
+    stripe-secret-key: ${ERIKA_STRIPE_SECRET_KEY:}
+    stripe-webhook-secret: ${ERIKA_STRIPE_WEBHOOK_SECRET:}
+    price-monthly: ${ERIKA_STRIPE_PRICE_MONTHLY:}
+    price-annual: ${ERIKA_STRIPE_PRICE_ANNUAL:}
+    tax-rate-id: ${ERIKA_STRIPE_TAX_RATE:}
+    # The workspace that issues ERIKA's own invoices (ERIKA's company data); empty = not set up.
+    issuer-workspace-id: ${ERIKA_BILLING_ISSUER_WORKSPACE:}

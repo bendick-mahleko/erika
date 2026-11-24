@@ -93,6 +93,7 @@ object TestInfrastructure {
             "erika.storage.uploads-bucket" to UPLOADS_BUCKET,
             "erika.storage.derived-bucket" to DERIVED_BUCKET,
             "erika.storage.exports-bucket" to EXPORTS_BUCKET,
+            "erika.billing.stripe-api-base" to FakeStripe.baseUrl,
             "erika.intake.clamav.host" to clamav.host,
             "erika.intake.clamav.port" to clamav.getMappedPort(CLAMAV_PORT).toString(),
         )

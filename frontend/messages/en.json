@@ -37,7 +37,10 @@
     "invoices": "Invoices",
     "exports": "Export",
     "workspace": "Workspace",
-    "closedBanner": "This account is closed. You can read, download and export data, but nothing can be changed."
+    "closedBanner": "This account is closed. You can read, download and export data, but nothing can be changed.",
+    "readOnlyBanner": "Your workspace is read-only: the trial has ended or the subscription isn't paid.",
+    "pastDueBanner": "A payment for ERIKA failed. Please check your payment method.",
+    "billingLink": "Go to billing"
   },
   "Auth": {
     "email": "Email address",
@@ -164,7 +167,15 @@
     "EXPORT_FAILED": "This export failed. Start a new one.",
     "EXPORT_PERIOD_INVALID": "Please check the period (at most three years, 'to' not before 'from').",
     "EXPORTS_PENDING": "Several exports are still being built. Please wait for them.",
-    "COMMENT_EMPTY": "The comment is empty."
+    "COMMENT_EMPTY": "The comment is empty.",
+    "SUBSCRIPTION_REQUIRED": "The trial has ended or the subscription isn't paid. Data can be read and exported, but not changed.",
+    "ALREADY_SUBSCRIBED": "There is already a subscription. Change it in the portal.",
+    "PLAN_NOT_AVAILABLE": "This plan is not offered.",
+    "NO_SUBSCRIPTION": "Start a subscription first.",
+    "BILLING_DISABLED": "Billing is not active.",
+    "BILLING_NOT_CONFIGURED": "Payments are not set up yet.",
+    "BILLING_ACCOUNT_MISSING": "This workspace has no billing account.",
+    "PAYMENT_PROVIDER_ERROR": "The payment provider is not reachable right now. Please try again."
   },
   "Inbox": {
     "title": "Inbox",
@@ -688,7 +699,8 @@
     "workspace": "Business",
     "invoices": "Invoices",
     "team": "Team",
-    "datev": "DATEV"
+    "datev": "DATEV",
+    "billing": "Billing"
   },
   "Team": {
     "title": "Team and tax advisor",
@@ -827,5 +839,49 @@
     "confirm": "To confirm, type the workspace name: {name}",
     "submit": "Close account for good",
     "closed": "The account was closed on {date}. The data is kept until {deleteAfter}."
+  },
+  "Billing": {
+    "title": "Billing",
+    "intro": "Your ERIKA subscription. You pay through Stripe by card or SEPA Direct Debit; we send your invoices as e-invoices.",
+    "disabled": "Billing is not active in this environment. ERIKA is free during the closed beta.",
+    "exempt": "No fees apply to this workspace.",
+    "state": {
+      "TRIAL": "Trial until {date}",
+      "ACTIVE": "Subscription active",
+      "PAST_DUE": "Payment open – Stripe will try again. Please check your payment method.",
+      "READ_ONLY": "Read-only: the trial has ended or the subscription isn't paid. You can still read and export your data.",
+      "DISABLED": "Not active",
+      "EXEMPT": "Free of charge"
+    },
+    "renews": "Next billing on {date}",
+    "endsAt": "Ends on {date}",
+    "plans": "Choose a plan",
+    "plan": {
+      "MONTHLY": "Monthly",
+      "ANNUAL": "Annual"
+    },
+    "price": {
+      "MONTHLY": "{amount} net per month",
+      "ANNUAL": "{amount} net per year"
+    },
+    "priceUnknown": "The price is shown on the payment page",
+    "trialKept": "The rest of your trial is kept: the first payment is collected when it ends.",
+    "choose": "Subscribe {plan}",
+    "chooseLabel": "Subscribe to the {plan} plan",
+    "portal": "Manage payment method, plan and cancellation",
+    "invoices": "Your invoices from ERIKA",
+    "noInvoices": "No invoices yet.",
+    "invoiceStates": {
+      "ISSUING": "being issued …",
+      "ISSUED": "issued",
+      "REJECTED": "being checked"
+    },
+    "invoiceCopy": "You receive every invoice by email and in your inbox.",
+    "number": "Number",
+    "date": "Date",
+    "period": "Period",
+    "amount": "Amount (gross)",
+    "success": "Thank you! Your subscription appears here as soon as Stripe confirms the payment.",
+    "cancelled": "The payment was cancelled."
   }
 }

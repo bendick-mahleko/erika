@@ -23,6 +23,8 @@ internal data class DraftRow(
     val createdBy: UUID?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
+    /** Recipients to email right after issuing (system invoices, ADR 0033); empty for drafts made in the UI. */
+    val sendTo: List<String> = emptyList(),
 )
 
 /** An issued invoice (`invoice`): never changes after issue. */
@@ -87,15 +89,17 @@ internal class DraftRepository(
         kind: InvoiceKind,
         originalInvoiceId: UUID?,
         content: DraftContent,
-        createdBy: UUID,
+        createdBy: UUID?,
+        sendTo: List<String> = emptyList(),
     ) {
         jdbc
             .sql(
                 """
-                INSERT INTO invoice_draft (id, workspace_id, kind, original_invoice_id, data, created_by)
-                VALUES (:id, :ws, :kind, :original, CAST(:data AS jsonb), :by)
+                INSERT INTO invoice_draft (id, workspace_id, kind, original_invoice_id, data, created_by, send_to)
+                VALUES (:id, :ws, :kind, :original, CAST(:data AS jsonb), :by, :sendTo)
                 """.trimIndent(),
             ).param("id", id)
+            .param("sendTo", sendTo.takeIf { it.isNotEmpty() }?.toTypedArray(), java.sql.Types.ARRAY)
             .param("ws", workspaceId)
             .param("kind", kind.name)
             .param("original", originalInvoiceId)
@@ -239,6 +243,7 @@ internal class DraftRepository(
         createdBy = rs.getObject("created_by", UUID::class.java),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
+        sendTo = (rs.getArray("send_to")?.array as? Array<*>)?.map { it.toString() }.orEmpty(),
     )
 }
 
@@ -346,7 +351,7 @@ internal class DeliveryRepository(
         subject: String,
         message: String?,
         messageId: String,
-        requestedBy: UUID,
+        requestedBy: UUID?,
     ) {
         jdbc
             .sql(

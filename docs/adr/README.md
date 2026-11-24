@@ -38,3 +38,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0030](0030-closed-beta.md) | Closed beta: invitations, terms, feedback, legal pages | Accepted |
 | [0031](0031-invoice-creator.md) | Invoice creator: drafts, issuing in the worker, numbering, sending | Accepted |
 | [0032](0032-export-roles-account-lifecycle.md) | Export, roles and account lifecycle | Accepted (DATEV import pending S9-a) |
+| [0033](0033-billing-with-stripe.md) | Billing with Stripe: trial, subscription, entitlements, ERIKA's own e-invoices | Accepted (pricing, test-clock run pending) |

@@ -80,6 +80,7 @@ class InvoiceIssuer internal constructor(
     private val archive: Archive,
     private val documents: Documents,
     private val events: ApplicationEventPublisher,
+    private val creator: ObjectProvider<Creator>,
     meters: MeterRegistry,
     transactionManager: PlatformTransactionManager,
     private val clock: Clock = Clock.system(Creator.BERLIN),
@@ -192,6 +193,8 @@ class InvoiceIssuer internal constructor(
             ),
         )
         drafts.markIssued(draft.id)
+        // System invoices (ERIKA's own, ADR 0033) are emailed in the same transaction as the issue.
+        draft.sendTo.forEach { creator.getObject().requestSend(ws, actorId, draft.id, it, null, null) }
         if (draft.kind.cancelsOriginal && original != null) {
             documents.changeStatus(ws, original.documentId, DocumentStatus.CANCELLED, "$number", actorId)
         }
@@ -219,6 +222,10 @@ class InvoiceIssuer internal constructor(
         messages: List<ValidationMessage>,
     ) {
         rejected.increment()
+        if (draft.sendTo.isNotEmpty()) {
+            // A system invoice that can't be issued needs the operator (alert via the error log).
+            log.error("System invoice {} was rejected: {}", draft.id, messages.map { it.ruleId }.distinct())
+        }
         drafts.backToDraft(draft.id, messages)
         events.publishEvent(InvoiceIssueRejected(draft.workspaceId, actorId, draft.id, messages.map { it.ruleId }))
     }
