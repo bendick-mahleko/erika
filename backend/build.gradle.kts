@@ -114,11 +114,32 @@ tasks.openApiGenerate {
     inputs.file(openApiSpec)
 }
 
-sourceSets.main {
-    kotlin.srcDir(openApiOut.map { it.dir("src/main/kotlin") })
+// The MARA mobile contract (ADR 0036–0038): same generator and options, own packages,
+// so its models never clash with the web contract's.
+val mobileApiSpec = layout.projectDirectory.file("../api/mobile.yaml")
+val mobileApiOut = layout.buildDirectory.dir("generated/openapi-mobile")
+
+val openApiGenerateMobile by tasks.registering(org.openapitools.generator.gradle.plugin.tasks.GenerateTask::class) {
+    generatorName = "kotlin-spring"
+    inputSpec = mobileApiSpec.asFile.toURI().toString()
+    outputDir = mobileApiOut.get().asFile.absolutePath
+    apiPackage = "de.erika.contract.mobile.api"
+    modelPackage = "de.erika.contract.mobile.model"
+    generateApiTests = false
+    generateModelTests = false
+    generateApiDocumentation = false
+    generateModelDocumentation = false
+    cleanupOutput = true
+    configOptions = openApiGenerate.configOptions
+    inputs.file(mobileApiSpec)
 }
 
-tasks.compileKotlin { dependsOn(tasks.openApiGenerate) }
+sourceSets.main {
+    kotlin.srcDir(openApiOut.map { it.dir("src/main/kotlin") })
+    kotlin.srcDir(mobileApiOut.map { it.dir("src/main/kotlin") })
+}
+
+tasks.compileKotlin { dependsOn(tasks.openApiGenerate, openApiGenerateMobile) }
 
 springBoot {
     buildInfo()

@@ -1,0 +1,18 @@
+{
+  "rule": "aufmass.area",
+  "version": 1,
+  "description": "Area of a rectangle: length × width, rounded half away from zero to 3 decimals. Negative dimensions are refused.",
+  "cases": [
+    { "name": "whole metres", "input": { "length": "4", "width": "3" }, "expected": { "result": "12.000" } },
+    { "name": "typical room", "input": { "length": "4.25", "width": "3.10" }, "expected": { "result": "13.175" } },
+    { "name": "binary floating point would give 1.2100000000000002", "input": { "length": "1.1", "width": "1.1" }, "expected": { "result": "1.210" } },
+    { "name": "small values", "input": { "length": "0.1", "width": "0.2" }, "expected": { "result": "0.020" } },
+    { "name": "rounds half away from zero", "input": { "length": "2.0005", "width": "1" }, "expected": { "result": "2.001" } },
+    { "name": "rounds down below the half", "input": { "length": "2.0004", "width": "1" }, "expected": { "result": "2.000" } },
+    { "name": "many decimals", "input": { "length": "0.3333", "width": "3" }, "expected": { "result": "1.000" } },
+    { "name": "zero", "input": { "length": "0", "width": "5.5" }, "expected": { "result": "0.000" } },
+    { "name": "large facade", "input": { "length": "125.40", "width": "18.75" }, "expected": { "result": "2351.250" } },
+    { "name": "negative length is refused", "input": { "length": "-1", "width": "2" }, "expected": { "error": "NEGATIVE_DIMENSION" } },
+    { "name": "negative width is refused", "input": { "length": "1", "width": "-0.5" }, "expected": { "error": "NEGATIVE_DIMENSION" } }
+  ]
+}

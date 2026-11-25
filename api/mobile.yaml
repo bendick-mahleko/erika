@@ -1,0 +1,108 @@
+openapi: 3.1.0
+info:
+  title: ERIKA mobile API (MARA job reports)
+  version: 0.1.0
+  summary: Endpoints for the MARA technician app (ADR 0036–0038)
+  description: |
+    Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
+    interfaces are generated from it (package `de.erika.contract.mobile`).
+
+    Conventions (the same as `openapi.yaml`, unless noted):
+    - Base path `/api/v1/mobile`, JSON, UTF-8, ISO 8601 dates.
+    - The workspace comes from the access token, never from the URL or the body.
+    - Errors are RFC 9457 problem details with a stable `code`.
+
+    Authentication (ADR 0037): **bearer access tokens**, not session cookies, so there is no
+    CSRF token. A device signs in once with password and TOTP and gets a short-lived access
+    token and a rotating refresh token. Only the operations marked `security: []` work
+    without a token; `MobileContractIT` checks that list.
+
+    Versioning: every sync request carries `protocolVersion`; the server supports the current
+    and the previous version (ADR 0038). The app sends its version in `X-App-Version`.
+servers:
+  - url: /api/v1
+security:
+  - deviceToken: []
+tags:
+  - name: mobile
+    description: App status, and from Stage 3 device sign-in and sync
+paths:
+  /mobile/status:
+    get:
+      tags: [mobile]
+      operationId: getMobileStatus
+      summary: Server status for the app (protocol versions, minimum app version, server time)
+      description: |
+        Answers without a token, so the app can check before signing in whether it is still
+        supported and how far its clock is off (the sync engine records clock skew).
+        `appUpdate` compares `X-App-Version` with the minimum and the recommended version:
+        REQUIRED below the minimum, RECOMMENDED below the recommended version, otherwise NONE
+        (also when the header is missing or not a version).
+
+        The device-specific check (revoked device, ADR 0037) follows in Stage 3 as
+        `GET /mobile/devices/me/status`, with a token.
+      security: []
+      parameters:
+        - name: X-App-Version
+          in: header
+          required: false
+          description: The app's version, e.g. `0.1.0`.
+          schema: { type: string, maxLength: 40, examples: ["0.1.0"] }
+      responses:
+        "200":
+          description: The status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MobileStatus" }
+        default: { $ref: "#/components/responses/Problem" }
+components:
+  securitySchemes:
+    deviceToken:
+      type: http
+      scheme: bearer
+      description: Access token of a registered device (15 minutes; renewed with the refresh token, ADR 0037).
+  responses:
+    Problem:
+      description: Error (RFC 9457 problem details).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    MobileStatus:
+      type: object
+      required: [protocol, minAppVersion, recommendedAppVersion, appUpdate, serverTime]
+      properties:
+        protocol: { $ref: "#/components/schemas/ProtocolVersions" }
+        minAppVersion:
+          type: string
+          description: Older apps must update before they can sync.
+          examples: ["0.1.0"]
+        recommendedAppVersion:
+          type: string
+          description: Older apps are asked to update, but keep working.
+          examples: ["0.1.0"]
+        appUpdate: { $ref: "#/components/schemas/AppUpdate" }
+        serverTime:
+          type: string
+          format: date-time
+          description: The server's clock, for the app's clock-skew check.
+    ProtocolVersions:
+      type: object
+      description: Sync protocol versions the server accepts (ADR 0038).
+      required: [current, minimum]
+      properties:
+        current: { type: integer, format: int32, minimum: 1 }
+        minimum: { type: integer, format: int32, minimum: 1 }
+    AppUpdate:
+      type: string
+      enum: [NONE, RECOMMENDED, REQUIRED]
+    Problem:
+      type: object
+      description: RFC 9457 problem details with ERIKA's stable error code.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer, format: int32 }
+        detail: { type: string }
+        code: { type: string }

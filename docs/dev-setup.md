@@ -24,6 +24,8 @@ docker compose -f infra/local/compose.yml down -v      # reset everything (delet
 | ClamAV | `localhost:3310` (clamd) | – (loads its signatures for about a minute after start) |
 | Intake mail (profile `app`) | SMTP `localhost:2525`, domain `in.erika.local` | shared secret `dev-intake-secret` with the API |
 
+All host ports can be moved with `ERIKA_*_PORT` variables when another project already uses them; the back end reads `ERIKA_SMTP_PORT` and `ERIKA_CLAMAV_PORT` too. See [running-locally.md, section 3](running-locally.md#3-check-that-the-ports-are-free).
+
 Database roles: the app runs as `erika_app` (no DDL, no BYPASSRLS); Flyway migrates as `erika_owner` (ADR 0011).
 
 ## Back end
@@ -50,8 +52,8 @@ cd backend
 
 ### Signing in locally
 
-1. Start the API **and** the worker (the worker sends mail), then open http://localhost:3000/signup.
-2. The verification email arrives in Mailpit (http://localhost:8025); open its link.
+1. Start the API, the worker (it sends the mail) **and** the web app (`cd frontend; pnpm dev`), then open http://localhost:3000/signup. Step by step: [running-locally.md, Option B](running-locally.md#option-b--developer-mode).
+2. The verification email arrives in Mailpit (http://localhost:8025, or the port in `ERIKA_MAILPIT_UI_PORT`); open its link. If another project's Mailpit holds port 1025 and you didn't move ERIKA's ports, the mail lands in *that* Mailpit.
 3. Sign in. Set up an authenticator app by scanning the QR code (2FA is mandatory for every role, ADR 0017).
 4. Locked yourself out with 5 wrong attempts? Wait 15 minutes, or
    `UPDATE erika.app_user SET locked_until = NULL WHERE email = '…';` as `erika_owner`.
@@ -156,6 +158,16 @@ pnpm build && pnpm test:e2e      # Playwright (first time: pnpm exec playwright 
 Full-stack E2E tests (`E2E_EXPECT_API=true`) read the verification mail from Mailpit: set `E2E_MAILPIT_URL` if its UI isn't on `http://localhost:8025`. The intake tests send email through the mail container: `E2E_SMTP_HOST` / `E2E_SMTP_PORT` (default `localhost:2525`).
 
 Texts: every UI string goes into `messages/de.json` and `messages/en.json` (NF-13).
+
+## MARA (job reports add-on)
+
+MARA is built as ERIKA modules plus a Flutter app (ADR 0036, plan: [docs/mara/BUILD_PLAN.md](mara/BUILD_PLAN.md)).
+
+- Back-end modules: `workorders`, `reports`, `media`, `sync`, `reportinvoicing`. In code, MARA's jobs are **work orders**; "job" stays the background job.
+- Mobile contract: `api/mobile.yaml` (bearer tokens, `/api/v1/mobile/**`), generated into `de.erika.contract.mobile` by `./gradlew openApiGenerateMobile` (part of every build). `MobileContractIT` fails for any token operation without a fixture in the mobile harness.
+- `GET /api/v1/mobile/status` answers without a token: protocol versions, minimum and recommended app version (`ERIKA_MOBILE_MIN_APP_VERSION`, `ERIKA_MOBILE_RECOMMENDED_APP_VERSION`) and the server time.
+- Shared rules: test vectors in `mara-rules/` are read by Kotlin (`./gradlew test --tests '*VectorsTest'`) and Dart (`flutter test`). Change the vector first, then both implementations.
+- The app: [mobile/README.md](../mobile/README.md). Without a local Flutter, the pinned Docker image gives the same results as CI.
 
 ## VS Code
 

@@ -25,6 +25,8 @@ jobs:
       # Internal endpoints for the mail server (not generated, ADR 0024).
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/internal.yaml
       - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/webhooks.yaml
+      # MARA technician app (ADR 0036-0038); generated into Kotlin like openapi.yaml.
+      - run: npx --yes @redocly/cli@2 lint --config api/redocly.yaml api/mobile.yaml
 
   # Stage 7 (ADR 0027–0029): everything in infra/ is checked by its own tool.
   infra:
@@ -104,6 +106,44 @@ jobs:
         with:
           name: modulith-docs
           path: backend/build/spring-modulith-docs
+
+  # MARA technician app (Flutter, MARA build plan Stage 1). Same pinned image as locally
+  # (mobile/README.md). The shared vectors in mara-rules/ are read by these tests and by the
+  # back end's AufmassVectorsTest.
+  mobile:
+    name: Mobile app (format, analyze, test, Android build)
+    runs-on: ubuntu-24.04
+    container: ghcr.io/cirruslabs/flutter:3.44.0
+    defaults:
+      run: { working-directory: mobile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: /root/.pub-cache
+          key: pub-${{ hashFiles('mobile/pubspec.lock') }}
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: dart format --line-length 100 --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --debug
+
+  # iOS builds need macOS runners, which cost more minutes: main only (spike S1-b, ADR 0036).
+  mobile-ios:
+    name: Mobile app (iOS build, no signing)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [mobile]
+    runs-on: macos-15
+    defaults:
+      run: { working-directory: mobile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: 3.44.0, channel: stable, cache: true }
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build ios --debug --no-codesign
 
   frontend:
     name: Front end (lint, typecheck, build)

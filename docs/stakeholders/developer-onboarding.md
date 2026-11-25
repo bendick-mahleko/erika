@@ -18,7 +18,7 @@ Browser ──► web (Next.js 16, next-intl) ──/api/v1──► API (Spring
 ```
 
 - **One back-end codebase, two roles.** The `api` profile serves requests; the `worker` profile runs jobs from the `job` table. Heavy or risky work runs only in the worker: parsing files, validating, rendering, sending email, calling Stripe.
-- **Modular monolith** (Spring Modulith): `identity`, `intake`, `documents`, `archive`, `validation`, `creator`, `export`, `billing`, `audit`, `feedback`, `platform`. Modules talk through published interfaces or events, never through another module's tables. `ModularityTest` enforces this.
+- **Modular monolith** (Spring Modulith): `identity`, `intake`, `documents`, `archive`, `validation`, `creator`, `export`, `billing`, `audit`, `feedback`, `platform`, and for the MARA job-report add-on `workorders`, `reports`, `media`, `sync`, `reportinvoicing` (ADR 0036; the Flutter app is in `mobile/`). Modules talk through published interfaces or events, never through another module's tables. `ModularityTest` enforces this.
 - **invoice-core** (`invoice-core/`) is a separate library for parsing, the view, writing and calculation. It is built from source as a composite build. Its version must match `backend/gradle/libs.versions.toml`.
 - **Contract first:** `api/openapi.yaml` generates the Kotlin server interfaces and the TypeScript client. Change the contract before the code; never edit generated code.
 
