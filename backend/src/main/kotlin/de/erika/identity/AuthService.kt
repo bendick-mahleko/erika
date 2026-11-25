@@ -142,11 +142,16 @@ internal class AuthService(
         }
         if (user.emailVerifiedAt == null) throw IdentityErrors.emailNotVerified()
 
+        val all =
+            tx
+                .execute {
+                    tenant.enterUser(user.id)
+                    memberships.forUser(user.id)
+                }.orEmpty()
+        // The web app opens the first workspace whose role may use it; technicians use the app (ADR 0039).
         val membership =
-            tx.execute {
-                tenant.enterUser(user.id)
-                memberships.forUser(user.id).firstOrNull()
-            } ?: throw IdentityErrors.invalidCredentials()
+            all.firstOrNull { it.role.usesWebApp }
+                ?: if (all.isNotEmpty()) throw IdentityErrors.technicianUseApp() else throw IdentityErrors.invalidCredentials()
         return PasswordAccepted(user.id, membership.workspaceId, membership.role, user.totpEnabled)
     }
 

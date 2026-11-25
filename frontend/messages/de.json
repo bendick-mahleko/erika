@@ -82,7 +82,8 @@
     "closedBanner": "Dieses Konto ist geschlossen. Sie können Daten lesen, herunterladen und exportieren, aber nichts mehr ändern.",
     "readOnlyBanner": "Ihr Arbeitsbereich ist schreibgeschützt: Die Testphase ist abgelaufen oder das Abonnement nicht bezahlt.",
     "pastDueBanner": "Eine Zahlung für ERIKA ist fehlgeschlagen. Bitte prüfen Sie Ihre Zahlungsart.",
-    "billingLink": "Zur Abrechnung"
+    "billingLink": "Zur Abrechnung",
+    "workOrders": "Aufträge"
   },
   "Auth": {
     "email": "E-Mail-Adresse",
@@ -229,7 +230,20 @@
     "LOGO_NOT_FOUND": "Es ist kein Logo hinterlegt.",
     "ACCENT_COLOR_INVALID": "Die Akzentfarbe muss wie #1A2B3C aussehen.",
     "RECURRING_NOT_FOUND": "Diese wiederkehrende Rechnung gibt es nicht (mehr).",
-    "RECURRING_NOT_POSSIBLE": "Nur Rechnungen können wiederkehrend sein, keine Gutschriften oder Korrekturen."
+    "RECURRING_NOT_POSSIBLE": "Nur Rechnungen können wiederkehrend sein, keine Gutschriften oder Korrekturen.",
+    "TECHNICIAN_USE_APP": "Dieser Zugang ist für die MARA-App. Bitte melden Sie sich in der App an.",
+    "FEATURE_DISABLED": "Diese Funktion ist nicht verfügbar.",
+    "SITE_NOT_FOUND": "Der Einsatzort wurde nicht gefunden.",
+    "SITE_NOT_FOR_CUSTOMER": "Der Einsatzort gehört zu einem anderen Kunden.",
+    "SITE_CUSTOMER_FIXED": "Ein Einsatzort bleibt beim Kunden. Legen Sie einen neuen an.",
+    "CUSTOMER_ARCHIVED": "Der Kunde ist archiviert.",
+    "ASSIGNEE_INVALID": "Zuweisen können Sie nur Inhaber/innen, Mitglieder und Techniker/innen dieses Arbeitsbereichs.",
+    "PLANNED_TIME_INVALID": "Das Ende darf nicht vor dem Beginn liegen.",
+    "WORK_ORDER_LOCKED": "Ein unterschriebener oder abgerechneter Auftrag kann nicht mehr geändert werden.",
+    "WORK_ORDER_NOT_FOUND": "Der Auftrag wurde nicht gefunden.",
+    "STAFF_LEVEL_NOT_FOUND": "Der Stundensatz wurde nicht gefunden.",
+    "CHECKLIST_TEMPLATE_NOT_FOUND": "Die Checkliste wurde nicht gefunden.",
+    "CHECKLIST_KEYS_DUPLICATE": "Zwei Punkte haben denselben Schlüssel. Bitte geben Sie jedem Punkt einen eigenen."
   },
   "Inbox": {
     "title": "Eingang",
@@ -694,7 +708,14 @@
     "preferredFormatDefault": "Standard aus den Einstellungen",
     "paymentTermsDays": "Zahlungsziel in Tagen",
     "paymentTermsDefault": "Leer: Standard aus den Einstellungen",
-    "archive": "Archivieren (nicht mehr zur Auswahl anbieten)"
+    "archive": "Archivieren (nicht mehr zur Auswahl anbieten)",
+    "customerType": "Kundenart",
+    "leitwegId": "Leitweg-ID (Behörden)",
+    "leitwegHint": "z. B. 04011000-12345-67",
+    "customerTypes": {
+      "BUSINESS": "Geschäftskunde",
+      "PRIVATE": "Privatkunde"
+    }
   },
   "Articles": {
     "title": "Artikel und Leistungen",
@@ -714,7 +735,9 @@
     "unitCode": "Einheit",
     "netPrice": "Preis netto (€)",
     "vatRate": "Steuersatz",
-    "archive": "Archivieren (nicht mehr zur Auswahl anbieten)"
+    "archive": "Archivieren (nicht mehr zur Auswahl anbieten)",
+    "purchasePrice": "Einkaufspreis (netto, €)",
+    "purchasePriceHint": "Optional"
   },
   "InvoiceSettings": {
     "title": "Rechnungseinstellungen",
@@ -771,7 +794,9 @@
     "datev": "DATEV",
     "billing": "Abrechnung",
     "account": "Konto",
-    "intake": "E-Mail-Eingang"
+    "intake": "E-Mail-Eingang",
+    "staff": "Mitarbeitende",
+    "checklists": "Checklisten"
   },
   "Team": {
     "title": "Team und Steuerberatung",
@@ -792,7 +817,8 @@
     "roles": {
       "OWNER": "Inhaber/in",
       "MEMBER": "Mitglied",
-      "ADVISOR": "Steuerberater/in"
+      "ADVISOR": "Steuerberater/in",
+      "TECHNICIAN": "Techniker/in"
     },
     "invite": "Jemanden einladen",
     "inviteEmail": "E-Mail-Adresse",
@@ -813,7 +839,8 @@
       "REVOKED": "zurückgezogen"
     },
     "expires": "gültig bis {date}",
-    "ownerOnly": "Nur Inhaber/innen können einladen, Rollen ändern und Mitglieder entfernen."
+    "ownerOnly": "Nur Inhaber/innen können einladen, Rollen ändern und Mitglieder entfernen.",
+    "technicianHint": "Techniker/innen arbeiten nur in der MARA-App auf dem Smartphone, nicht in ERIKA im Browser."
   },
   "Invitation": {
     "title": "Einladung",
@@ -834,8 +861,10 @@
     "roles": {
       "OWNER": "Inhaber/in",
       "MEMBER": "Mitglied",
-      "ADVISOR": "Steuerberater/in"
-    }
+      "ADVISOR": "Steuerberater/in",
+      "TECHNICIAN": "Techniker/in"
+    },
+    "technicianNote": "Als Techniker/in arbeiten Sie in der MARA-App auf Ihrem Smartphone. Legen Sie hier Ihr Konto an; angemeldet wird später in der App."
   },
   "Exports": {
     "title": "Export",
@@ -1048,5 +1077,119 @@
     "firstRunHint": "Beginn des ersten Leistungszeitraums.",
     "create": "Anlegen",
     "created": "Die wiederkehrende Rechnung wurde angelegt."
+  },
+  "WorkOrders": {
+    "title": "Aufträge",
+    "intro": "Planen Sie Einsätze, weisen Sie sie zu und behalten Sie den Stand im Blick. Ihre Techniker/innen sehen ihre Aufträge in der MARA-App.",
+    "list": "Liste",
+    "calendar": "Kalender",
+    "new": "Neuer Auftrag",
+    "empty": "Noch keine Aufträge.",
+    "filterStatus": "Status",
+    "allStatuses": "Alle",
+    "filter": "Anzeigen",
+    "when": "Termin",
+    "customer": "Kunde",
+    "workTitle": "Auftrag",
+    "assignees": "Zugewiesen",
+    "status": "Status",
+    "unplanned": "Ohne Termin",
+    "nobody": "Niemand",
+    "back": "Zurück zu den Aufträgen",
+    "chooseCustomer": "Kunden wählen",
+    "noCustomers": "Legen Sie zuerst einen Kunden an.",
+    "customersLink": "Zu den Kunden",
+    "site": "Einsatzort",
+    "siteDefault": "Adresse des Kunden",
+    "newSite": "Neuer Einsatzort",
+    "siteName": "Bezeichnung des Einsatzorts",
+    "siteStreet": "Straße und Hausnummer",
+    "sitePostalCode": "PLZ",
+    "siteCity": "Ort",
+    "addSite": "Einsatzort anlegen",
+    "siteAdded": "Einsatzort angelegt.",
+    "titleField": "Kurzbeschreibung",
+    "description": "Beschreibung",
+    "date": "Datum",
+    "from": "Von",
+    "to": "Bis",
+    "assignTo": "Zuweisen an",
+    "noStaff": "Noch niemand zum Zuweisen. Laden Sie Techniker/innen im Team ein.",
+    "checklist": "Checkliste",
+    "noChecklist": "Keine",
+    "save": "Speichern",
+    "create": "Auftrag anlegen",
+    "saved": "Gespeichert.",
+    "lockedHint": "Dieser Auftrag ist unterschrieben oder abgerechnet und kann nicht mehr geändert werden.",
+    "readOnlyHint": "Sie können Aufträge ansehen, aber nicht ändern.",
+    "statuses": {
+      "PLANNED": "Geplant",
+      "IN_PROGRESS": "In Arbeit",
+      "DONE": "Erledigt",
+      "SIGNED": "Unterschrieben",
+      "INVOICED": "Abgerechnet",
+      "CANCELLED": "Storniert"
+    },
+    "calendarTitle": "Kalender",
+    "previousDay": "Vorheriger Tag",
+    "nextDay": "Nächster Tag",
+    "today": "Heute",
+    "unassigned": "Nicht zugewiesen",
+    "dragHint": "Ziehen Sie einen Auftrag in eine andere Spalte, um ihn neu zuzuweisen – oder wählen Sie unter dem Auftrag eine Person.",
+    "moveTo": "Verschieben zu",
+    "moveToLabel": "{title} verschieben zu",
+    "moved": "„{title}“ ist jetzt bei {name}.",
+    "noOrdersDay": "Keine Aufträge an diesem Tag.",
+    "loading": "Wird geladen …"
+  },
+  "Staff": {
+    "title": "Mitarbeitende und Stundensätze",
+    "intro": "Stundensätze je Qualifikation werden auf die Rechnung übernommen, wenn ein Arbeitsbericht abgerechnet wird.",
+    "levelsTitle": "Stundensätze",
+    "levelName": "Bezeichnung",
+    "hourlyRate": "Stundensatz netto (€)",
+    "newLevel": "Neuer Stundensatz",
+    "noLevels": "Noch keine Stundensätze.",
+    "archiveLevel": "Archivieren (nicht mehr zur Auswahl anbieten)",
+    "archived": "archiviert",
+    "staffTitle": "Mitarbeitende",
+    "staffLevel": "Stundensatz",
+    "staffLevelOf": "Stundensatz von {name}",
+    "noLevel": "Keiner",
+    "canSeePrices": "Sieht Preise in der App",
+    "canSeePricesOf": "{name} sieht Preise in der App",
+    "ownerOnly": "Nur Inhaber/innen können Stundensätze und Einstellungen ändern.",
+    "noStaff": "Noch niemand im Team.",
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "saved": "Gespeichert."
+  },
+  "Checklists": {
+    "title": "Checklisten",
+    "intro": "Vorlagen für wiederkehrende Prüfungen, z. B. Wartung oder Übergabe. Pflichtpunkte müssen in der App beantwortet werden, bevor der Bericht abgeschlossen wird.",
+    "new": "Neue Checkliste",
+    "empty": "Noch keine Checklisten.",
+    "name": "Name der Checkliste",
+    "items": "Punkte",
+    "item": "Punkt {n}",
+    "itemLabel": "Text von Punkt {n}",
+    "itemKind": "Art von Punkt {n}",
+    "itemRequired": "Pflicht",
+    "kinds": {
+      "YES_NO": "Ja/Nein",
+      "VALUE": "Wert",
+      "PHOTO": "Foto",
+      "COMMENT": "Kommentar"
+    },
+    "addItem": "Punkt hinzufügen",
+    "removeItem": "Punkt {n} entfernen",
+    "itemCount": "{count, plural, one {# Punkt} other {# Punkte}}",
+    "archive": "Archivieren (nicht mehr zur Auswahl anbieten)",
+    "archived": "archiviert",
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "saved": "Gespeichert."
   }
 }

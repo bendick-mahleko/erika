@@ -112,8 +112,42 @@ class AdvisorReadOnlyIT : ApiIntegrationTest() {
             ownerUser.workspaceId,
             ownerUser.userId,
         )
+
+        // MARA Stage 2: real site, staff level, checklist template and work order of the workspace.
+        fun created(
+            path: String,
+            body: Map<String, Any?>,
+        ) = owner
+            .post(path, body, key to UUID.randomUUID().toString())
+            .also { check(it.status == 201) { "$path: $it" } }
+            .tree
+            .path("id")
+            .asString()
+        val site = created("/api/v1/sites", mapOf("customerId" to customer, "name" to "Baustelle", "countryCode" to "DE"))
+        val staffLevel = created("/api/v1/staff-levels", mapOf("name" to "Geselle", "hourlyRate" to "50.00"))
+        val template =
+            created(
+                "/api/v1/checklist-templates",
+                mapOf(
+                    "name" to "Checkliste",
+                    "items" to listOf(mapOf("key" to "a", "label" to "A", "kind" to "YES_NO", "required" to true)),
+                ),
+            )
+        val workOrder =
+            created(
+                "/api/v1/work-orders",
+                mapOf(
+                    "customerId" to customer,
+                    "title" to "Auftrag",
+                    "assigneeIds" to emptyList<String>(),
+                ),
+            )
         fixtures =
             mapOf(
+                "siteId" to site,
+                "staffLevelId" to staffLevel,
+                "checklistTemplateId" to template,
+                "workOrderId" to workOrder,
                 "memberId" to ownerMember,
                 "uploadId" to upload,
                 "documentId" to document.toString(),

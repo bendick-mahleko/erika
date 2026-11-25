@@ -21,6 +21,9 @@ server:
         secure: false
 
 erika:
+  # MARA is on locally, so the add-on can be developed and tried (ADR 0036).
+  features:
+    mara: ${ERIKA_FEATURE_MARA:true}
   identity:
     # DEV-ONLY key. Production: generate with `openssl rand -base64 32`, keep in SOPS.
     totp-encryption-key: ${ERIKA_TOTP_ENCRYPTION_KEY:ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE=}

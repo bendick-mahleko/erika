@@ -45,6 +45,8 @@ tags:
     description: Customer list for the invoice creator (CR-05)
   - name: articles
     description: Articles and services for the invoice creator (CR-05)
+  - name: workorders
+    description: MARA job reports add-on - sites, staff levels, checklist templates and work orders (ADR 0036)
   - name: invitations
     description: Inviting team members and the tax advisor (EX-02)
   - name: exports
@@ -1369,6 +1371,379 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Article" }
         default: { $ref: "#/components/responses/Problem" }
+  /sites:
+    get:
+      tags: [workorders]
+      operationId: listSites
+      summary: Job sites (MARA, M-OF-01), by customer and name
+      parameters:
+        - name: customerId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: includeArchived
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Sites.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [workorders]
+      operationId: createSite
+      summary: Add a job site for a customer
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteInput" }
+            example: { customerId: "7c9e6679-7425-40de-944b-e07fc1f90ae7", name: "Wohnung 3.2", street: "Lindenauer Markt 9", postalCode: "04177", city: "Leipzig", countryCode: "DE" }
+      responses:
+        "201":
+          description: Created.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        default: { $ref: "#/components/responses/Problem" }
+  /sites/{siteId}:
+    get:
+      tags: [workorders]
+      operationId: getSite
+      summary: One job site
+      parameters:
+        - $ref: "#/components/parameters/SiteId"
+      responses:
+        "200":
+          description: The site.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [workorders]
+      operationId: updateSite
+      summary: Change or archive a job site
+      description: Needs `If-Match`. The customer of a site doesn't change.
+      parameters:
+        - $ref: "#/components/parameters/SiteId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteInput" }
+            example: { customerId: "7c9e6679-7425-40de-944b-e07fc1f90ae7", name: "Wohnung 3.2", city: "Leipzig", countryCode: "DE", archived: false }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        default: { $ref: "#/components/responses/Problem" }
+  /staff-levels:
+    get:
+      tags: [workorders]
+      operationId: listStaffLevels
+      summary: Staff levels with their hourly rates (M-OF-04)
+      parameters:
+        - name: includeArchived
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Staff levels by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffLevelList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [workorders]
+      operationId: createStaffLevel
+      summary: Add a staff level with its hourly rate (owner only)
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StaffLevelInput" }
+            example: { name: "Geselle", hourlyRate: "58.00" }
+      responses:
+        "201":
+          description: Created.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffLevel" }
+        default: { $ref: "#/components/responses/Problem" }
+  /staff-levels/{staffLevelId}:
+    get:
+      tags: [workorders]
+      operationId: getStaffLevel
+      summary: One staff level
+      parameters:
+        - $ref: "#/components/parameters/StaffLevelId"
+      responses:
+        "200":
+          description: The staff level.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffLevel" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [workorders]
+      operationId: updateStaffLevel
+      summary: Change or archive a staff level (owner only)
+      parameters:
+        - $ref: "#/components/parameters/StaffLevelId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StaffLevelInput" }
+            example: { name: "Geselle", hourlyRate: "60.00", archived: false }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffLevel" }
+        default: { $ref: "#/components/responses/Problem" }
+  /staff:
+    get:
+      tags: [workorders]
+      operationId: listStaff
+      summary: People who can be assigned to work orders (owners, members, technicians)
+      responses:
+        "200":
+          description: Staff by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /staff/{memberId}:
+    put:
+      tags: [workorders]
+      operationId: updateStaffSettings
+      summary: Set a person's staff level and whether they see prices in the app (owner only)
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StaffSettings" }
+            example: { staffLevelId: "7c9e6679-7425-40de-944b-e07fc1f90ae7", canSeePrices: false }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffMember" }
+        default: { $ref: "#/components/responses/Problem" }
+  /checklist-templates:
+    get:
+      tags: [workorders]
+      operationId: listChecklistTemplates
+      summary: Checklist templates per job type (M-OF-05)
+      parameters:
+        - name: includeArchived
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Templates by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChecklistTemplateList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [workorders]
+      operationId: createChecklistTemplate
+      summary: Add a checklist template
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChecklistTemplateInput" }
+            example: { name: "Wartung Gasheizung", items: [{ key: "abgas", label: "Abgasmessung durchgeführt", kind: "YES_NO", required: true }, { key: "co", label: "CO-Wert (ppm)", kind: "VALUE", required: true }] }
+      responses:
+        "201":
+          description: Created.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChecklistTemplate" }
+        default: { $ref: "#/components/responses/Problem" }
+  /checklist-templates/{checklistTemplateId}:
+    get:
+      tags: [workorders]
+      operationId: getChecklistTemplate
+      summary: One checklist template
+      parameters:
+        - $ref: "#/components/parameters/ChecklistTemplateId"
+      responses:
+        "200":
+          description: The template.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChecklistTemplate" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [workorders]
+      operationId: updateChecklistTemplate
+      summary: Change or archive a checklist template
+      description: Needs `If-Match`. Reports copy the items when they are created (Stage 5), so changes don't alter existing reports.
+      parameters:
+        - $ref: "#/components/parameters/ChecklistTemplateId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChecklistTemplateInput" }
+            example: { name: "Wartung Gasheizung", items: [{ key: "abgas", label: "Abgasmessung durchgeführt", kind: "YES_NO", required: true }], archived: false }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChecklistTemplate" }
+        default: { $ref: "#/components/responses/Problem" }
+  /work-orders:
+    get:
+      tags: [workorders]
+      operationId: listWorkOrders
+      summary: Work orders (Aufträge), for the list and the calendar (M-OF-02, M-OF-03)
+      description: |
+        With `from` and `to`, only work orders whose planned time overlaps the range (calendar);
+        unplanned ones are left out. Without them, all work orders: unplanned first, then by planned start.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: assigneeId
+          in: query
+          required: false
+          description: User ID of an assigned person.
+          schema: { type: string, format: uuid }
+        - name: customerId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/WorkOrderStatus" }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 1, maximum: 500, default: 200 }
+      responses:
+        "200":
+          description: Work orders.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkOrderList" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [workorders]
+      operationId: createWorkOrder
+      summary: Create a work order and assign it
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkOrderInput" }
+            example: { customerId: "7c9e6679-7425-40de-944b-e07fc1f90ae7", title: "Gastherme verliert Druck", description: "Kunde meldet Druckverlust seit Montag", plannedFrom: "2026-12-02T08:00:00+01:00", plannedTo: "2026-12-02T10:00:00+01:00", assigneeIds: [] }
+      responses:
+        "201":
+          description: Created.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkOrder" }
+        default: { $ref: "#/components/responses/Problem" }
+  /work-orders/{workOrderId}:
+    get:
+      tags: [workorders]
+      operationId: getWorkOrder
+      summary: One work order
+      parameters:
+        - $ref: "#/components/parameters/WorkOrderId"
+      responses:
+        "200":
+          description: The work order.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkOrder" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [workorders]
+      operationId: updateWorkOrder
+      summary: Change, reschedule, reassign or set the status of a work order
+      description: |
+        Needs `If-Match`. Users set PLANNED, IN_PROGRESS, DONE and CANCELLED; SIGNED and INVOICED
+        are set by MARA when a report is signed or billed (409 `STATUS_NOT_ALLOWED`). A signed or
+        invoiced work order doesn't change any more (409 `WORK_ORDER_LOCKED`). Status changes are audited.
+      parameters:
+        - $ref: "#/components/parameters/WorkOrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkOrderInput" }
+            example: { customerId: "7c9e6679-7425-40de-944b-e07fc1f90ae7", title: "Gastherme verliert Druck", status: "IN_PROGRESS", assigneeIds: [] }
+      responses:
+        "200":
+          description: Saved.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkOrder" }
+        default: { $ref: "#/components/responses/Problem" }
   /invoices:
     get:
       tags: [invoices]
@@ -1776,6 +2151,26 @@ components:
       required: true
       description: Unique per request (e.g. a UUID). Repeating a request with the same key returns the first result instead of acting twice.
       schema: { type: string, minLength: 1, maxLength: 200 }
+    SiteId:
+      name: siteId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    StaffLevelId:
+      name: staffLevelId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ChecklistTemplateId:
+      name: checklistTemplateId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    WorkOrderId:
+      name: workOrderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     CustomerId:
       name: customerId
       in: path
@@ -1830,7 +2225,10 @@ components:
       enum: [de, en]
     Role:
       type: string
-      enum: [OWNER, MEMBER, ADVISOR]
+      description: |
+        OWNER and MEMBER work in the web app, ADVISOR (tax advisor) only reads. TECHNICIAN works only in the
+        MARA app and can't sign in to the web app (403 `TECHNICIAN_USE_APP`, ADR 0039).
+      enum: [OWNER, MEMBER, ADVISOR, TECHNICIAN]
     SignupPolicy:
       type: object
       required: [inviteOnly, termsVersion]
@@ -1956,8 +2354,9 @@ components:
         role: { $ref: "#/components/schemas/Role" }
         workspaces:
           type: array
-          description: Every workspace the signed-in user belongs to (for switching).
+          description: Every workspace the signed-in user can open in the web app (for switching).
           items: { $ref: "#/components/schemas/WorkspaceChoice" }
+        features: { $ref: "#/components/schemas/SessionFeatures" }
     SwitchWorkspaceRequest:
       type: object
       required: [workspaceId]
@@ -1973,7 +2372,8 @@ components:
       enum: [OPEN, ACCEPTED, EXPIRED, REVOKED]
     InvitationRole:
       type: string
-      enum: [MEMBER, ADVISOR]
+      description: TECHNICIAN works only in the MARA app (ADR 0039).
+      enum: [MEMBER, ADVISOR, TECHNICIAN]
     InvitationPreview:
       type: object
       required: [workspaceName, email, role, state, accountExists]
@@ -2496,6 +2896,189 @@ components:
       type: string
       description: "Line VAT rate for DOMESTIC invoices: 19 %, 7 % or 0 %."
       enum: [STANDARD_19, REDUCED_7, ZERO]
+    SessionFeatures:
+      type: object
+      description: Optional product areas switched on for this installation.
+      required: [mara]
+      properties:
+        mara:
+          type: boolean
+          description: MARA job reports (work orders, calendar, staff); the add-on entitlement follows in MARA Stage 10.
+    CustomerType:
+      type: string
+      description: BUSINESS or PRIVATE (MARA M-OF-01; private customers get the § 35a labour share on invoices, Stage 8).
+      enum: [BUSINESS, PRIVATE]
+    SiteInput:
+      type: object
+      required: [customerId, name, countryCode]
+      properties:
+        customerId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200, description: "e.g. Wohnung 3.2, Baustelle Haus B" }
+        street: { type: string, maxLength: 200 }
+        postalCode: { type: string, maxLength: 20 }
+        city: { type: string, maxLength: 100 }
+        countryCode: { type: string, pattern: "^[A-Z]{2}$" }
+        notes: { type: string, maxLength: 1000, description: "Access, key box, contact on site" }
+        archived: { type: boolean, default: false }
+    Site:
+      type: object
+      required: [id, customerId, name, countryCode, archived, version]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        name: { type: string }
+        street: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
+        countryCode: { type: string }
+        notes: { type: string }
+        archived: { type: boolean }
+        version: { type: integer, format: int32 }
+    SiteList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Site" }
+    StaffLevelInput:
+      type: object
+      required: [name, hourlyRate]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, description: "e.g. Meister, Geselle, Auszubildende" }
+        hourlyRate: { $ref: "#/components/schemas/Decimal" }
+        archived: { type: boolean, default: false }
+    StaffLevel:
+      type: object
+      required: [id, name, hourlyRate, archived, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        hourlyRate: { $ref: "#/components/schemas/Decimal" }
+        archived: { type: boolean }
+        version: { type: integer, format: int32 }
+    StaffLevelList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/StaffLevel" }
+    StaffSettings:
+      type: object
+      required: [canSeePrices]
+      properties:
+        staffLevelId: { type: string, format: uuid, description: "Empty = no staff level" }
+        canSeePrices: { type: boolean, description: "Technicians see prices in the app only if set (ADR 0039)" }
+    StaffMember:
+      type: object
+      required: [memberId, userId, displayName, role, canSeePrices]
+      properties:
+        memberId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        staffLevelId: { type: string, format: uuid }
+        canSeePrices: { type: boolean }
+    StaffList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/StaffMember" }
+    ChecklistItemKind:
+      type: string
+      enum: [YES_NO, VALUE, PHOTO, COMMENT]
+    ChecklistItem:
+      type: object
+      required: [key, label, kind, required]
+      properties:
+        key: { type: string, pattern: "^[a-z0-9_-]{1,40}$", description: "Stable within the template; answers refer to it" }
+        label: { type: string, minLength: 1, maxLength: 200 }
+        kind: { $ref: "#/components/schemas/ChecklistItemKind" }
+        required: { type: boolean, description: "Mandatory items block completing the report (M-MO-07)" }
+    ChecklistTemplateInput:
+      type: object
+      required: [name, items]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: "#/components/schemas/ChecklistItem" }
+        archived: { type: boolean, default: false }
+    ChecklistTemplate:
+      type: object
+      required: [id, name, items, archived, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistItem" }
+        archived: { type: boolean }
+        version: { type: integer, format: int32 }
+    ChecklistTemplateList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistTemplate" }
+    WorkOrderStatus:
+      type: string
+      description: |
+        PLANNED, IN_PROGRESS, DONE, CANCELLED (set by users); SIGNED and INVOICED (set by MARA when a
+        report is signed or billed).
+      enum: [PLANNED, IN_PROGRESS, DONE, SIGNED, INVOICED, CANCELLED]
+    WorkOrderInput:
+      type: object
+      required: [customerId, title, assigneeIds]
+      properties:
+        customerId: { type: string, format: uuid }
+        siteId: { type: string, format: uuid, description: "A site of the same customer; empty = the customer's address" }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 4000 }
+        plannedFrom: { type: string, format: date-time }
+        plannedTo: { type: string, format: date-time, description: "Not before plannedFrom" }
+        assigneeIds:
+          type: array
+          maxItems: 20
+          description: User IDs of owners, members or technicians of the workspace.
+          items: { type: string, format: uuid }
+        checklistTemplateId: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/WorkOrderStatus" }
+    WorkOrder:
+      type: object
+      required: [id, customerId, customerName, title, status, assigneeIds, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        siteId: { type: string, format: uuid }
+        siteName: { type: string }
+        address: { type: string, description: "Where the work is (site, else customer), one line for list and calendar" }
+        title: { type: string }
+        description: { type: string }
+        plannedFrom: { type: string, format: date-time }
+        plannedTo: { type: string, format: date-time }
+        status: { $ref: "#/components/schemas/WorkOrderStatus" }
+        assigneeIds:
+          type: array
+          items: { type: string, format: uuid }
+        checklistTemplateId: { type: string, format: uuid }
+        version: { type: integer, format: int32 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    WorkOrderList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkOrder" }
     Decimal:
       type: string
       pattern: "^-?[0-9]{1,12}(\\.[0-9]{1,4})?$"
@@ -2599,6 +3182,11 @@ components:
         preferredFormat: { $ref: "#/components/schemas/InvoiceFormat" }
         paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
         archived: { type: boolean, default: false }
+        customerType: { $ref: "#/components/schemas/CustomerType" }
+        leitwegId:
+          type: string
+          pattern: "^[0-9]{2,12}(-[0-9A-Za-z]{1,30})?-[0-9]{2}$"
+          description: Leitweg-ID of a public authority (B2G), e.g. 04011000-12345-67
     Customer:
       type: object
       required: [name, countryCode, vatTreatment, id, version, archived]
@@ -2618,6 +3206,11 @@ components:
         preferredFormat: { $ref: "#/components/schemas/InvoiceFormat" }
         paymentTermsDays: { type: integer, format: int32, minimum: 0, maximum: 365 }
         archived: { type: boolean, default: false }
+        customerType: { $ref: "#/components/schemas/CustomerType" }
+        leitwegId:
+          type: string
+          pattern: "^[0-9]{2,12}(-[0-9A-Za-z]{1,30})?-[0-9]{2}$"
+          description: Leitweg-ID of a public authority (B2G), e.g. 04011000-12345-67
         id: { type: string, format: uuid }
         version: { type: integer, format: int32 }
     CustomerList:
@@ -2641,6 +3234,10 @@ components:
         netPrice: { $ref: "#/components/schemas/Decimal" }
         vatRate: { $ref: "#/components/schemas/VatRate" }
         archived: { type: boolean, default: false }
+        purchasePrice:
+          type: string
+          pattern: "^-?[0-9]{1,12}(\\.[0-9]{1,4})?$"
+          description: Optional purchase price (MARA M-OF-04).
     Article:
       type: object
       required: [name, unitCode, netPrice, vatRate, id, version, archived]
@@ -2655,6 +3252,10 @@ components:
         netPrice: { $ref: "#/components/schemas/Decimal" }
         vatRate: { $ref: "#/components/schemas/VatRate" }
         archived: { type: boolean, default: false }
+        purchasePrice:
+          type: string
+          pattern: "^-?[0-9]{1,12}(\\.[0-9]{1,4})?$"
+          description: Optional purchase price (MARA M-OF-04).
         id: { type: string, format: uuid }
         version: { type: integer, format: int32 }
     ArticleList:

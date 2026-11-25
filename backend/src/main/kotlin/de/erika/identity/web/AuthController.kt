@@ -70,6 +70,7 @@ internal class AuthController(
     private val passwords: PasswordService,
     private val memberships: MembershipRepository,
     props: IdentityProperties,
+    private val features: de.erika.platform.features.FeatureProperties,
 ) : AuthApi {
     private val attempts = RateLimiter(props.loginRateLimit, props.loginRateWindow)
 
@@ -170,7 +171,13 @@ internal class AuthController(
         val principal = ErikaPrincipal.currentOrNull() ?: throw IdentityErrors.loginRequired()
         val user = users.findById(principal.userId) ?: throw IdentityErrors.loginRequired()
         val invitation = invitations.accept(invitationTokenRequest.token, user.id, user.email)
-        enter(principal, invitation.workspaceId, invitation.role)
+        // A technician joins, but works in the MARA app: the web session stays where it is (ADR 0039).
+        if (invitation.role.usesWebApp) {
+            enter(principal, invitation.workspaceId, invitation.role)
+        } else {
+            // Accepting scoped the transaction to the inviting workspace; the session stays in its own.
+            tenant.enterWorkspace(principal.workspaceId)
+        }
         return ResponseEntity.ok(currentSession())
     }
 
@@ -179,6 +186,7 @@ internal class AuthController(
         val choice =
             invitationRepository.workspacesOf(principal.userId).firstOrNull { it.id == switchWorkspaceRequest.workspaceId }
                 ?: throw IdentityErrors.notFound("WORKSPACE")
+        if (!choice.role.usesWebApp) throw IdentityErrors.technicianUseApp()
         tenant.enterWorkspace(choice.id)
         enter(principal, choice.id, choice.role)
         return ResponseEntity.ok(currentSession())
@@ -256,9 +264,12 @@ internal class AuthController(
                 workspace = workspace?.let { SessionWorkspace(it.id, it.name, closed = it.closed) },
                 role = ApiRole.valueOf(principal.role.name),
                 workspaces =
-                    invitationRepository.workspacesOf(user.id).map {
+                    invitationRepository.workspacesOf(user.id).filter { it.role.usesWebApp }.map {
                         WorkspaceChoice(it.id, it.name, ApiRole.valueOf(it.role.name))
                     },
+                features =
+                    de.erika.contract.model
+                        .SessionFeatures(mara = features.mara),
             )
         }
         val pending = sessions.pending() ?: return Session(state = SessionState.ANONYMOUS)

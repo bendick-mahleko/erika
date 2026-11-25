@@ -35,6 +35,7 @@ export function ArticlesManager({ initial, canEdit }: { initial: Article[]; canE
       unitCode: text("unitCode") ?? "C62",
       netPrice: normaliseDecimal(text("netPrice") ?? "0"),
       vatRate: (text("vatRate") ?? "STANDARD_19") as ArticleInput["vatRate"],
+      purchasePrice: text("purchasePrice") ? normaliseDecimal(text("purchasePrice")!) : undefined,
       archived: form.get("archived") === "on",
     };
     setBusy(true);
@@ -129,6 +130,14 @@ export function ArticlesManager({ initial, canEdit }: { initial: Article[]; canE
               inputMode="decimal"
               pattern="\d{1,12}([.,]\d{1,4})?"
               defaultValue={current?.netPrice}
+            />
+            <Field
+              id="purchasePrice"
+              label={t("purchasePrice")}
+              hint={t("purchasePriceHint")}
+              inputMode="decimal"
+              pattern="\d{1,12}([.,]\d{1,4})?"
+              defaultValue={current?.purchasePrice}
             />
             <div className="space-y-1">
               <label htmlFor="vatRate" className="block font-medium">

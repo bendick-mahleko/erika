@@ -137,6 +137,9 @@ erika:
     stale-after: 2m
     # Prometheus endpoint of the worker (/metrics); -1 = off (ADR 0029).
     metrics-port: ${ERIKA_WORKER_METRICS_PORT:8082}
+  features:
+    # MARA job reports add-on (ADR 0036): off until it is released.
+    mara: ${ERIKA_FEATURE_MARA:false}
   mobile:
     # MARA app update check (GET /api/v1/mobile/status, ADR 0038).
     min-app-version: ${ERIKA_MOBILE_MIN_APP_VERSION:0.1.0}

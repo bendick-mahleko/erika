@@ -10,6 +10,8 @@ server:
         secure: false
 
 erika:
+  features:
+    mara: true
   identity:
     totp-encryption-key: dGVzdC1vbmx5LXRvdHAta2V5LTMyLWJ5dGVzLWxvbmc=
     secure-cookies: false

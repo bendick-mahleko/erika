@@ -12,6 +12,7 @@ import de.erika.creator.Article
 import de.erika.creator.ArticleRepository
 import de.erika.creator.Customer
 import de.erika.creator.CustomerRepository
+import de.erika.creator.CustomerType
 import de.erika.creator.LineVatRate
 import de.erika.creator.MasterDataChanged
 import de.erika.creator.NumberTakenException
@@ -32,6 +33,7 @@ import java.math.BigDecimal
 import java.util.UUID
 import de.erika.contract.model.Article as ApiArticle
 import de.erika.contract.model.Customer as ApiCustomer
+import de.erika.contract.model.CustomerType as ApiCustomerType
 import de.erika.contract.model.VatTreatment as ApiVatTreatment
 
 /** Customer list (CR-05). Reading for every role; changes for OWNER and MEMBER. */
@@ -104,6 +106,8 @@ internal class CustomersController(
             preferredFormat = preferredFormat?.let { OutputFormat.valueOf(it.value) },
             paymentTermsDays = paymentTermsDays,
             archived = archived ?: false,
+            customerType = customerType?.let { CustomerType.valueOf(it.value) } ?: CustomerType.BUSINESS,
+            leitwegId = leitwegId.clean(),
         )
 
     private fun Customer.toApi() =
@@ -125,6 +129,8 @@ internal class CustomersController(
             buyerReference = buyerReference,
             preferredFormat = preferredFormat?.let { InvoiceFormat.forValue(it.name) },
             paymentTermsDays = paymentTermsDays,
+            customerType = ApiCustomerType.forValue(customerType.name),
+            leitwegId = leitwegId,
         )
 }
 
@@ -190,6 +196,7 @@ internal class ArticlesController(
             netPrice = decimal(netPrice, "netPrice"),
             vatRate = LineVatRate.valueOf(vatRate.value),
             archived = archived ?: false,
+            purchasePrice = purchasePrice.clean()?.let { decimal(it, "purchasePrice") },
         )
 
     private fun Article.toApi() =
@@ -203,6 +210,7 @@ internal class ArticlesController(
             version = version,
             articleNumber = articleNumber,
             description = description,
+            purchasePrice = purchasePrice?.toPlainString(),
         )
 }
 

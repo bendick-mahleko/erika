@@ -33,6 +33,11 @@ export async function UserMenu() {
           <Link href="/invoices" className={link}>
             {t("invoices")}
           </Link>
+          {session.features?.mara && (
+            <Link href="/work-orders" className={link}>
+              {t("workOrders")}
+            </Link>
+          )}
           <Link href="/exports" className={link}>
             {t("exports")}
           </Link>

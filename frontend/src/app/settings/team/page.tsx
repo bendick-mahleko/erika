@@ -33,6 +33,7 @@ export default async function TeamPage() {
         initialInvitations={invitations}
         currentUserId={session.user.id}
         isOwner={isOwner}
+        mara={session.features?.mara === true}
       />
     </div>
   );

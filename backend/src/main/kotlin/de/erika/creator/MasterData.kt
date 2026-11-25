@@ -28,7 +28,13 @@ data class Customer(
     val paymentTermsDays: Int?,
     val archived: Boolean,
     val version: Int = 0,
+    /** BUSINESS or PRIVATE (MARA M-OF-01). */
+    val customerType: CustomerType = CustomerType.BUSINESS,
+    /** Leitweg-ID of a public authority (B2G). */
+    val leitwegId: String? = null,
 )
+
+enum class CustomerType { BUSINESS, PRIVATE }
 
 /** An article or service (CR-05). */
 data class Article(
@@ -41,6 +47,8 @@ data class Article(
     val vatRate: LineVatRate,
     val archived: Boolean,
     val version: Int = 0,
+    /** Optional purchase price (MARA M-OF-04). */
+    val purchasePrice: BigDecimal? = null,
 )
 
 /** Customer or article created or changed; values are not audited (personal data), only which record. */
@@ -93,6 +101,17 @@ internal class CustomerRepository(
             .optional()
             .orElse(null)
 
+    fun findAll(ids: Collection<UUID>): List<Customer> =
+        if (ids.isEmpty()) {
+            emptyList()
+        } else {
+            jdbc
+                .sql("SELECT * FROM party WHERE id IN (:ids) AND workspace_id = current_workspace_id()")
+                .param("ids", ids.distinct())
+                .query(::map)
+                .list()
+        }
+
     fun insert(
         workspaceId: UUID,
         c: Customer,
@@ -103,9 +122,9 @@ internal class CustomerRepository(
                     """
                     INSERT INTO party (id, workspace_id, customer_number, name, street, additional_line, postal_code, city, country_code,
                                        vat_id, email, contact_name, buyer_reference, vat_treatment, preferred_format, payment_terms_days,
-                                       archived)
+                                       archived, customer_type, leitweg_id)
                     VALUES (:id, :ws, :number, :name, :street, :additional, :postal, :city, :country, :vatId, :email, :contact,
-                            :buyerRef, :treatment, :format, :days, :archived)
+                            :buyerRef, :treatment, :format, :days, :archived, :customerType, :leitwegId)
                     """.trimIndent(),
                 ).bind(c)
                 .param("ws", workspaceId)
@@ -129,6 +148,7 @@ internal class CustomerRepository(
                                postal_code = :postal, city = :city, country_code = :country, vat_id = :vatId, email = :email,
                                contact_name = :contact, buyer_reference = :buyerRef, vat_treatment = :treatment,
                                preferred_format = :format, payment_terms_days = :days, archived = :archived,
+                               customer_type = :customerType, leitweg_id = :leitwegId,
                                version = version + 1, updated_at = now()
                          WHERE id = :id AND workspace_id = current_workspace_id() AND version = :expected
                         """.trimIndent(),
@@ -158,6 +178,8 @@ internal class CustomerRepository(
             .param("format", c.preferredFormat?.name)
             .param("days", c.paymentTermsDays)
             .param("archived", c.archived)
+            .param("customerType", c.customerType.name)
+            .param("leitwegId", c.leitwegId)
 
     private fun map(
         rs: ResultSet,
@@ -180,6 +202,8 @@ internal class CustomerRepository(
         paymentTermsDays = rs.getObject("payment_terms_days") as Int?,
         archived = rs.getBoolean("archived"),
         version = rs.getInt("version"),
+        customerType = CustomerType.valueOf(rs.getString("customer_type")),
+        leitwegId = rs.getString("leitweg_id"),
     )
 }
 
@@ -226,8 +250,9 @@ internal class ArticleRepository(
             jdbc
                 .sql(
                     """
-                    INSERT INTO article (id, workspace_id, article_number, name, description, unit_code, net_price, vat_rate, archived)
-                    VALUES (:id, :ws, :number, :name, :description, :unit, :price, :rate, :archived)
+                    INSERT INTO article (id, workspace_id, article_number, name, description, unit_code, net_price, vat_rate, archived,
+                                         purchase_price)
+                    VALUES (:id, :ws, :number, :name, :description, :unit, :price, :rate, :archived, :purchase)
                     """.trimIndent(),
                 ).bind(a)
                 .param("ws", workspaceId)
@@ -247,7 +272,8 @@ internal class ArticleRepository(
                     .sql(
                         """
                         UPDATE article SET article_number = :number, name = :name, description = :description, unit_code = :unit,
-                               net_price = :price, vat_rate = :rate, archived = :archived, version = version + 1, updated_at = now()
+                               net_price = :price, vat_rate = :rate, archived = :archived, purchase_price = :purchase,
+                               version = version + 1, updated_at = now()
                          WHERE id = :id AND workspace_id = current_workspace_id() AND version = :expected
                         """.trimIndent(),
                     ).bind(a)
@@ -268,6 +294,7 @@ internal class ArticleRepository(
             .param("price", a.netPrice)
             .param("rate", a.vatRate.name)
             .param("archived", a.archived)
+            .param("purchase", a.purchasePrice)
 
     private fun map(
         rs: ResultSet,
@@ -282,7 +309,11 @@ internal class ArticleRepository(
         vatRate = LineVatRate.valueOf(rs.getString("vat_rate")),
         archived = rs.getBoolean("archived"),
         version = rs.getInt("version"),
+        purchasePrice = rs.getBigDecimal("purchase_price")?.let(::money),
     )
 }
+
+/** Two decimals at least, without trailing zeros beyond that ("55.50", "1.2345"). */
+internal fun money(value: BigDecimal): BigDecimal = value.stripTrailingZeros().let { if (it.scale() < 2) it.setScale(2) else it }
 
 internal fun escapeLike(s: String) = s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

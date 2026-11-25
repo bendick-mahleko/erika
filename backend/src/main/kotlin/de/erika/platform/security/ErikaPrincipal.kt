@@ -8,8 +8,20 @@ import org.springframework.security.core.context.SecurityContextHolder
 import java.io.Serializable
 import java.util.UUID
 
-/** Role of a user in one workspace (Requirements §2). */
-enum class WorkspaceRole { OWNER, MEMBER, ADVISOR }
+/**
+ * Role of a user in one workspace (Requirements §2). TECHNICIAN works only in the MARA app and
+ * never gets a web session (ADR 0039).
+ */
+enum class WorkspaceRole {
+    OWNER,
+    MEMBER,
+    ADVISOR,
+    TECHNICIAN,
+    ;
+
+    /** Whether this role may sign in to the web app. */
+    val usesWebApp: Boolean get() = this != TECHNICIAN
+}
 
 /**
  * A fully signed-in user (password + second factor), bound to one workspace.

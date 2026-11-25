@@ -82,7 +82,8 @@
     "closedBanner": "This account is closed. You can read, download and export data, but nothing can be changed.",
     "readOnlyBanner": "Your workspace is read-only: the trial has ended or the subscription isn't paid.",
     "pastDueBanner": "A payment for ERIKA failed. Please check your payment method.",
-    "billingLink": "Go to billing"
+    "billingLink": "Go to billing",
+    "workOrders": "Work orders"
   },
   "Auth": {
     "email": "Email address",
@@ -229,7 +230,20 @@
     "LOGO_NOT_FOUND": "No logo is set.",
     "ACCENT_COLOR_INVALID": "The accent colour must look like #1A2B3C.",
     "RECURRING_NOT_FOUND": "This recurring invoice doesn't exist (any more).",
-    "RECURRING_NOT_POSSIBLE": "Only invoices can recur, not credit notes or corrections."
+    "RECURRING_NOT_POSSIBLE": "Only invoices can recur, not credit notes or corrections.",
+    "TECHNICIAN_USE_APP": "This account is for the MARA app. Please sign in there.",
+    "FEATURE_DISABLED": "This feature isn't available.",
+    "SITE_NOT_FOUND": "The site wasn't found.",
+    "SITE_NOT_FOR_CUSTOMER": "The site belongs to another customer.",
+    "SITE_CUSTOMER_FIXED": "A site stays with its customer. Create a new one.",
+    "CUSTOMER_ARCHIVED": "The customer is archived.",
+    "ASSIGNEE_INVALID": "Only owners, members and technicians of this workspace can be assigned.",
+    "PLANNED_TIME_INVALID": "The end must not be before the start.",
+    "WORK_ORDER_LOCKED": "A signed or invoiced work order can't be changed.",
+    "WORK_ORDER_NOT_FOUND": "The work order wasn't found.",
+    "STAFF_LEVEL_NOT_FOUND": "The staff level wasn't found.",
+    "CHECKLIST_TEMPLATE_NOT_FOUND": "The checklist wasn't found.",
+    "CHECKLIST_KEYS_DUPLICATE": "Two items have the same key. Please give each item its own."
   },
   "Inbox": {
     "title": "Inbox",
@@ -694,7 +708,14 @@
     "preferredFormatDefault": "Default from the settings",
     "paymentTermsDays": "Payment terms in days",
     "paymentTermsDefault": "Empty: default from the settings",
-    "archive": "Archive (no longer offered)"
+    "archive": "Archive (no longer offered)",
+    "customerType": "Type of customer",
+    "leitwegId": "Leitweg-ID (public authorities)",
+    "leitwegHint": "e.g. 04011000-12345-67",
+    "customerTypes": {
+      "BUSINESS": "Business customer",
+      "PRIVATE": "Private customer"
+    }
   },
   "Articles": {
     "title": "Articles and services",
@@ -714,7 +735,9 @@
     "unitCode": "Unit",
     "netPrice": "Price net (€)",
     "vatRate": "VAT rate",
-    "archive": "Archive (no longer offered)"
+    "archive": "Archive (no longer offered)",
+    "purchasePrice": "Purchase price (net, €)",
+    "purchasePriceHint": "Optional"
   },
   "InvoiceSettings": {
     "title": "Invoice settings",
@@ -771,7 +794,9 @@
     "datev": "DATEV",
     "billing": "Billing",
     "account": "Account",
-    "intake": "Email intake"
+    "intake": "Email intake",
+    "staff": "Staff",
+    "checklists": "Checklists"
   },
   "Team": {
     "title": "Team and tax advisor",
@@ -792,7 +817,8 @@
     "roles": {
       "OWNER": "Owner",
       "MEMBER": "Member",
-      "ADVISOR": "Tax advisor"
+      "ADVISOR": "Tax advisor",
+      "TECHNICIAN": "Technician"
     },
     "invite": "Invite someone",
     "inviteEmail": "Email address",
@@ -813,7 +839,8 @@
       "REVOKED": "withdrawn"
     },
     "expires": "valid until {date}",
-    "ownerOnly": "Only owners can invite, change roles and remove members."
+    "ownerOnly": "Only owners can invite, change roles and remove members.",
+    "technicianHint": "Technicians work only in the MARA app on their phone, not in ERIKA in the browser."
   },
   "Invitation": {
     "title": "Invitation",
@@ -834,8 +861,10 @@
     "roles": {
       "OWNER": "Owner",
       "MEMBER": "Member",
-      "ADVISOR": "Tax advisor"
-    }
+      "ADVISOR": "Tax advisor",
+      "TECHNICIAN": "Technician"
+    },
+    "technicianNote": "As a technician you work in the MARA app on your phone. Create your account here; you sign in later in the app."
   },
   "Exports": {
     "title": "Export",
@@ -1048,5 +1077,119 @@
     "firstRunHint": "Start of the first service period.",
     "create": "Create",
     "created": "The recurring invoice was created."
+  },
+  "WorkOrders": {
+    "title": "Work orders",
+    "intro": "Plan jobs, assign them and keep track of their progress. Your technicians see their work orders in the MARA app.",
+    "list": "List",
+    "calendar": "Calendar",
+    "new": "New work order",
+    "empty": "No work orders yet.",
+    "filterStatus": "Status",
+    "allStatuses": "All",
+    "filter": "Show",
+    "when": "When",
+    "customer": "Customer",
+    "workTitle": "Work order",
+    "assignees": "Assigned",
+    "status": "Status",
+    "unplanned": "Not scheduled",
+    "nobody": "Nobody",
+    "back": "Back to work orders",
+    "chooseCustomer": "Choose a customer",
+    "noCustomers": "Add a customer first.",
+    "customersLink": "Go to customers",
+    "site": "Site",
+    "siteDefault": "Customer's address",
+    "newSite": "New site",
+    "siteName": "Name of the site",
+    "siteStreet": "Street and number",
+    "sitePostalCode": "Postcode",
+    "siteCity": "City",
+    "addSite": "Add site",
+    "siteAdded": "Site added.",
+    "titleField": "Short description",
+    "description": "Description",
+    "date": "Date",
+    "from": "From",
+    "to": "To",
+    "assignTo": "Assign to",
+    "noStaff": "Nobody to assign yet. Invite technicians in Team.",
+    "checklist": "Checklist",
+    "noChecklist": "None",
+    "save": "Save",
+    "create": "Create work order",
+    "saved": "Saved.",
+    "lockedHint": "This work order is signed or invoiced and can't be changed any more.",
+    "readOnlyHint": "You can view work orders, but not change them.",
+    "statuses": {
+      "PLANNED": "Planned",
+      "IN_PROGRESS": "In progress",
+      "DONE": "Done",
+      "SIGNED": "Signed",
+      "INVOICED": "Invoiced",
+      "CANCELLED": "Cancelled"
+    },
+    "calendarTitle": "Calendar",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "today": "Today",
+    "unassigned": "Not assigned",
+    "dragHint": "Drag a work order to another column to reassign it, or choose a person below the work order.",
+    "moveTo": "Move to",
+    "moveToLabel": "Move {title} to",
+    "moved": "“{title}” is now with {name}.",
+    "noOrdersDay": "No work orders on this day.",
+    "loading": "Loading …"
+  },
+  "Staff": {
+    "title": "Staff and hourly rates",
+    "intro": "Hourly rates per staff level are used on the invoice when a job report is billed.",
+    "levelsTitle": "Hourly rates",
+    "levelName": "Name",
+    "hourlyRate": "Hourly rate, net (€)",
+    "newLevel": "New hourly rate",
+    "noLevels": "No hourly rates yet.",
+    "archiveLevel": "Archive (no longer offered)",
+    "archived": "archived",
+    "staffTitle": "Staff",
+    "staffLevel": "Hourly rate",
+    "staffLevelOf": "Hourly rate of {name}",
+    "noLevel": "None",
+    "canSeePrices": "Sees prices in the app",
+    "canSeePricesOf": "{name} sees prices in the app",
+    "ownerOnly": "Only owners can change hourly rates and settings.",
+    "noStaff": "Nobody in the team yet.",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Saved."
+  },
+  "Checklists": {
+    "title": "Checklists",
+    "intro": "Templates for recurring checks, e.g. maintenance or handover. Mandatory items must be answered in the app before the report can be completed.",
+    "new": "New checklist",
+    "empty": "No checklists yet.",
+    "name": "Name of the checklist",
+    "items": "Items",
+    "item": "Item {n}",
+    "itemLabel": "Text of item {n}",
+    "itemKind": "Type of item {n}",
+    "itemRequired": "Mandatory",
+    "kinds": {
+      "YES_NO": "Yes/no",
+      "VALUE": "Value",
+      "PHOTO": "Photo",
+      "COMMENT": "Comment"
+    },
+    "addItem": "Add item",
+    "removeItem": "Remove item {n}",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
+    "archive": "Archive (no longer offered)",
+    "archived": "archived",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Saved."
   }
 }

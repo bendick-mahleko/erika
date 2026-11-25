@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { fetchSession } from "@/lib/api/client";
+
+/** The MARA sections only appear when the add-on is switched on (ADR 0036). */
+const MARA = new Set(["staff", "checklists"]);
 
 const SECTIONS = [
   ["workspace", "/settings/workspace"],
   ["intake", "/settings/intake"],
   ["invoices", "/settings/invoices"],
   ["team", "/settings/team"],
+  ["staff", "/settings/staff"],
+  ["checklists", "/settings/checklists"],
   ["datev", "/settings/datev"],
   ["billing", "/settings/billing"],
   ["account", "/settings/account"],
@@ -14,9 +20,10 @@ const SECTIONS = [
 /** Links between the settings pages; the current one is marked for assistive technology. */
 export async function SettingsNav({ current }: { current: (typeof SECTIONS)[number][0] }) {
   const t = await getTranslations("Settings");
+  const mara = (await fetchSession()).features?.mara === true;
   return (
     <nav aria-label={t("nav")} className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-sm">
-      {SECTIONS.map(([key, href]) => (
+      {SECTIONS.filter(([key]) => mara || !MARA.has(key)).map(([key, href]) => (
         <Link
           key={key}
           href={href}

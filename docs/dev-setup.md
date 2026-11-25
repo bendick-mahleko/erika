@@ -168,6 +168,10 @@ MARA is built as ERIKA modules plus a Flutter app (ADR 0036, plan: [docs/mara/BU
 - `GET /api/v1/mobile/status` answers without a token: protocol versions, minimum and recommended app version (`ERIKA_MOBILE_MIN_APP_VERSION`, `ERIKA_MOBILE_RECOMMENDED_APP_VERSION`) and the server time.
 - Shared rules: test vectors in `mara-rules/` are read by Kotlin (`./gradlew test --tests '*VectorsTest'`) and Dart (`flutter test`). Change the vector first, then both implementations.
 - The app: [mobile/README.md](../mobile/README.md). Without a local Flutter, the pinned Docker image gives the same results as CI.
+- **Feature switch:** `erika.features.mara` (`ERIKA_FEATURE_MARA`) is off by default and on in the `local` and `test` profiles. When off, the MARA endpoints answer 404 `FEATURE_DISABLED` and the web app hides the "Aufträge" area; `GET /auth/session` reports it as `features.mara`.
+- **Office endpoints (Stage 2)** are in `api/openapi.yaml`, tag `workorders`: `/sites`, `/staff-levels`, `/staff`, `/checklist-templates`, `/work-orders`. Customers and people come from `creator.CustomerDirectory` and `identity.WorkspaceContacts.workforce()`.
+- **Technicians** (role `TECHNICIAN`, ADR 0039) are invited like other members, but the web sign-in answers 403 `TECHNICIAN_USE_APP`; they never get a web session and aren't offered for workspace switching. Hourly rates and "sees prices" live in `staff_level` / `staff_profile` (owner only).
+- Web pages: `/work-orders` (list), `/work-orders/calendar?day=YYYY-MM-DD` (day view by person, drag to reassign or use the "Verschieben zu" menu), `/settings/staff`, `/settings/checklists`.
 
 ## VS Code
 

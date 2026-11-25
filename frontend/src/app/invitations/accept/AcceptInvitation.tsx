@@ -54,6 +54,7 @@ export function AcceptInvitation({ token, signedInEmail }: { token: string; sign
     <div className="space-y-4" data-testid="invitation">
       <p>{t("intro", { workspace: preview.workspaceName, role: t(`roles.${preview.role}`) })}</p>
       <p className="text-slate-700">{t("forEmail", { email: preview.email })}</p>
+      {preview.role === "TECHNICIAN" && <p className="text-slate-700">{t("technicianNote")}</p>}
       <ErrorAlert message={error} />
       {preview.state !== "OPEN" ? (
         <p className="rounded border border-amber-700 bg-amber-50 px-3 py-2">{t(`state.${preview.state}`)}</p>

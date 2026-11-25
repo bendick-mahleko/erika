@@ -265,3 +265,50 @@ export async function fetchRecurringInvoices(): Promise<RecurringInvoice[]> {
   const data = await authed((init) => api.GET("/recurring-invoices", init));
   return data?.items ?? [];
 }
+
+// MARA (ADR 0036): work orders, sites, staff, checklist templates.
+export type WorkOrder = components["schemas"]["WorkOrder"];
+export type WorkOrderStatus = components["schemas"]["WorkOrderStatus"];
+export type Site = components["schemas"]["Site"];
+export type StaffLevel = components["schemas"]["StaffLevel"];
+export type StaffMember = components["schemas"]["StaffMember"];
+export type ChecklistTemplate = components["schemas"]["ChecklistTemplate"];
+
+export async function fetchWorkOrders(status?: WorkOrderStatus): Promise<WorkOrder[]> {
+  const data = await authed((init) =>
+    api.GET("/work-orders", { ...init, params: { query: { ...(status ? { status } : {}), limit: 500 } } }),
+  );
+  return data?.items ?? [];
+}
+
+/** One work order plus ETag for optimistic locking, or null. */
+export async function fetchWorkOrder(workOrderId: string): Promise<{ workOrder: WorkOrder; etag: string } | null> {
+  try {
+    const { data, response } = await api.GET("/work-orders/{workOrderId}", {
+      headers: await sessionHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+      params: { path: { workOrderId } },
+    });
+    return data ? { workOrder: data, etag: response.headers.get("ETag") ?? "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchStaff(): Promise<StaffMember[]> {
+  return (await authed((init) => api.GET("/staff", init)))?.items ?? [];
+}
+
+export async function fetchStaffLevels(includeArchived = false): Promise<StaffLevel[]> {
+  return (
+    (await authed((init) => api.GET("/staff-levels", { ...init, params: { query: { includeArchived } } })))?.items ?? []
+  );
+}
+
+export async function fetchChecklistTemplates(includeArchived = false): Promise<ChecklistTemplate[]> {
+  return (
+    (await authed((init) => api.GET("/checklist-templates", { ...init, params: { query: { includeArchived } } })))
+      ?.items ?? []
+  );
+}

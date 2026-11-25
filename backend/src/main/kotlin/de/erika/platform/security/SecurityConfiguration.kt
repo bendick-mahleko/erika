@@ -40,6 +40,12 @@ class SecurityConfiguration {
         contextRepository: SecurityContextRepository,
         json: JsonMapper,
     ): SecurityFilterChain {
+        val webRoles =
+            AuthorityAuthorizationManager.hasAnyRole<org.springframework.security.web.access.intercept.RequestAuthorizationContext>(
+                "OWNER",
+                "MEMBER",
+                "ADVISOR",
+            )
         http
             // The mail server's internal endpoints authenticate with a shared secret, not a session.
             .csrf {
@@ -74,14 +80,16 @@ class SecurityConfiguration {
                     .permitAll()
                     // Read-only for tax advisors: every state-changing request needs OWNER or MEMBER,
                     // with exactly three exceptions that change no business data (EX-02, ADR 0032).
+                    // Web roles only: technicians work in the MARA app and have no web session (ADR 0039);
+                    // this rule is the second line of defence behind the sign-in check.
                     .requestMatchers(HttpMethod.GET, "/api/v1/**")
-                    .authenticated()
+                    .access(webRoles)
                     // Feedback to the ERIKA team changes no workspace data: every role (ADR 0030).
                     .requestMatchers(HttpMethod.POST, "/api/v1/feedback")
-                    .authenticated()
+                    .access(webRoles)
                     // Tax advisors comment on documents and export them (EX-01, EX-02).
                     .requestMatchers(HttpMethod.POST, "/api/v1/documents/*/comments", "/api/v1/exports")
-                    .authenticated()
+                    .access(webRoles)
                     .requestMatchers("/api/v1/**")
                     .access(AuthorityAuthorizationManager.hasAnyRole("OWNER", "MEMBER"))
                     .anyRequest()

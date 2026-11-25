@@ -197,6 +197,42 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.workspaceId,
             user.workspaceId,
         )
+        // MARA Stage 2: sites, staff levels and profiles, checklist templates, work orders.
+        val customer = java.util.UUID.randomUUID()
+        val level = java.util.UUID.randomUUID()
+        val order = java.util.UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO site (id, workspace_id, customer_id, name) VALUES (gen_random_uuid(), ?, ?, 'Baustelle')",
+            user.workspaceId,
+            customer,
+        )
+        TestDatabase.update(
+            "INSERT INTO staff_level (id, workspace_id, name, hourly_rate) VALUES (?, ?, 'Geselle', 50)",
+            level,
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            "INSERT INTO staff_profile (workspace_id, user_id, staff_level_id) VALUES (?, ?, ?)",
+            user.workspaceId,
+            user.userId,
+            level,
+        )
+        TestDatabase.update(
+            "INSERT INTO checklist_template (id, workspace_id, name, items) VALUES (gen_random_uuid(), ?, 'Wartung', '[]')",
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            "INSERT INTO work_order (id, workspace_id, customer_id, title) VALUES (?, ?, ?, 'Auftrag')",
+            order,
+            user.workspaceId,
+            customer,
+        )
+        TestDatabase.update(
+            "INSERT INTO work_order_assignment (workspace_id, work_order_id, user_id) VALUES (?, ?, ?)",
+            user.workspaceId,
+            order,
+            user.userId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

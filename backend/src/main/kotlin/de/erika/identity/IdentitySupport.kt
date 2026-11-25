@@ -86,6 +86,14 @@ internal object IdentityErrors {
 
     fun notFound(what: String) = ErikaException("${what}_NOT_FOUND", HttpStatus.NOT_FOUND, "Not found.")
 
+    /** Technicians work only in the MARA app (ADR 0039). */
+    fun technicianUseApp() =
+        ErikaException(
+            "TECHNICIAN_USE_APP",
+            HttpStatus.FORBIDDEN,
+            "This account is for the MARA app. Please sign in there.",
+        )
+
     fun preconditionRequired() =
         ErikaException("PRECONDITION_REQUIRED", HttpStatus.PRECONDITION_REQUIRED, "Send If-Match with the ETag you received.")
 

@@ -86,3 +86,15 @@ export type IntakeSender = components["schemas"]["IntakeSender"];
 export type QuarantinedMail = components["schemas"]["QuarantinedMail"];
 export type RecurringInvoice = components["schemas"]["RecurringInvoice"];
 export type RecurringInterval = components["schemas"]["RecurringInterval"];
+
+export type CustomerType = components["schemas"]["CustomerType"];
+export type Site = components["schemas"]["Site"];
+export type SiteInput = components["schemas"]["SiteInput"];
+export type StaffLevel = components["schemas"]["StaffLevel"];
+export type StaffMember = components["schemas"]["StaffMember"];
+export type ChecklistTemplate = components["schemas"]["ChecklistTemplate"];
+export type ChecklistItem = components["schemas"]["ChecklistItem"];
+export type ChecklistItemKind = components["schemas"]["ChecklistItemKind"];
+export type WorkOrder = components["schemas"]["WorkOrder"];
+export type WorkOrderInput = components["schemas"]["WorkOrderInput"];
+export type WorkOrderStatus = components["schemas"]["WorkOrderStatus"];

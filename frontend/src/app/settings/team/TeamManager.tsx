@@ -14,12 +14,16 @@ export function TeamManager({
   initialInvitations,
   currentUserId,
   isOwner,
+  mara = false,
 }: {
   initialMembers: Member[];
   initialInvitations: Invitation[];
   currentUserId: string;
   isOwner: boolean;
+  /** MARA add-on on: technicians can be invited (ADR 0039). */
+  mara?: boolean;
 }) {
+  const roles: Role[] = mara ? [...ROLES, "TECHNICIAN"] : ROLES;
   const t = useTranslations("Team");
   const te = useErrorText();
   const format = useFormatter();
@@ -45,7 +49,7 @@ export function TeamManager({
     try {
       const { data, error: problem } = await browserApi.POST("/invitations", {
         params: { header: { "Idempotency-Key": idempotencyKey() } },
-        body: { email, role: String(form.get("inviteRole")) as "MEMBER" | "ADVISOR" },
+        body: { email, role: String(form.get("inviteRole")) as "MEMBER" | "ADVISOR" | "TECHNICIAN" },
       });
       if (data) {
         setNotice(t("invited", { email }));
@@ -148,7 +152,7 @@ export function TeamManager({
                           onChange={(e) => changeRole(m, e.target.value as Role)}
                           className="rounded border border-slate-400 px-2 py-1"
                         >
-                          {ROLES.map((r) => (
+                          {roles.map((r) => (
                             <option key={r} value={r}>
                               {t(`roles.${r}`)}
                             </option>
@@ -200,7 +204,9 @@ export function TeamManager({
               >
                 <option value="ADVISOR">{t("roles.ADVISOR")}</option>
                 <option value="MEMBER">{t("roles.MEMBER")}</option>
+                {mara && <option value="TECHNICIAN">{t("roles.TECHNICIAN")}</option>}
               </select>
+              {mara && <p className="text-sm text-slate-600">{t("technicianHint")}</p>}
             </div>
             <div>
               <SubmitButton busy={busy}>{t("inviteSubmit")}</SubmitButton>

@@ -1,13 +1,15 @@
 # 0039. The TECHNICIAN role
 
-- Status: Proposed (implemented in MARA Stages 2 and 3)
+- Status: Accepted (web side implemented in MARA Stage 2; the app sign-in follows in Stage 3)
 - Date: 2026-11-25
 
 ## Context
 ERIKA has three roles: OWNER, MEMBER and ADVISOR (read-only, ADR 0032). MARA adds technicians, who work only on their own or assigned work orders, on a phone, and usually must not see prices (M-AC-01). The MARA design's OFFICE role is what ERIKA calls MEMBER.
 
 ## Decision
-- **New role TECHNICIAN** in `membership.role`, with a staff level (for hourly rates) and a flag `can_see_prices` (default off). Only owners invite technicians.
+- **New role TECHNICIAN** in `membership.role`. Only owners invite technicians.
+- **Staff level and price visibility** belong to MARA, not to identity: the `workorders` module keeps them per person in `staff_profile` (staff level from `staff_level`, flag `can_see_prices`, default off), keyed by user. Owners change them (`PUT /staff/{memberId}`). This keeps identity free of MARA's pricing data and respects the module boundaries.
+- **Who can be assigned** comes from identity's published `WorkspaceContacts.workforce()`: owners, members and technicians, never tax advisors.
 - **App only.** A TECHNICIAN can't open a web session: the web sign-in answers `TECHNICIAN_USE_APP`. Their requests come only through `/api/v1/mobile/**` with a device token (ADR 0037). This keeps the web contract's harnesses and the rule "every state-changing web request needs OWNER or MEMBER" unchanged. Someone who does office work and fieldwork gets MEMBER, and MEMBER may also use the app.
 - **Visibility.**
   - Technicians see work orders they are assigned to or created, with their customers and sites, through the sync scope (ADR 0038).

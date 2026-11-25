@@ -125,8 +125,38 @@ class TenantIsolationIT : ApiIntegrationTest() {
             userB.workspaceId,
             invoiceB,
         )
+
+        // MARA Stage 2: a site, staff level, checklist template and work order of B.
+        fun createdByB(
+            path: String,
+            body: Map<String, Any?>,
+        ) = b
+            .post(path, body, key to UUID.randomUUID().toString())
+            .also { check(it.status == 201) { "$path as B: $it" } }
+            .tree
+            .path("id")
+            .asString()
+        val siteB = createdByB("/api/v1/sites", mapOf("customerId" to customerB, "name" to "Baustelle von B", "countryCode" to "DE"))
+        val staffLevelB = createdByB("/api/v1/staff-levels", mapOf("name" to "Geselle von B", "hourlyRate" to "50.00"))
+        val templateB =
+            createdByB(
+                "/api/v1/checklist-templates",
+                mapOf(
+                    "name" to "Checkliste von B",
+                    "items" to listOf(mapOf("key" to "a", "label" to "A", "kind" to "YES_NO", "required" to true)),
+                ),
+            )
+        val workOrderB =
+            createdByB(
+                "/api/v1/work-orders",
+                mapOf("customerId" to customerB, "siteId" to siteB, "title" to "Auftrag von B", "assigneeIds" to listOf(userB.userId)),
+            )
         fixturesB =
             mapOf(
+                "siteId" to siteB,
+                "staffLevelId" to staffLevelB,
+                "checklistTemplateId" to templateB,
+                "workOrderId" to workOrderB,
                 "memberId" to memberB.path("id").asString(),
                 "uploadId" to uploadB,
                 "documentId" to documentB.toString(),

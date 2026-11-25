@@ -44,5 +44,5 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0036](0036-mara-as-erika-modules.md) | MARA (job reports for trades) as modules of ERIKA | Accepted (spikes S1-a, S1-c open) |
 | [0037](0037-mobile-sign-in-devices-tokens.md) | Mobile sign-in: devices, bearer tokens, 2FA at registration | Proposed (MARA Stage 3) |
 | [0038](0038-mara-sync-protocol.md) | MARA sync protocol: outbox, change feed, field versions | Proposed (MARA Stage 4) |
-| [0039](0039-technician-role.md) | The TECHNICIAN role | Proposed (MARA Stages 2–3) |
+| [0039](0039-technician-role.md) | The TECHNICIAN role | Accepted (app sign-in in MARA Stage 3) |
 | [0040](0040-mara-storage-and-retention.md) | MARA storage: device database, photos, signed reports and retention | Proposed (device part done in MARA Stage 1) |

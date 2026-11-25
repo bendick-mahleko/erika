@@ -44,6 +44,8 @@ export function CustomersManager({ initial, canEdit }: { initial: Customer[]; ca
       preferredFormat: text("preferredFormat") as CustomerInput["preferredFormat"],
       paymentTermsDays: days ? Number(days) : undefined,
       archived: form.get("archived") === "on",
+      customerType: (text("customerType") ?? "BUSINESS") as CustomerInput["customerType"],
+      leitwegId: text("leitwegId"),
     };
     setBusy(true);
     setError(null);
@@ -114,6 +116,23 @@ export function CustomersManager({ initial, canEdit }: { initial: Customer[]; ca
           <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
             <legend className="mb-2 font-semibold">{current ? current.name : t("new")}</legend>
             <Field id="name" label={t("name")} required maxLength={200} defaultValue={current?.name} />
+            <div className="space-y-1">
+              <label htmlFor="customerType" className="block font-medium">
+                {t("customerType")}
+              </label>
+              <select
+                id="customerType"
+                name="customerType"
+                className={select}
+                defaultValue={current?.customerType ?? "BUSINESS"}
+              >
+                {(["BUSINESS", "PRIVATE"] as const).map((v) => (
+                  <option key={v} value={v}>
+                    {t(`customerTypes.${v}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Field
               id="customerNumber"
               label={t("customerNumber")}
@@ -140,6 +159,14 @@ export function CustomersManager({ initial, canEdit }: { initial: Customer[]; ca
             <Field id="vatId" label={t("vatId")} maxLength={14} defaultValue={current?.vatId} />
             <Field id="email" label={t("email")} type="email" maxLength={320} defaultValue={current?.email} />
             <Field id="contactName" label={t("contactName")} maxLength={200} defaultValue={current?.contactName} />
+            <Field
+              id="leitwegId"
+              label={t("leitwegId")}
+              hint={t("leitwegHint")}
+              maxLength={46}
+              pattern="[0-9]{2,12}(-[0-9A-Za-z]{1,30})?-[0-9]{2}"
+              defaultValue={current?.leitwegId}
+            />
             <Field
               id="buyerReference"
               label={t("buyerReference")}
