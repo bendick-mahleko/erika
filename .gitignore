@@ -40,3 +40,6 @@ frontend/*.tsbuildinfo
 
 # Load test session (live cookie)
 loadtest/.session.json
+
+# Demo accounts (passwords, 2FA secrets)
+demo/*.local.json
