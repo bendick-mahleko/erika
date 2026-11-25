@@ -43,4 +43,4 @@ Or run everything in containers: `docker compose -f infra/local/compose.yml --pr
 
 Open http://localhost:3000, sign up, and upload invoices on the Eingang (inbox) page; with the `app` profile, email them to your intake address through `localhost:2525`.
 
-More: [docs/dev-setup.md](docs/dev-setup.md).
+Guides per stakeholder (users, tax advisors, management, operations, developers, compliance): [docs/stakeholders/](docs/stakeholders/README.md). Step-by-step guide, including a first walk through the app: [docs/running-locally.md](docs/running-locally.md). More: [docs/dev-setup.md](docs/dev-setup.md).
