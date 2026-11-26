@@ -32,6 +32,8 @@ class WorkOrderDirectory internal constructor(
     private val orders: WorkOrderRepository,
     private val templates: ChecklistTemplateRepository,
     private val service: WorkOrders,
+    private val profiles: StaffProfileRepository,
+    private val levels: StaffLevelRepository,
 ) {
     private val clock: Clock = Clock.systemUTC()
 
@@ -83,10 +85,35 @@ class WorkOrderDirectory internal constructor(
         workOrderId: UUID,
     ) = service.markSigned(workspaceId, actorId, workOrderId)
 
+    /** Each person's staff level and its hourly rate (MARA Stage 8: billing times); people without a level are missing. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun hourlyRates(userIds: Collection<UUID>): Map<UUID, StaffRate> {
+        val byId = levels.list(includeArchived = true).associateBy { it.id }
+        return profiles
+            .all()
+            .filterKeys { it in userIds }
+            .mapNotNull { (user, profile) -> profile.staffLevelId?.let(byId::get)?.let { user to StaffRate(it.name, it.hourlyRate) } }
+            .toMap()
+    }
+
+    /** The work order's report was invoiced (MARA Stage 8): status INVOICED. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun markInvoiced(
+        workspaceId: UUID,
+        actorId: UUID?,
+        workOrderId: UUID,
+    ) = service.markInvoiced(workspaceId, actorId, workOrderId)
+
     /** The items of a checklist template (archived templates too: old work orders keep theirs). */
     @Transactional(propagation = Propagation.MANDATORY)
     fun checklistItems(templateId: UUID): List<ChecklistItem>? = templates.find(templateId)?.items
 }
+
+/** A staff level's name and hourly rate. */
+data class StaffRate(
+    val levelName: String,
+    val hourlyRate: java.math.BigDecimal,
+)
 
 /** Which work orders a phone holds (ADR 0038): one rule for the work orders and their reports. */
 internal object PhoneScope {

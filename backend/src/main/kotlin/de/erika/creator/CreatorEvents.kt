@@ -39,6 +39,17 @@ data class InvoiceIssueRequested(
     override val details get() = mapOf("invoiceId" to invoiceId.toString())
 }
 
+/** A payment reminder for an overdue invoice was queued (MARA M-IV-06). */
+data class InvoiceReminderSent(
+    override val workspaceId: UUID,
+    override val actorId: UUID?,
+    val invoiceId: UUID,
+    val level: Int,
+) : AuditableEvent {
+    override val action = "creator.invoice.reminder_sent"
+    override val details get() = mapOf("invoiceId" to invoiceId.toString(), "level" to level.toString())
+}
+
 /** CR-03 / BR-04: a number was used. */
 data class InvoiceIssued(
     override val workspaceId: UUID,

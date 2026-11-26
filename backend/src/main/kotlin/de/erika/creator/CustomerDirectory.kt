@@ -43,11 +43,33 @@ data class ArticleRef(
     val archived: Boolean,
 )
 
+/** An article's price for invoicing (MARA Stage 8). */
+data class ArticlePrice(
+    val id: UUID,
+    val articleNumber: String?,
+    val name: String,
+    val unitCode: String,
+    val netPrice: java.math.BigDecimal,
+    val vatRate: LineVatRate,
+)
+
 /** Published API of the `creator` module: look up articles of the current workspace (MARA Stage 5). */
 @Service
 class ArticleDirectory internal constructor(
     private val articles: ArticleRepository,
 ) {
+    /** The articles among [ids] with their net price and VAT rate, by ID. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun prices(ids: Collection<UUID>): Map<UUID, ArticlePrice> =
+        if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            articles.findAll(ids.distinct()).associate {
+                it.id to
+                    ArticlePrice(it.id, it.articleNumber, it.name, it.unitCode, it.netPrice, it.vatRate)
+            }
+        }
+
     /** The articles among [ids] that exist in this workspace, by ID. */
     @Transactional(propagation = Propagation.MANDATORY)
     fun findAll(ids: Collection<UUID>): Map<UUID, ArticleRef> =

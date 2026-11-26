@@ -66,6 +66,25 @@ internal object CiiWriter {
                 el("ram:SellerOrderReferencedDocument") { text("ram:IssuerAssignedID", invoice.salesOrderReference) }
                 el("ram:BuyerOrderReferencedDocument") { text("ram:IssuerAssignedID", invoice.purchaseOrderReference) }
                 el("ram:ContractReferencedDocument") { text("ram:IssuerAssignedID", invoice.contractReference) }
+                // BG-24: supporting documents, e.g. a signed job report (TypeCode 916, EN 16931-3-3).
+                invoice.supportingDocuments.forEach { d ->
+                    el("ram:AdditionalReferencedDocument") {
+                        text("ram:IssuerAssignedID", d.reference)
+                        text("ram:URIID", d.externalLocation)
+                        text("ram:TypeCode", "916")
+                        text("ram:Name", d.description)
+                        d.attachment?.let {
+                            text(
+                                "ram:AttachmentBinaryObject",
+                                java.util.Base64
+                                    .getEncoder()
+                                    .encodeToString(it.content),
+                                "mimeCode" to it.mimeCode,
+                                "filename" to it.filename,
+                            )
+                        }
+                    }
+                }
             }
             required("ram:ApplicableHeaderTradeDelivery") {
                 invoice.delivery?.let { d ->

@@ -52,6 +52,28 @@ internal object UblWriter {
             }
         }
         x.el("cac:ContractDocumentReference") { text("cbc:ID", invoice.contractReference) }
+        // BG-24: supporting documents, e.g. a signed job report (EN 16931-3-2).
+        invoice.supportingDocuments.forEach { d ->
+            x.el("cac:AdditionalDocumentReference") {
+                text("cbc:ID", d.reference)
+                text("cbc:DocumentDescription", d.description)
+                if (d.attachment != null || d.externalLocation != null) {
+                    el("cac:Attachment") {
+                        d.attachment?.let {
+                            text(
+                                "cbc:EmbeddedDocumentBinaryObject",
+                                java.util.Base64
+                                    .getEncoder()
+                                    .encodeToString(it.content),
+                                "mimeCode" to it.mimeCode,
+                                "filename" to it.filename,
+                            )
+                        }
+                        el("cac:ExternalReference") { text("cbc:URI", d.externalLocation) }
+                    }
+                }
+            }
+        }
 
         x.el("cac:AccountingSupplierParty") {
             el("cac:Party") {

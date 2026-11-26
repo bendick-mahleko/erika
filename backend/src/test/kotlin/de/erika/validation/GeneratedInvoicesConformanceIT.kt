@@ -1,12 +1,16 @@
 package de.erika.validation
 
+import de.erika.invoicecore.model.Attachment
 import de.erika.invoicecore.model.Invoice
+import de.erika.invoicecore.model.SupportingDocument
 import de.erika.invoicecore.write.InvoiceWriter
 import de.erika.invoicecore.write.OutputFormat
 import de.erika.invoicecore.write.PdfLayout
 import de.erika.invoicecore.write.VatCase
 import de.erika.support.CreatedInvoices
 import de.erika.support.WorkerIntegrationTest
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.TestFactory
@@ -64,7 +68,7 @@ class GeneratedInvoicesConformanceIT : WorkerIntegrationTest() {
                     }
                 }
             }
-        } + logoVariants()
+        } + logoVariants() + attachmentVariants()
 
     /** CR-08: a logo (PNG with transparency, JPEG) and an accent colour keep the PDF/A-3 valid. */
     private fun logoVariants(): List<DynamicTest> =
@@ -82,6 +86,35 @@ class GeneratedInvoicesConformanceIT : WorkerIntegrationTest() {
                 assertEquals(true, report.kositAccepted, report.messages.toString())
             }
         }
+
+    /** MARA Stage 8: a signed report PDF embedded as a supporting document (BG-24), for every format and VAT case. */
+    private fun attachmentVariants(): List<DynamicTest> {
+        val pdf =
+            PDDocument().use { d ->
+                d.addPage(PDPage())
+                ByteArrayOutputStream().also { d.save(it) }.toByteArray()
+            }
+        return OutputFormat.entries.flatMap { format ->
+            VatCase.entries.map { case ->
+                dynamicTest("$format / $case with an embedded report PDF") {
+                    val invoice =
+                        CreatedInvoices.invoice(case).copy(
+                            supportingDocuments =
+                                listOf(
+                                    SupportingDocument(
+                                        reference = "ABCDEFGHJK",
+                                        description = "Arbeitsbericht Therme warten",
+                                        attachment = Attachment("application/pdf", "Arbeitsbericht-ABCDEFGHJK.pdf", pdf),
+                                    ),
+                                ),
+                        )
+                    val report = validator.validate(InvoiceWriter.write(invoice, format))
+                    assertTrue(report.errors.isEmpty(), report.errors.joinToString("\n") { "${it.ruleId}: ${it.originalText ?: it.text}" })
+                    assertEquals(true, report.kositAccepted, report.messages.toString())
+                }
+            }
+        }
+    }
 
     private fun image(
         format: String,

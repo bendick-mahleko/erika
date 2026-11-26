@@ -21,10 +21,15 @@ import de.erika.contract.model.InvoiceState
 import de.erika.contract.model.InvoiceTotals
 import de.erika.contract.model.IssuedInfo
 import de.erika.contract.model.MessageSeverity
+import de.erika.contract.model.OverdueInvoice
+import de.erika.contract.model.OverdueInvoiceList
 import de.erika.contract.model.RecurringInvoice
 import de.erika.contract.model.RecurringInvoiceList
 import de.erika.contract.model.RecurringInvoiceRequest
 import de.erika.contract.model.RecurringInvoiceUpdate
+import de.erika.contract.model.ReminderInfo
+import de.erika.contract.model.ReminderRequest
+import de.erika.contract.model.ReminderSent
 import de.erika.contract.model.SellerProfile
 import de.erika.contract.model.SendInvoiceRequest
 import de.erika.contract.model.ValidationMessage
@@ -379,6 +384,39 @@ internal class InvoicesController(
     }
 
     @PreAuthorize("hasAnyRole('OWNER', 'MEMBER')")
+    override fun listOverdueInvoices(): ResponseEntity<OverdueInvoiceList> =
+        ResponseEntity.ok(
+            OverdueInvoiceList(
+                creator.overdue().sortedBy { it.issued.dueDate }.map { o ->
+                    OverdueInvoice(
+                        invoiceId = o.issued.id,
+                        number = o.issued.number,
+                        buyerName = o.issued.buyerName,
+                        issueDate = o.issued.issueDate,
+                        dueDate = o.issued.dueDate!!,
+                        gross = o.issued.gross.toPlainString(),
+                        daysOverdue = o.daysOverdue.toInt(),
+                        reminders = o.reminders.map { ReminderInfo(it.level, it.recipient, it.createdAt) },
+                        buyerEmail = o.issued.buyerEmail,
+                        status = o.status?.let { DocumentStatus.forValue(it.name) },
+                    )
+                },
+            ),
+        )
+
+    @PreAuthorize("hasAnyRole('OWNER', 'MEMBER')")
+    override fun sendInvoiceReminder(
+        invoiceId: UUID,
+        idempotencyKey: String,
+        reminderRequest: ReminderRequest,
+    ): ResponseEntity<ReminderSent> {
+        val p = ErikaPrincipal.current()
+        idempotency.once(p.workspaceId, idempotencyKey, "sendInvoiceReminder:$invoiceId") {
+            creator.remind(p.workspaceId, p.userId, invoiceId, reminderRequest.to)
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(ReminderSent(creator.reminderLevel(invoiceId)))
+    }
+
     override fun sendInvoice(
         invoiceId: UUID,
         idempotencyKey: String,
@@ -539,6 +577,7 @@ internal class InvoicesController(
                         unitCode = it.unitCode,
                         netPrice = it.netPrice?.toPlainString(),
                         vatRate = it.vatRate?.let { r -> VatRate.forValue(r.name) },
+                        laborCost = it.laborCost.takeIf { l -> l },
                     )
                 },
         )
@@ -583,6 +622,7 @@ internal class InvoicesController(
                         unitCode = it.unitCode.clean(),
                         netPrice = it.netPrice?.trim()?.toBigDecimalOrNull(),
                         vatRate = it.vatRate?.let { r -> LineVatRate.valueOf(r.value) },
+                        laborCost = it.laborCost ?: false,
                     )
                 },
         )

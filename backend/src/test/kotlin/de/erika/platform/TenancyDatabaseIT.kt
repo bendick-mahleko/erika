@@ -326,6 +326,30 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             report,
             user.userId,
         )
+        // MARA Stage 8: an invoice from a report, its reminder and the billing settings.
+        TestDatabase.update(
+            "INSERT INTO invoice_draft_source (workspace_id, draft_id, source_module, source_id) VALUES (?, ?, 'reports', ?)",
+            user.workspaceId,
+            draft,
+            report,
+        )
+        TestDatabase.update(
+            "INSERT INTO invoice_reminder (id, workspace_id, invoice_id, level, recipient, delivery_id) " +
+                "VALUES (gen_random_uuid(), ?, ?, 1, 'a@example.test', gen_random_uuid())",
+            user.workspaceId,
+            draft,
+        )
+        TestDatabase.update("INSERT INTO report_invoicing_settings (workspace_id) VALUES (?)", user.workspaceId)
+        TestDatabase.update(
+            "INSERT INTO report_invoicing_customer (workspace_id, customer_id, travel_mode) VALUES (?, gen_random_uuid(), 'NONE')",
+            user.workspaceId,
+        )
+        TestDatabase.update(
+            "INSERT INTO report_invoice_link (workspace_id, report_id, work_order_id, invoice_id) VALUES (?, ?, gen_random_uuid(), ?)",
+            user.workspaceId,
+            report,
+            draft,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

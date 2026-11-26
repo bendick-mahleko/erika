@@ -52,6 +52,7 @@ class Creator internal constructor(
     private val documents: Documents,
     private val jobs: JobQueue,
     private val events: ApplicationEventPublisher,
+    private val reminders: ReminderRepository,
     private val clock: Clock = Clock.system(BERLIN),
 ) {
     // --- settings ---------------------------------------------------------------------
@@ -199,8 +200,16 @@ class Creator internal constructor(
         val draft = drafts.find(id) ?: throw notFound()
         val expectedVersion = Etags.required(ifMatch)
         if (draft.state != DraftState.DRAFT) throw notEditable()
-        return drafts.updateContent(id, expectedVersion, content.copy(format = content.format ?: draft.content.format))
-            ?: throw Etags.conflict()
+        // Attachments, source and the private-customer flags aren't edited in the invoice editor.
+        val kept =
+            content.copy(
+                format = content.format ?: draft.content.format,
+                attachments = draft.content.attachments,
+                source = draft.content.source,
+                privateCustomer = draft.content.privateCustomer,
+                propertyRelated = draft.content.propertyRelated,
+            )
+        return drafts.updateContent(id, expectedVersion, kept) ?: throw Etags.conflict()
     }
 
     internal fun deleteDraft(
@@ -276,6 +285,75 @@ class Creator internal constructor(
         return id
     }
 
+    // --- overdue invoices and reminders (MARA M-IV-06) ------------------------------
+
+    /** Issued invoices past their due date that aren't paid or cancelled, oldest due first. */
+    internal fun overdue(): List<OverdueInvoice> {
+        val today = today()
+        val candidates = issuedRepo.dueBefore(today)
+        val statuses = documents.statuses(candidates.map { it.documentId })
+        val due = candidates.filter { isOverdue(it, statuses[it.documentId], today) }
+        val sent = reminders.ofInvoices(due.map { it.id })
+        return due.map {
+            OverdueInvoice(
+                it,
+                statuses[it.documentId],
+                sent[it.id].orEmpty(),
+                java.time.temporal.ChronoUnit.DAYS
+                    .between(it.dueDate, today),
+            )
+        }
+    }
+
+    /**
+     * Emails a payment reminder with the invoice attached (an `invoice_delivery` with reminder
+     * text): level 1 is a Zahlungserinnerung, then Mahnung; at most three. Only for overdue invoices.
+     */
+    internal fun remind(
+        workspaceId: UUID,
+        actorId: UUID,
+        invoiceId: UUID,
+        to: String?,
+    ): UUID {
+        val issued = issuedRepo.find(invoiceId) ?: throw notFound()
+        val status = documents.statuses(listOf(issued.documentId))[issued.documentId]
+        if (!isOverdue(issued, status, today())) {
+            throw ErikaException("INVOICE_NOT_OVERDUE", HttpStatus.CONFLICT, "Only overdue invoices get a reminder.")
+        }
+        val level = (reminders.ofInvoices(listOf(invoiceId))[invoiceId]?.maxOfOrNull { it.level } ?: 0) + 1
+        if (level > MAX_REMINDERS) throw ErikaException("REMINDERS_EXHAUSTED", HttpStatus.CONFLICT, "Three reminders were sent already.")
+        val recipient =
+            to?.trim()?.takeIf { it.isNotEmpty() } ?: issued.buyerEmail
+                ?: throw ErikaException("RECIPIENT_REQUIRED", HttpStatus.BAD_REQUEST, "The invoice has no email address; give one.")
+        val seller = profiles.of(workspaceId).name
+        val due = issued.dueDate!!.format(GERMAN_DATE)
+        val (subject, text) =
+            if (level == 1) {
+                "Zahlungserinnerung zur Rechnung ${issued.number}" to
+                    "Guten Tag,\n\nsicher ist es Ihrer Aufmerksamkeit entgangen: Unsere Rechnung ${issued.number} vom " +
+                    "${issued.issueDate.format(GERMAN_DATE)} über ${money(issued.gross)} war am $due fällig. Wir bitten Sie, den Betrag " +
+                    "in den nächsten Tagen zu überweisen. Die Rechnung finden Sie noch einmal im Anhang.\n\n" +
+                    "Sollten Sie inzwischen gezahlt haben, betrachten Sie diese Nachricht bitte als gegenstandslos.\n\nMit freundlichen Grüßen\n$seller"
+            } else {
+                "${level - 1}. Mahnung zur Rechnung ${issued.number}" to
+                    "Guten Tag,\n\nunsere Rechnung ${issued.number} vom ${issued.issueDate.format(GERMAN_DATE)} über " +
+                    "${money(issued.gross)} ist seit dem $due fällig und trotz Erinnerung noch nicht bezahlt. Bitte überweisen Sie " +
+                    "den Betrag innerhalb von 7 Tagen. Die Rechnung finden Sie im Anhang.\n\nMit freundlichen Grüßen\n$seller"
+            }
+        val deliveryId = requestSend(workspaceId, actorId, invoiceId, recipient, subject, text)
+        reminders.insert(workspaceId, invoiceId, level, recipient, deliveryId, actorId)
+        events.publishEvent(InvoiceReminderSent(workspaceId, actorId, invoiceId, level))
+        return deliveryId
+    }
+
+    /** The highest reminder level sent for an invoice (0: none). */
+    internal fun reminderLevel(invoiceId: UUID): Int = reminders.ofInvoices(listOf(invoiceId))[invoiceId]?.maxOfOrNull { it.level } ?: 0
+
+    private fun money(v: java.math.BigDecimal) =
+        java.text.NumberFormat
+            .getCurrencyInstance(java.util.Locale.GERMANY)
+            .format(v)
+
     // --- sending ----------------------------------------------------------------------
 
     /** CR-07: queues the email with the invoice file attached. */
@@ -335,6 +413,17 @@ class Creator internal constructor(
 
     companion object {
         val BERLIN: ZoneId = ZoneId.of("Europe/Berlin")
+        private const val MAX_REMINDERS = 3
+
+        /** An invoice (not a credit note) past its due date that is neither paid, booked nor cancelled. */
+        internal fun isOverdue(
+            issued: IssuedRow,
+            status: DocumentStatus?,
+            today: LocalDate,
+        ): Boolean =
+            !issued.kind.usesCreditNotePattern && issued.dueDate != null && issued.dueDate.isBefore(today) &&
+                status !in setOf(DocumentStatus.PAID, DocumentStatus.CANCELLED, DocumentStatus.BOOKED)
+
         private val GERMAN_DATE =
             java.time.format.DateTimeFormatter
                 .ofPattern("dd.MM.yyyy")

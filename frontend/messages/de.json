@@ -244,7 +244,16 @@
     "STAFF_LEVEL_NOT_FOUND": "Der Stundensatz wurde nicht gefunden.",
     "CHECKLIST_TEMPLATE_NOT_FOUND": "Die Checkliste wurde nicht gefunden.",
     "CHECKLIST_KEYS_DUPLICATE": "Zwei Punkte haben denselben Schlüssel. Bitte geben Sie jedem Punkt einen eigenen.",
-    "DEVICE_NOT_FOUND": "Dieses Gerät gibt es nicht (mehr)."
+    "DEVICE_NOT_FOUND": "Dieses Gerät gibt es nicht (mehr).",
+    "ALREADY_INVOICED": "Ein ausgewählter Bericht steht schon auf einer anderen Rechnung.",
+    "REPORT_NOT_BILLABLE": "Nur die aktuelle, unterschriebene (oder ohne Unterschrift versandte) Fassung eines Berichts kann abgerechnet werden.",
+    "REPORT_PDF_PENDING": "Das PDF eines Berichts wird gerade erstellt. Bitte versuchen Sie es gleich noch einmal.",
+    "MIXED_CUSTOMERS": "Alle Berichte einer Rechnung müssen zum selben Kunden gehören.",
+    "PRICE_MISSING": "Jede Position braucht einen Nettopreis.",
+    "INVOICE_NOT_OVERDUE": "Nur überfällige Rechnungen bekommen eine Zahlungserinnerung.",
+    "REMINDERS_EXHAUSTED": "Für diese Rechnung wurden schon drei Erinnerungen versandt.",
+    "RECIPIENT_REQUIRED": "Die Rechnung hat keine E-Mail-Adresse. Bitte geben Sie eine an.",
+    "RANGE_INVALID": "Bitte wählen Sie einen Zeitraum von höchstens einem Jahr."
   },
   "Inbox": {
     "title": "Eingang",
@@ -525,7 +534,8 @@
       "KWH": "Kilowattstunde"
     },
     "back": "Zurück zu den Rechnungen",
-    "recurringLink": "Wiederkehrende Rechnungen"
+    "recurringLink": "Wiederkehrende Rechnungen",
+    "overdueLink": "Überfällige Rechnungen"
   },
   "Editor": {
     "titleDraft": "{kind} – Entwurf",
@@ -799,7 +809,8 @@
     "intake": "E-Mail-Eingang",
     "staff": "Mitarbeitende",
     "checklists": "Checklisten",
-    "devices": "Geräte"
+    "devices": "Geräte",
+    "reportInvoicing": "Stundensätze und Anfahrt"
   },
   "Team": {
     "title": "Team und Steuerberatung",
@@ -1163,7 +1174,8 @@
       "workDescription": "Arbeitsbeschreibung",
       "state": "Berichtsstatus",
       "value": "Antwort"
-    }
+    },
+    "invoicing": "Abrechnen"
   },
   "Reports": {
     "locale": "de",
@@ -1225,7 +1237,10 @@
     "emailed": "per E-Mail an den Kunden gesendet",
     "downloadPdf": "Bericht als PDF herunterladen",
     "pdfPending": "Das PDF wird erstellt, sobald alle Fotos übertragen sind.",
-    "versions": "Versionen:"
+    "versions": "Versionen:",
+    "invoiced": "Abgerechnet mit Rechnung {number}",
+    "invoicing": "Rechnung wird erstellt",
+    "invoiceOverdue": "überfällig"
   },
   "Verify": {
     "title": "Arbeitsbericht prüfen",
@@ -1311,5 +1326,89 @@
     "revokeNow": "Ja, abmelden",
     "cancel": "Abbrechen",
     "revoked": "{name} von {person} ist abgemeldet."
+  },
+  "ReportInvoicing": {
+    "title": "Berichte abrechnen",
+    "intro": "Wählen Sie unterschriebene Berichte eines Kunden. ERIKA schlägt die Positionen vor (Zeiten auf die Abrechnungseinheit aufgerundet, Anfahrt, Material); Sie können sie ändern. Die Rechnung wird als E-Rechnung ausgestellt, die Berichte als PDF eingebettet.",
+    "empty": "Es gibt keine unterschriebenen Berichte, die noch nicht abgerechnet sind.",
+    "customer": "Kunde",
+    "reports": "Berichte",
+    "reportLabel": "{title} – {date} (Version {version})",
+    "notSigned": "ohne Unterschrift versandt",
+    "preview": "Positionen vorschlagen",
+    "linesTitle": "Positionen",
+    "linesIntro": "Prüfen und ändern Sie die Positionen. Material ohne hinterlegten Preis ist markiert und braucht einen Preis.",
+    "name": "Bezeichnung",
+    "quantity": "Menge",
+    "unit": "Einheit",
+    "price": "Einzelpreis netto (€)",
+    "vat": "USt.",
+    "labour": "Lohnkosten",
+    "net": "Netto",
+    "remove": "Entfernen",
+    "nameOf": "Bezeichnung von Position {n}",
+    "quantityOf": "Menge von Position {n}",
+    "priceOf": "Einzelpreis von Position {n}",
+    "vatOf": "Umsatzsteuer von Position {n}",
+    "labourOf": "Position {n} sind Lohnkosten (§ 35a EStG)",
+    "priceMissing": "Preis fehlt",
+    "vatRates": {
+      "STANDARD_19": "19 %",
+      "REDUCED_7": "7 %",
+      "ZERO": "0 %"
+    },
+    "totalNet": "Summe netto",
+    "addLine": "Position hinzufügen",
+    "privateHint": "Privatkunde: Die Rechnung weist den Anteil der Arbeits- und Fahrtkosten nach § 35a EStG aus.",
+    "propertyRelated": "Arbeiten an einem Grundstück (Hinweis auf die zweijährige Aufbewahrungspflicht, § 14b UStG)",
+    "create": "Rechnung ausstellen",
+    "fixLines": "Bitte geben Sie jeder Position eine Bezeichnung, eine Menge und einen Preis.",
+    "timesTitle": "Zeiten für die Lohnabrechnung",
+    "timesIntro": "Alle erfassten Zeiten im Zeitraum als CSV-Datei (für Excel), so wie sie erfasst wurden – ohne Rundung.",
+    "timesFrom": "Von",
+    "timesTo": "Bis",
+    "timesDownload": "CSV herunterladen",
+    "settingsLink": "Abrechnungseinheit und Anfahrt einstellen"
+  },
+  "ReportInvoicingSettings": {
+    "title": "Abrechnung von Berichten",
+    "intro": "So werden Zeiten und Anfahrt aus Berichten abgerechnet. Für einzelne Kunden können eigene Werte gelten.",
+    "ownerOnly": "Nur Inhaberinnen und Inhaber können diese Einstellungen ändern.",
+    "unit": "Abrechnungseinheit",
+    "unitMinutes": "{minutes, plural, =1 {pro Minute} =60 {pro Stunde} other {je angefangene # Minuten}}",
+    "unitHint": "Jeder Zeiteintrag wird auf die Einheit aufgerundet. Die erfassten Zeiten selbst bleiben unverändert.",
+    "defaultRate": "Stundensatz, wenn keine Lohngruppe hinterlegt ist (€ netto)",
+    "defaultRateHint": "Sonst gilt der Stundensatz der Lohngruppe der Mitarbeiterin oder des Mitarbeiters.",
+    "travel": "Anfahrt",
+    "modes": {
+      "TIME": "Nach Fahrzeit",
+      "FLAT": "Pauschale je Einsatz",
+      "NONE": "Nicht berechnen"
+    },
+    "flat": "Anfahrtspauschale (€ netto)",
+    "travelRate": "Stundensatz für Fahrzeit (€ netto)",
+    "travelRateHint": "Leer: der Stundensatz der Mitarbeiterin oder des Mitarbeiters.",
+    "save": "Speichern",
+    "saved": "Gespeichert."
+  },
+  "Overdue": {
+    "title": "Überfällige Rechnungen",
+    "intro": "Ausgestellte Rechnungen, deren Fälligkeit überschritten ist und die nicht bezahlt, gebucht oder storniert sind. Sie können eine Zahlungserinnerung und danach bis zu zwei Mahnungen per E-Mail senden.",
+    "empty": "Keine Rechnung ist überfällig.",
+    "number": "Nummer",
+    "buyer": "Kunde",
+    "due": "Fällig am",
+    "gross": "Betrag",
+    "reminders": "Erinnerungen",
+    "actions": "Aktionen",
+    "none": "noch keine",
+    "daysOverdue": "{days, plural, one {# Tag überfällig} other {# Tage überfällig}}",
+    "reminderSent": "Zahlungserinnerung am {date}",
+    "dunningSent": "{level}. Mahnung am {date}",
+    "sendReminder": "Zahlungserinnerung senden",
+    "sendDunning": "{level}. Mahnung senden",
+    "promptReminder": "Zahlungserinnerung zu Rechnung {number} senden an:",
+    "promptDunning": "Mahnung zu Rechnung {number} senden an:",
+    "sent": "Für Rechnung {number} wurde Stufe {level} versandt."
   }
 }

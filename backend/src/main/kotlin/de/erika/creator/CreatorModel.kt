@@ -61,6 +61,26 @@ data class DraftLine(
     val unitCode: String? = null,
     val netPrice: BigDecimal? = null,
     val vatRate: LineVatRate? = null,
+    /** Labour, machine or travel costs: counted in the § 35a EStG share for private customers (MARA, M-BR-07). */
+    val laborCost: Boolean = false,
+)
+
+/** A file embedded in the e-invoice (BG-24), e.g. a signed job report; the bytes are in the archive. */
+data class DraftAttachment(
+    /** SHA-256 of the archived original (`archive.Archive`). */
+    val sha256: String,
+    val fileName: String,
+    val mimeCode: String,
+    /** BT-122: the document's identifier, e.g. the report's verification code. */
+    val reference: String,
+    /** BT-123. */
+    val description: String? = null,
+)
+
+/** Where a draft came from (e.g. MARA reports), so a source can't be invoiced twice. */
+data class DraftSource(
+    val module: String,
+    val ids: List<UUID>,
 )
 
 /** Content of `invoice_draft.data` (stored as JSON). Everything may be missing while editing. */
@@ -79,6 +99,13 @@ data class DraftContent(
     val paymentTerms: String? = null,
     val note: String? = null,
     val lines: List<DraftLine> = emptyList(),
+    /** BG-24: files embedded in the e-invoice (MARA: signed reports, M-IV-04). */
+    val attachments: List<DraftAttachment> = emptyList(),
+    /** A private person: the § 35a EStG labour share is printed (M-BR-07). */
+    val privateCustomer: Boolean = false,
+    /** Work on a property: the 2-year retention note (§ 14 Abs. 4 Nr. 9 UStG) is printed for private customers. */
+    val propertyRelated: Boolean = false,
+    val source: DraftSource? = null,
 ) {
     val isXRechnung: Boolean get() = format == OutputFormat.XRECHNUNG_CII || format == OutputFormat.XRECHNUNG_UBL
 }
@@ -87,4 +114,12 @@ data class DraftContent(
 data class Problem(
     val field: String,
     val code: String,
+)
+
+/** An overdue invoice with its reminders (MARA M-IV-06). */
+internal data class OverdueInvoice(
+    val issued: IssuedRow,
+    val status: de.erika.documents.DocumentStatus?,
+    val reminders: List<ReminderRow>,
+    val daysOverdue: Long,
 )

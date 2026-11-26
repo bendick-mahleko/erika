@@ -204,6 +204,18 @@ internal class ReportsRepository(
             .update()
     }
 
+    /** The newest version of each work order's report, if it is signed or sent unsigned. */
+    fun lockedLatest(): List<UUID> =
+        jdbc
+            .sql(
+                """
+                SELECT id FROM (SELECT DISTINCT ON (work_order_id) id, state FROM report WHERE $WS ORDER BY work_order_id, version DESC) r
+                 WHERE state IN ('SIGNED', 'NOT_SIGNED')
+                """.trimIndent(),
+            ).query(UUID::class.java)
+            .list()
+            .filterNotNull()
+
     /** All versions of a work order's report, oldest first. */
     fun versionsOf(workOrderId: UUID): List<Report> =
         jdbc
@@ -285,6 +297,20 @@ internal class ReportsRepository(
                 .query(::time)
                 .list()
         }
+
+    /** Time entries started in [from, to) of current report versions, for the payroll export (M-IV-07). */
+    fun timeEntriesBetween(
+        from: java.time.OffsetDateTime,
+        to: java.time.OffsetDateTime,
+    ): List<TimeEntry> =
+        jdbc
+            .sql(
+                "SELECT t.* FROM time_entry t WHERE t.started_at >= :from AND t.started_at < :to AND t.deleted_at IS NULL " +
+                    "AND t.workspace_id = current_workspace_id() ORDER BY t.started_at, t.id",
+            ).param("from", from)
+            .param("to", to)
+            .query(::time)
+            .list()
 
     fun timeEntriesOf(reportId: UUID): List<TimeEntry> =
         jdbc

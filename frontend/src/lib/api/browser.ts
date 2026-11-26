@@ -99,3 +99,10 @@ export type ChecklistItemKind = components["schemas"]["ChecklistItemKind"];
 export type WorkOrder = components["schemas"]["WorkOrder"];
 export type WorkOrderInput = components["schemas"]["WorkOrderInput"];
 export type WorkOrderStatus = components["schemas"]["WorkOrderStatus"];
+// MARA Stage 8: invoicing from reports, payment reminders.
+export type BillableReport = components["schemas"]["BillableReport"];
+export type ReportInvoiceLine = components["schemas"]["ReportInvoiceLine"];
+export type ReportInvoicePreview = components["schemas"]["ReportInvoicePreview"];
+export type ReportInvoicingSettings = components["schemas"]["ReportInvoicingSettings"];
+export type TravelMode = components["schemas"]["TravelMode"];
+export type OverdueInvoice = components["schemas"]["OverdueInvoice"];

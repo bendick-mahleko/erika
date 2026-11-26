@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.12.0
+  version: 0.13.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -53,6 +53,8 @@ tags:
     description: Job reports recorded in the MARA app (MARA Stage 5), read-only in the office
   - name: photos
     description: Photos of job reports from the MARA app (MARA Stage 6), read-only in the office
+  - name: report-invoicing
+    description: Invoices from signed MARA reports (MARA Stage 8), issued through the invoice creator
   - name: report-verification
     description: Public check of a signed job report by its code (MARA Stage 7); hash and status only
   - name: devices
@@ -2070,6 +2072,197 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Invoice" }
         default: { $ref: "#/components/responses/Problem" }
+  /invoices/overdue:
+    get:
+      tags: [invoices]
+      operationId: listOverdueInvoices
+      summary: Issued invoices past their due date that aren't paid, booked or cancelled (M-IV-06)
+      responses:
+        "200":
+          description: Oldest due first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OverdueInvoiceList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /invoices/{invoiceId}/reminders:
+    post:
+      tags: [invoices]
+      operationId: sendInvoiceReminder
+      summary: Email a payment reminder for an overdue invoice (M-IV-06)
+      description: |
+        The invoice is sent again with a reminder text: the first time as a Zahlungserinnerung,
+        then as 1. and 2. Mahnung (at most three). Without `to`, the invoice's email address is
+        used. 409 `INVOICE_NOT_OVERDUE` or `REMINDERS_EXHAUSTED`.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReminderRequest" }
+            example: { to: "buchhaltung@kunde.example" }
+      responses:
+        "201":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReminderSent" }
+        default: { $ref: "#/components/responses/Problem" }
+  /report-invoicing/settings:
+    get:
+      tags: [report-invoicing]
+      operationId: getReportInvoicingSettings
+      summary: How the firm bills reports (billing unit, travel)
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportInvoicingSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [report-invoicing]
+      operationId: updateReportInvoicingSettings
+      summary: Change how the firm bills reports (owner only, M-BR-04, M-BR-05)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportInvoicingSettings" }
+            example: { billingUnitMinutes: 15, defaultHourlyRate: "58.00", travelMode: "FLAT", travelFlatAmount: "35.00" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportInvoicingSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+  /report-invoicing/customers/{customerId}:
+    get:
+      tags: [report-invoicing]
+      operationId: getCustomerBillingSettings
+      summary: A customer's own billing unit and travel settings (empty fields use the firm's)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: The customer's settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerBillingSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [report-invoicing]
+      operationId: updateCustomerBillingSettings
+      summary: Set a customer's own billing unit and travel settings (owner only)
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerBillingSettings" }
+            example: { travelMode: "TIME", travelHourlyRate: "45.00" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerBillingSettings" }
+        default: { $ref: "#/components/responses/Problem" }
+  /report-invoicing/billable:
+    get:
+      tags: [report-invoicing]
+      operationId: listBillableReports
+      summary: Signed (or unsigned-sent) reports not yet on an invoice, newest first
+      description: The current version of each work order's report; optionally of one customer.
+      parameters:
+        - name: customerId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The reports.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillableReportList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /report-invoicing/preview:
+    post:
+      tags: [report-invoicing]
+      operationId: previewReportInvoice
+      summary: Invoice lines from selected reports of one customer (M-IV-01, M-BR-04, M-BR-05)
+      description: |
+        Times are rounded up per entry to the billing unit and multiplied by the technician's
+        hourly rate (staff level, else the firm's default); travel is a flat amount per visit or
+        billed by time; materials use the article's net price (free-text materials need a price).
+        Changes nothing. The office may change the lines before creating the invoice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportSelection" }
+            example: { reportIds: ["e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154"] }
+      responses:
+        "200":
+          description: The proposed lines.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportInvoicePreview" }
+        default: { $ref: "#/components/responses/Problem" }
+  /report-invoicing/invoices:
+    post:
+      tags: [report-invoicing]
+      operationId: createReportInvoice
+      summary: Create and issue the invoice for the selected reports (M-IV-01 to M-IV-04)
+      description: |
+        The invoice creator makes a draft with the customer's data, the (possibly changed) lines
+        and the signed report PDFs embedded (BG-24), and issues it in the worker (number,
+        e-invoice, validation, archive). A report can be on one invoice only (409
+        `ALREADY_INVOICED`). Once issued, the work orders become INVOICED.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportInvoiceRequest" }
+            example:
+              reportIds: ["e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154"]
+              lines:
+                - { name: "Arbeitszeit Geselle", quantity: "1.25", unitCode: "HUR", netPrice: "58.00", vatRate: "STANDARD_19", laborCost: true }
+              propertyRelated: true
+      responses:
+        "201":
+          description: Created; issuing runs in the background.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportInvoiceCreated" }
+        default: { $ref: "#/components/responses/Problem" }
+  /reports/time-entries.csv:
+    get:
+      tags: [reports]
+      operationId: exportTimeEntries
+      summary: Time entries as CSV for payroll (owner only, M-IV-07)
+      description: Raw times as recorded (no rounding), one row per entry, semicolon-separated (German Excel).
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: The CSV, as a download.
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
   /invoices/{invoiceId}/send:
     post:
       tags: [invoices]
@@ -3341,6 +3534,7 @@ components:
         completedAt: { type: string, format: date-time }
         completedByName: { type: string }
         signature: { $ref: "#/components/schemas/ReportSignatureInfo" }
+        invoice: { $ref: "#/components/schemas/ReportInvoiceInfo" }
     ReportSignatureInfo:
       type: object
       required: [kind, signedAt, contentHash, verificationCode, pdfAvailable, emailed]
@@ -3354,6 +3548,17 @@ components:
         verificationCode: { type: string }
         pdfAvailable: { type: boolean, description: "The archived PDF exists (GET /reports/{id}/pdf)" }
         emailed: { type: boolean, description: "The PDF was emailed to the customer" }
+    ReportInvoiceInfo:
+      type: object
+      required: [invoiceId, state, overdue]
+      properties:
+        invoiceId: { type: string, format: uuid }
+        state: { type: string, enum: [DRAFT, ISSUING, ISSUED] }
+        number: { type: string }
+        documentStatus: { $ref: "#/components/schemas/DocumentStatus" }
+        dueDate: { type: string, format: date }
+        gross: { type: string }
+        overdue: { type: boolean }
     ReportVersion:
       type: object
       required: [id, version, state]
@@ -3362,6 +3567,142 @@ components:
         version: { type: integer, format: int32 }
         state: { $ref: "#/components/schemas/ReportState" }
         signedAt: { type: string, format: date-time }
+    OverdueInvoice:
+      type: object
+      required: [invoiceId, number, buyerName, issueDate, dueDate, gross, daysOverdue, reminders]
+      properties:
+        invoiceId: { type: string, format: uuid }
+        number: { type: string }
+        buyerName: { type: string }
+        buyerEmail: { type: string }
+        issueDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        gross: { type: string }
+        daysOverdue: { type: integer, format: int32 }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        reminders:
+          type: array
+          items: { $ref: "#/components/schemas/ReminderInfo" }
+    ReminderInfo:
+      type: object
+      required: [level, recipient, sentAt]
+      properties:
+        level: { type: integer, format: int32 }
+        recipient: { type: string }
+        sentAt: { type: string, format: date-time }
+    OverdueInvoiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OverdueInvoice" }
+    ReminderRequest:
+      type: object
+      properties:
+        to: { type: string, maxLength: 320 }
+    ReminderSent:
+      type: object
+      required: [level]
+      properties:
+        level: { type: integer, format: int32, description: "1 = Zahlungserinnerung, 2 and 3 = Mahnung" }
+    TravelMode:
+      type: string
+      enum: [NONE, FLAT, TIME]
+      description: NONE = travel isn't billed; FLAT = a flat amount per visit (report); TIME = travel time at the travel rate.
+    ReportInvoicingSettings:
+      type: object
+      required: [billingUnitMinutes, travelMode]
+      properties:
+        billingUnitMinutes: { type: integer, format: int32, enum: [1, 5, 6, 10, 15, 30, 60] }
+        defaultHourlyRate: { $ref: "#/components/schemas/Decimal" }
+        travelMode: { $ref: "#/components/schemas/TravelMode" }
+        travelFlatAmount: { $ref: "#/components/schemas/Decimal" }
+        travelHourlyRate: { $ref: "#/components/schemas/Decimal" }
+    CustomerBillingSettings:
+      type: object
+      properties:
+        billingUnitMinutes: { type: integer, format: int32, enum: [1, 5, 6, 10, 15, 30, 60] }
+        travelMode: { $ref: "#/components/schemas/TravelMode" }
+        travelFlatAmount: { $ref: "#/components/schemas/Decimal" }
+        travelHourlyRate: { $ref: "#/components/schemas/Decimal" }
+    BillableReport:
+      type: object
+      required: [reportId, workOrderId, workOrderTitle, customerId, customerName, version, state, signedAt]
+      properties:
+        reportId: { type: string, format: uuid }
+        workOrderId: { type: string, format: uuid }
+        workOrderTitle: { type: string }
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        version: { type: integer, format: int32 }
+        state: { $ref: "#/components/schemas/ReportState" }
+        signedAt: { type: string, format: date-time }
+    BillableReportList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/BillableReport" }
+    ReportSelection:
+      type: object
+      required: [reportIds]
+      properties:
+        reportIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: string, format: uuid }
+    ReportInvoiceLine:
+      type: object
+      required: [name, quantity, unitCode, netPrice, vatRate, laborCost]
+      properties:
+        reportId: { type: string, format: uuid, description: "The report it came from (preview only)" }
+        kind: { type: string, enum: [WORK, TRAVEL, MATERIAL, OTHER] }
+        articleId: { type: string, format: uuid }
+        articleNumber: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 1000 }
+        quantity: { $ref: "#/components/schemas/Decimal" }
+        unitCode: { type: string, pattern: "^[A-Z0-9]{1,3}$" }
+        netPrice: { $ref: "#/components/schemas/Decimal" }
+        vatRate: { $ref: "#/components/schemas/VatRate" }
+        laborCost: { type: boolean }
+        net: { type: string, description: "quantity × net price, rounded to the cent (preview only)" }
+        priceMissing: { type: boolean, description: "A free-text material without a price: set one before creating the invoice" }
+    ReportInvoicePreview:
+      type: object
+      required: [customerId, customerName, privateCustomer, lines, totalNet]
+      properties:
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        privateCustomer: { type: boolean, description: "The § 35a labour share and, for work on a property, the retention note are printed" }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/ReportInvoiceLine" }
+        totalNet: { type: string }
+    ReportInvoiceRequest:
+      type: object
+      required: [reportIds, lines]
+      properties:
+        reportIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: string, format: uuid }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/ReportInvoiceLine" }
+        propertyRelated: { type: boolean, description: "Work on a property (private customers: 2-year retention note)" }
+        format: { $ref: "#/components/schemas/InvoiceFormat" }
+    ReportInvoiceCreated:
+      type: object
+      required: [invoiceId]
+      properties:
+        invoiceId: { type: string, format: uuid }
     ReportVerification:
       type: object
       required: [code, firmName, kind, reportVersion, signedAt, contentHash, superseded, pdfArchived]
@@ -3705,6 +4046,9 @@ components:
         unitCode: { type: string, pattern: "^[A-Z0-9]{1,3}$" }
         netPrice: { $ref: "#/components/schemas/Decimal" }
         vatRate: { $ref: "#/components/schemas/VatRate" }
+        laborCost:
+          type: boolean
+          description: Labour, machine or travel costs; their share is printed for private customers (§ 35a EStG).
     InvoiceContent:
       type: object
       description: The editable content of a draft. Everything is optional while editing; `problems` lists what issuing needs.

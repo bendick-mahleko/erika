@@ -3,9 +3,11 @@ package de.erika.invoicecore.write
 import de.erika.invoicecore.InvoiceParser
 import de.erika.invoicecore.check.InvoiceChecks
 import de.erika.invoicecore.check.Severity
+import de.erika.invoicecore.model.Attachment
 import de.erika.invoicecore.model.Invoice
 import de.erika.invoicecore.model.InvoiceFormat
 import de.erika.invoicecore.model.Profile
+import de.erika.invoicecore.model.SupportingDocument
 import de.erika.invoicecore.model.Syntax
 import de.erika.invoicecore.support.CreatedInvoices
 import de.erika.invoicecore.support.ModelDump
@@ -49,6 +51,33 @@ class InvoiceWriterTest {
                         val errors = InvoiceChecks.check(parsed.invoice!!).filter { it.severity == Severity.ERROR }
                         assertTrue(errors.isEmpty(), "content errors: $errors")
                     }
+                }
+            }
+        }
+
+    @TestFactory
+    fun `a supporting document with an embedded PDF survives every format and VAT case (BG-24)`(): List<DynamicTest> =
+        OutputFormat.entries.flatMap { format ->
+            VatCase.entries.map { case ->
+                dynamicTest("$format / $case") {
+                    val pdf = "%PDF-1.7 Arbeitsbericht".toByteArray() + ByteArray(2048) { (it % 251).toByte() }
+                    val document =
+                        SupportingDocument(
+                            reference = "Bericht-ABCDEFGHIJ",
+                            description = "Unterschriebener Arbeitsbericht vom 10.05.2027",
+                            attachment = Attachment("application/pdf", "Arbeitsbericht-ABCDEFGHIJ.pdf", pdf),
+                        )
+                    val source = CreatedInvoices.invoice(case).copy(supportingDocuments = listOf(document))
+                    val parsed = InvoiceParser.parse(InvoiceWriter.write(source, format)).invoice!!
+                    assertEquals(listOf(document), parsed.supportingDocuments)
+                    assertContentEquals(
+                        pdf,
+                        parsed.supportingDocuments
+                            .single()
+                            .attachment!!
+                            .content,
+                    )
+                    assertEquals(ModelDump.render(InvoiceWriter.prepare(source, format)), ModelDump.render(parsed))
                 }
             }
         }

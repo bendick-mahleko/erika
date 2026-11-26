@@ -2,7 +2,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { canonical, canonicalHash } from "./canonical";
-import { apiCall, expectAccessible, mailToken, signedInAccount, totp } from "./support";
+import { apiCall, completeSeller, expectAccessible, mailToken, signedInAccount, totp } from "./support";
 
 /**
  * MARA Stage 2 in the browser, against the full stack (exit criteria): the owner creates a
@@ -510,7 +510,14 @@ test.describe("MARA work orders (full stack)", () => {
         page,
         "POST",
         "/api/v1/customers",
-        { name: `Familie Frost ${unique()}`, countryCode: "DE", vatTreatment: "DOMESTIC" },
+        {
+          name: `Familie Frost ${unique()}`,
+          street: "Eisweg 4",
+          postalCode: "10117",
+          city: "Berlin",
+          countryCode: "DE",
+          vatTreatment: "DOMESTIC",
+        },
         { "Idempotency-Key": unique() },
       )
     ).body.id as string;
@@ -670,6 +677,33 @@ test.describe("MARA work orders (full stack)", () => {
     await expectAccessible(customerPage);
     await customerPage.goto("/verify/AAAAAAAAAA");
     await expect(customerPage.getByTestId("verify-unknown")).toBeVisible();
+
+    // MARA Stage 8: the office invoices the signed report through ERIKA's invoice creator.
+    await completeSeller(page);
+    await page.goto("/settings/report-invoicing");
+    await page.getByLabel("Stundensatz, wenn keine Lohngruppe hinterlegt ist (€ netto)").fill("58,00");
+    await page.getByLabel("Nicht berechnen").check();
+    await page.getByRole("button", { name: "Speichern" }).click();
+    await expect(page.getByText("Gespeichert.")).toBeVisible();
+    await expectAccessible(page);
+
+    await page.goto("/work-orders/invoicing");
+    await page.getByTestId("ri-customer").selectOption(customer);
+    await page.getByTestId("ri-report").check();
+    await page.getByRole("button", { name: "Positionen vorschlagen" }).click();
+    // 50 minutes, by the quarter hour: 1 h × 58,00 €; the radiator has no stored price yet.
+    await expect(page.getByTestId("ri-total")).toHaveText(/58,00\s€/);
+    await expect(page.getByText("Preis fehlt")).toBeVisible();
+    await expectAccessible(page);
+    await page.getByTestId("ri-price").nth(1).fill("249,00");
+    await expect(page.getByTestId("ri-total")).toHaveText(/307,00\s€/);
+    await page.getByTestId("ri-create").click();
+    await expect(page.getByTestId("issued-title")).toHaveText(/^Rechnung RE-\d{4}-\d{4}$/, { timeout: 60_000 });
+
+    await page.goto(`/work-orders/${order}`);
+    await expect(page.getByTestId("report-invoice")).toContainText("Abgerechnet mit Rechnung RE-");
+    await page.goto("/work-orders/invoicing");
+    await expect(page.getByText("Es gibt keine unterschriebenen Berichte")).toBeVisible();
   });
 
   test("staff levels, staff settings and checklist templates", async ({ page, browser }) => {
@@ -685,7 +719,7 @@ test.describe("MARA work orders (full stack)", () => {
     await expect(page.getByTestId("staff-levels")).toContainText("Geselle");
     await expect(page.getByTestId("staff-levels")).toContainText("58.50 €");
     await page.getByLabel("Stundensatz von Carla Monteurin").selectOption({ label: "Geselle (58.50 €)" });
-    await expect(page.getByRole("status")).toHaveText("Gespeichert.");
+    await expect(page.getByText("Gespeichert.")).toBeVisible();
     await expectAccessible(page);
     await page.reload();
     await expect(page.getByLabel("Stundensatz von Carla Monteurin")).toHaveValue(/.+/);

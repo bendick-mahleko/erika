@@ -2,6 +2,7 @@ package de.erika.creator
 
 import de.erika.identity.WorkspaceProfile
 import de.erika.invoicecore.model.Address
+import de.erika.invoicecore.model.Attachment
 import de.erika.invoicecore.model.Buyer
 import de.erika.invoicecore.model.Contact
 import de.erika.invoicecore.model.CreditTransfer
@@ -16,7 +17,10 @@ import de.erika.invoicecore.model.Period
 import de.erika.invoicecore.model.PrecedingInvoiceReference
 import de.erika.invoicecore.model.PriceDetails
 import de.erika.invoicecore.model.Seller
+import de.erika.invoicecore.model.SupportingDocument
 import de.erika.invoicecore.write.VatCase
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -62,6 +66,8 @@ object InvoiceAssembler {
         number: String?,
         issueDate: LocalDate,
         original: OriginalReference?,
+        /** The archived bytes of an attachment (by SHA-256); null leaves the file out (draft preview). */
+        attachmentBytes: (String) -> ByteArray? = { null },
     ): Invoice {
         val c = content
         val b = c.buyer
@@ -88,6 +94,10 @@ object InvoiceAssembler {
             buildList {
                 c.note.clean()?.let { add(Note(text = it)) }
                 cases.distinct().mapNotNull { it.note }.forEach { add(Note(text = it)) }
+                if (c.privateCustomer) {
+                    laborShareNote(c, cases)?.let { add(Note(text = it)) }
+                    if (c.propertyRelated) add(Note(text = RETENTION_NOTE))
+                }
             }
         return Invoice(
             number = number,
@@ -169,6 +179,14 @@ object InvoiceAssembler {
                             ),
                     )
                 },
+            supportingDocuments =
+                c.attachments.map { a ->
+                    SupportingDocument(
+                        reference = a.reference,
+                        description = a.description,
+                        attachment = attachmentBytes(a.sha256)?.let { Attachment(a.mimeCode, a.fileName, it) },
+                    )
+                },
             lines =
                 c.lines.mapIndexed { i, line ->
                     val case = cases[i]
@@ -191,4 +209,39 @@ object InvoiceAssembler {
     }
 
     private fun String?.clean(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** § 14 Abs. 4 Nr. 9 UStG: private customers must keep invoices for work on a property for 2 years. */
+    const val RETENTION_NOTE: String =
+        "Sie sind gesetzlich verpflichtet, diese Rechnung zwei Jahre lang aufzubewahren (§ 14b Abs. 1 Satz 5 UStG)."
+
+    /**
+     * The labour share for § 35a EStG (M-BR-07): the labour, machine and travel lines with their
+     * VAT, as private customers claim it in their tax return. Null without such lines.
+     */
+    fun laborShare(
+        content: DraftContent,
+        cases: List<VatCase>,
+    ): Pair<BigDecimal, BigDecimal>? {
+        val labour = content.lines.indices.filter { content.lines[it].laborCost }
+        if (labour.isEmpty()) return null
+        var net = BigDecimal.ZERO
+        var vat = BigDecimal.ZERO
+        for (i in labour) {
+            val line = content.lines[i]
+            val lineNet = (line.quantity ?: BigDecimal.ZERO).multiply(line.netPrice ?: BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP)
+            net += lineNet
+            vat += lineNet.multiply(cases[i].rate).divide(BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+        }
+        return net to vat
+    }
+
+    private fun laborShareNote(
+        content: DraftContent,
+        cases: List<VatCase>,
+    ): String? {
+        val (net, vat) = laborShare(content, cases) ?: return null
+        val euro = java.text.NumberFormat.getCurrencyInstance(java.util.Locale.GERMANY)
+        return "Im Rechnungsbetrag sind Arbeits- und Fahrtkosten nach § 35a EStG von ${euro.format(net + vat)} enthalten " +
+            "(netto ${euro.format(net)}, Umsatzsteuer ${euro.format(vat)})."
+    }
 }

@@ -29,6 +29,8 @@ internal data class ReportPdfContent(
     val verificationUrl: String,
     /** Photo ID → thumbnail JPEG, for the photos whose file arrived. */
     val photoImages: Map<String, ByteArray>,
+    /** The firm's logo (PNG or JPEG from the invoice settings), top right (M-AC-03). */
+    val logo: ByteArray? = null,
 )
 
 /**
@@ -166,8 +168,10 @@ internal object ReportPdf {
 
         fun body() {
             val r = c.report
+            val logoBottom = logo()
             line(c.firmName, bold, 11f)
             c.firmAddress?.let { line(it) }
+            if (logoBottom != null && logoBottom < y) y = logoBottom
             gap()
             line("Arbeitsbericht", bold, 16f)
             line("Auftrag: ${text(r, "workOrder", "title")}")
@@ -255,6 +259,22 @@ internal object ReportPdf {
             y -= h + 4f
             line(label)
             gap()
+        }
+
+        /** Draws the logo top right (at most 140 × 56 pt); returns its lower edge. A broken image is left out. */
+        private fun logo(): Float? {
+            val bytes = c.logo ?: return null
+            val image =
+                try {
+                    PDImageXObject.createFromByteArray(doc, bytes, "logo")
+                } catch (e: java.io.IOException) {
+                    return null
+                }
+            val scale = minOf(140f / image.width, 56f / image.height, 1f)
+            val w = image.width * scale
+            val h = image.height * scale
+            out.drawImage(image, MARGIN + width - w, y - h, w, h)
+            return y - h - 4f
         }
 
         private fun signature() {

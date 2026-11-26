@@ -26,6 +26,9 @@ internal class CreatorAccountData(
             "invoices" to jdbc.jsonRows(json, "SELECT * FROM invoice $ws ORDER BY issued_at, id"),
             "deliveries" to jdbc.jsonRows(json, "SELECT * FROM invoice_delivery $ws ORDER BY created_at, id"),
             "recurringInvoices" to jdbc.jsonRows(json, "SELECT * FROM recurring_invoice $ws ORDER BY created_at, id"),
+            // MARA Stage 8: where drafts came from, and payment reminders.
+            "draftSources" to jdbc.jsonRows(json, "SELECT * FROM invoice_draft_source $ws ORDER BY created_at, source_id"),
+            "reminders" to jdbc.jsonRows(json, "SELECT * FROM invoice_reminder $ws ORDER BY created_at, id"),
         )
     }
 }

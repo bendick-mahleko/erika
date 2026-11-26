@@ -33,6 +33,7 @@ public enum class OutputFormat(
  * Business terms written: BT-1 … BT-3, BT-5, BT-9 … BT-14, BT-19, BT-20, BG-1, BT-23, BT-24,
  * BG-3, BG-4 (BT-27 … BT-34, BG-5, BG-6), BG-7 (BT-44 … BT-49, BG-8, BG-9), BG-13 (BT-70 …
  * BT-72, BG-14, BG-15), BG-16 (BT-81 … BT-86, BT-89 … BT-91), BG-20, BG-21, BG-22, BG-23 and
+ * BG-24 (BT-122 … BT-125, supporting documents with embedded attachments, since 0.6.0) and
  * BG-25 with BT-126 … BT-131, BG-26 … BG-29 (net price, base quantity), BG-30, BT-153 … BT-156.
  */
 public object InvoiceWriter {

@@ -46,3 +46,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0038](0038-mara-sync-protocol.md) | MARA sync protocol: outbox, change feed, field versions | Accepted (MARA Stage 4) |
 | [0039](0039-technician-role.md) | The TECHNICIAN role | Accepted |
 | [0040](0040-mara-storage-and-retention.md) | MARA storage: device database, photos, signed reports and retention | Accepted (MARA Stages 1, 6 and 7; retention to be confirmed) |
+| [0041](0041-mara-invoicing-from-reports.md) | MARA: invoicing from reports through ERIKA's invoice creator | Accepted (MARA Stage 8; § 35a wording to be confirmed) |

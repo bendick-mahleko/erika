@@ -48,6 +48,7 @@ internal class FinalizeReportJob(
     private val media: ObjectProvider<ReportMedia>,
     private val archive: Archive,
     private val profiles: WorkspaceProfiles,
+    private val creator: de.erika.creator.Creator,
     private val mail: MailProperties,
     private val transport: RawMailTransport,
     private val jobs: JobQueue,
@@ -123,6 +124,7 @@ internal class FinalizeReportJob(
                     signature = signature,
                     verificationUrl = verificationUrl(signature.verificationCode),
                     photoImages = images,
+                    logo = creator.logo(workspaceId)?.first,
                 ),
             )
         val signedOn = signature.signedAt.atZoneSameInstant(ZONE).toLocalDate()

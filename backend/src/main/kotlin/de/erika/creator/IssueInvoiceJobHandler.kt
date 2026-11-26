@@ -155,6 +155,12 @@ class InvoiceIssuer internal constructor(
                 number,
                 issueDate,
                 original?.let { OriginalReference(it.number, it.issueDate) },
+                // BG-24: embedded files come from the archive, hash-checked (MARA: signed reports).
+                attachmentBytes = { sha ->
+                    archive.open(ws, sha)?.bytes ?: throw IssueRejectedException(
+                        listOf(message("ERIKA-ATTACHMENT-MISSING", "Ein Anhang der Rechnung ist nicht im Archiv.")),
+                    )
+                },
             )
         // CR-08: the workspace's logo and accent colour on the readable PDF (ZUGFeRD only).
         val layout = PdfLayout(settingsRepo.logo(ws)?.first, settings.accentColor)

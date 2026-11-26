@@ -282,6 +282,23 @@ export async function fetchWorkOrders(status?: WorkOrderStatus): Promise<WorkOrd
   return data?.items ?? [];
 }
 
+// MARA Stage 8: invoicing from reports (M-IV-01 to M-IV-07).
+export type BillableReport = components["schemas"]["BillableReport"];
+export type ReportInvoicingSettings = components["schemas"]["ReportInvoicingSettings"];
+export type OverdueInvoice = components["schemas"]["OverdueInvoice"];
+
+export async function fetchBillableReports(): Promise<BillableReport[]> {
+  return (await authed((init) => api.GET("/report-invoicing/billable", init)))?.items ?? [];
+}
+
+export async function fetchReportInvoicingSettings(): Promise<ReportInvoicingSettings | null> {
+  return (await authed((init) => api.GET("/report-invoicing/settings", init))) ?? null;
+}
+
+export async function fetchOverdueInvoices(): Promise<OverdueInvoice[]> {
+  return (await authed((init) => api.GET("/invoices/overdue", init)))?.items ?? [];
+}
+
 /** One work order plus ETag for optimistic locking, or null. */
 export type SyncConflict = components["schemas"]["SyncConflict"];
 

@@ -50,6 +50,8 @@ internal class MaraFeatureGuard(
                 // MARA Stage 7: report PDFs and the public verification.
                 "/api/v1/reports",
                 "/api/v1/public/report-verifications",
+                // MARA Stage 8: invoicing from reports.
+                "/api/v1/report-invoicing",
             ).flatMap { listOf(it, "$it/**") }
     }
 }

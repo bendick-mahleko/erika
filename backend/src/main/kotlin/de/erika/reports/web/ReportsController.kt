@@ -9,6 +9,7 @@ import de.erika.contract.model.PhotoCategory
 import de.erika.contract.model.PhotoState
 import de.erika.contract.model.ReportAufmassPosition
 import de.erika.contract.model.ReportChecklistItem
+import de.erika.contract.model.ReportInvoiceInfo
 import de.erika.contract.model.ReportMaterialLine
 import de.erika.contract.model.ReportPhoto
 import de.erika.contract.model.ReportSignatureInfo
@@ -19,6 +20,7 @@ import de.erika.contract.model.ReportVersion
 import de.erika.contract.model.TimeEntryKind
 import de.erika.contract.model.WorkOrderReport
 import de.erika.creator.ArticleDirectory
+import de.erika.creator.SourceInvoices
 import de.erika.identity.WorkspaceContacts
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
@@ -36,6 +38,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RestController
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -53,7 +56,64 @@ internal class ReportsController(
     private val articles: ArticleDirectory,
     private val media: ObjectProvider<ReportMedia>,
     private val archive: Archive,
+    private val invoices: SourceInvoices,
 ) : ReportsApi {
+    /** Raw time entries (no rounding) as CSV for payroll, semicolon-separated (M-IV-07). */
+    @PreAuthorize("hasRole('OWNER')")
+    override fun exportTimeEntries(
+        from: java.time.LocalDate,
+        to: java.time.LocalDate,
+    ): ResponseEntity<Resource> {
+        if (to.isBefore(from) || java.time.temporal.ChronoUnit.DAYS
+                .between(from, to) > 366
+        ) {
+            throw ErikaException("RANGE_INVALID", HttpStatus.BAD_REQUEST, "Choose a range of at most one year.")
+        }
+        val zone = java.time.ZoneId.of("Europe/Berlin")
+        val times =
+            repo.timeEntriesBetween(
+                from.atStartOfDay(zone).toOffsetDateTime(),
+                to.plusDays(1).atStartOfDay(zone).toOffsetDateTime(),
+            )
+        val reports = repo.reports(times.map { it.reportId }.distinct()).associateBy { it.id }
+        val orders = workOrders.findAll(reports.values.map { it.workOrderId }.distinct())
+        val names = people.displayNames(times.map { it.technicianId }.distinct())
+        val date =
+            java.time.format.DateTimeFormatter
+                .ofPattern("dd.MM.yyyy")
+        val clock =
+            java.time.format.DateTimeFormatter
+                .ofPattern("HH:mm")
+        val csv = StringBuilder("\uFEFFDatum;Mitarbeiter;Art;Beginn;Ende;Minuten;Auftrag;Notiz\r\n")
+        for (t in times) {
+            val start = t.startedAt.atZoneSameInstant(zone)
+            val end = t.endedAt?.atZoneSameInstant(zone)
+            val order = reports[t.reportId]?.let { orders[it.workOrderId] }
+            val row =
+                listOf(
+                    date.format(start),
+                    names[t.technicianId] ?: "",
+                    if (t.kind == "TRAVEL") "Fahrt" else "Arbeit",
+                    clock.format(start),
+                    end?.let(clock::format) ?: "",
+                    t.endedAt?.let {
+                        java.time.Duration
+                            .between(t.startedAt, it)
+                            .toMinutes()
+                            .toString()
+                    } ?: "",
+                    order?.title ?: "",
+                    t.note ?: "",
+                )
+            csv.append(row.joinToString(";") { csvCell(it) }).append("\r\n")
+        }
+        return download(
+            csv.toString().toByteArray(StandardCharsets.UTF_8),
+            "Zeiten-$from-$to.csv",
+            MediaType("text", "csv", StandardCharsets.UTF_8),
+        )
+    }
+
     /** The archived PDF of a signed version (hash-checked by the archive), as a download. */
     override fun getReportPdf(reportId: UUID): ResponseEntity<Resource> {
         val signature = repo.signatureOf(reportId) ?: throw notFound()
@@ -122,6 +182,28 @@ internal class ReportsController(
                                     emailed = repo.deliveryCount(report.id) > 0,
                                 )
                             },
+                        invoice =
+                            invoices
+                                .invoiceOf(
+                                    SOURCE_REPORTS,
+                                    listOf(report.id),
+                                )[report.id]
+                                ?.let { invoices.statuses(listOf(it))[it] }
+                                ?.let {
+                                    ReportInvoiceInfo(
+                                        invoiceId = it.invoiceId,
+                                        state = ReportInvoiceInfo.State.forValue(it.state.name),
+                                        overdue = it.overdue,
+                                        number = it.number,
+                                        documentStatus =
+                                            it.documentStatus?.let { s ->
+                                                de.erika.contract.model.DocumentStatus
+                                                    .forValue(s.name)
+                                            },
+                                        dueDate = it.dueDate,
+                                        gross = it.gross?.toPlainString(),
+                                    )
+                                },
                     ),
                 timeEntries =
                     times.map {
@@ -214,9 +296,24 @@ internal class ReportsController(
 internal fun pdf(
     bytes: ByteArray,
     fileName: String,
+): ResponseEntity<Resource> = download(bytes, fileName, MediaType.APPLICATION_PDF)
+
+/** The source module name under which reports are billed (`reportinvoicing`). */
+private const val SOURCE_REPORTS = "reports"
+
+/** A CSV cell: quoted when needed; formula-like text gets a leading apostrophe (CSV injection). */
+private fun csvCell(value: String): String {
+    val v = if (value.isNotEmpty() && value[0] in "=+-@\t\r") "'$value" else value
+    return if (v.any { it == ';' || it == '"' || it == '\n' || it == '\r' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+}
+
+internal fun download(
+    bytes: ByteArray,
+    fileName: String,
+    type: MediaType,
 ): ResponseEntity<Resource> {
     val headers = HttpHeaders()
-    headers.contentType = MediaType.APPLICATION_PDF
+    headers.contentType = type
     headers.contentDisposition = ContentDisposition.attachment().filename(fileName, StandardCharsets.UTF_8).build()
     headers.set("X-Content-Type-Options", "nosniff")
     headers.set("Content-Security-Policy", "default-src 'none'; sandbox")

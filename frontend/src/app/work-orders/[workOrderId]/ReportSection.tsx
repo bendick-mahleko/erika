@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import type { WorkOrderReport } from "@/lib/api/client";
 
@@ -82,6 +83,14 @@ export async function ReportSection({ report }: { report: WorkOrderReport }) {
             <p className="text-slate-600">{t("pdfPending")}</p>
           )}
         </div>
+      )}
+      {summary?.invoice && (
+        <p className="text-sm" data-testid="report-invoice">
+          <Link href={`/invoices/${summary.invoice.invoiceId}`} className="text-brand-700 underline">
+            {summary.invoice.number ? t("invoiced", { number: summary.invoice.number }) : t("invoicing")}
+          </Link>
+          {summary.invoice.overdue && <span className="ml-2 text-red-800">{t("invoiceOverdue")}</span>}
+        </p>
       )}
       {report.versions.length > 1 && (
         <p className="text-sm text-slate-700" data-testid="report-versions">

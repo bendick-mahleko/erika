@@ -39,6 +39,9 @@ export default async function InvoicesPage() {
           <Link href="/invoices/recurring" className={link}>
             {t("recurringLink")}
           </Link>
+          <Link href="/invoices/overdue" className={link}>
+            {t("overdueLink")}
+          </Link>
           <Link href="/settings/invoices" className={link}>
             {t("settingsLink")}
           </Link>

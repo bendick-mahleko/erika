@@ -18,7 +18,7 @@ sentry-spring-boot = { module = "io.sentry:sentry-spring-boot-4-starter", versio
 
 bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 
-invoice-core = { module = "de.erika:invoice-core", version = "0.5.0" }
+invoice-core = { module = "de.erika:invoice-core", version = "0.6.0" }
 kosit-validator = { module = "org.kosit:validator", version.ref = "kosit-validator" }
 verapdf-validation-model = { module = "org.verapdf:validation-model-jakarta", version.ref = "verapdf" }
 

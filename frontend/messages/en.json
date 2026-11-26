@@ -244,7 +244,16 @@
     "STAFF_LEVEL_NOT_FOUND": "The staff level wasn't found.",
     "CHECKLIST_TEMPLATE_NOT_FOUND": "The checklist wasn't found.",
     "CHECKLIST_KEYS_DUPLICATE": "Two items have the same key. Please give each item its own.",
-    "DEVICE_NOT_FOUND": "This device does not exist (any more)."
+    "DEVICE_NOT_FOUND": "This device does not exist (any more).",
+    "ALREADY_INVOICED": "A selected report is already on another invoice.",
+    "REPORT_NOT_BILLABLE": "Only the current, signed (or sent unsigned) version of a report can be invoiced.",
+    "REPORT_PDF_PENDING": "A report's PDF is still being made. Please try again in a moment.",
+    "MIXED_CUSTOMERS": "All reports on an invoice must belong to the same customer.",
+    "PRICE_MISSING": "Every line needs a net price.",
+    "INVOICE_NOT_OVERDUE": "Only overdue invoices get a payment reminder.",
+    "REMINDERS_EXHAUSTED": "Three reminders have already been sent for this invoice.",
+    "RECIPIENT_REQUIRED": "The invoice has no email address. Please enter one.",
+    "RANGE_INVALID": "Please choose a range of at most one year."
   },
   "Inbox": {
     "title": "Inbox",
@@ -525,7 +534,8 @@
       "KWH": "Kilowatt hour"
     },
     "back": "Back to invoices",
-    "recurringLink": "Recurring invoices"
+    "recurringLink": "Recurring invoices",
+    "overdueLink": "Overdue invoices"
   },
   "Editor": {
     "titleDraft": "{kind} – draft",
@@ -799,7 +809,8 @@
     "intake": "Email intake",
     "staff": "Staff",
     "checklists": "Checklists",
-    "devices": "Devices"
+    "devices": "Devices",
+    "reportInvoicing": "Rates and travel"
   },
   "Team": {
     "title": "Team and tax advisor",
@@ -1163,7 +1174,8 @@
       "workDescription": "Work description",
       "state": "Report status",
       "value": "Answer"
-    }
+    },
+    "invoicing": "Invoice"
   },
   "Reports": {
     "locale": "en",
@@ -1225,7 +1237,10 @@
     "emailed": "emailed to the customer",
     "downloadPdf": "Download the report as PDF",
     "pdfPending": "The PDF is made once all photos have arrived.",
-    "versions": "Versions:"
+    "versions": "Versions:",
+    "invoiced": "Invoiced with invoice {number}",
+    "invoicing": "Invoice being created",
+    "invoiceOverdue": "overdue"
   },
   "Verify": {
     "title": "Check a job report",
@@ -1311,5 +1326,89 @@
     "revokeNow": "Yes, sign out",
     "cancel": "Cancel",
     "revoked": "{name} of {person} is signed out."
+  },
+  "ReportInvoicing": {
+    "title": "Invoice reports",
+    "intro": "Choose a customer's signed reports. ERIKA proposes the lines (times rounded up to the billing unit, travel, materials); you can change them. The invoice is issued as an e-invoice with the reports embedded as PDFs.",
+    "empty": "There are no signed reports that have not been invoiced yet.",
+    "customer": "Customer",
+    "reports": "Reports",
+    "reportLabel": "{title} – {date} (version {version})",
+    "notSigned": "sent without signature",
+    "preview": "Propose lines",
+    "linesTitle": "Lines",
+    "linesIntro": "Check and change the lines. Materials without a stored price are marked and need a price.",
+    "name": "Description",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "price": "Net unit price (€)",
+    "vat": "VAT",
+    "labour": "Labour",
+    "net": "Net",
+    "remove": "Remove",
+    "nameOf": "Description of line {n}",
+    "quantityOf": "Quantity of line {n}",
+    "priceOf": "Unit price of line {n}",
+    "vatOf": "VAT of line {n}",
+    "labourOf": "Line {n} is labour (§ 35a EStG)",
+    "priceMissing": "Price missing",
+    "vatRates": {
+      "STANDARD_19": "19%",
+      "REDUCED_7": "7%",
+      "ZERO": "0%"
+    },
+    "totalNet": "Total net",
+    "addLine": "Add line",
+    "privateHint": "Private customer: the invoice shows the share of labour and travel costs under § 35a EStG.",
+    "propertyRelated": "Work on a property (note on the two-year retention duty, § 14b UStG)",
+    "create": "Issue invoice",
+    "fixLines": "Please give every line a description, a quantity and a price.",
+    "timesTitle": "Times for payroll",
+    "timesIntro": "All recorded times in the period as a CSV file (for Excel), exactly as recorded – not rounded.",
+    "timesFrom": "From",
+    "timesTo": "To",
+    "timesDownload": "Download CSV",
+    "settingsLink": "Set billing unit and travel"
+  },
+  "ReportInvoicingSettings": {
+    "title": "Report invoicing",
+    "intro": "How times and travel from reports are invoiced. Individual customers can have their own values.",
+    "ownerOnly": "Only owners can change these settings.",
+    "unit": "Billing unit",
+    "unitMinutes": "{minutes, plural, =1 {per minute} =60 {per hour} other {per started # minutes}}",
+    "unitHint": "Each time entry is rounded up to the unit. The recorded times themselves stay unchanged.",
+    "defaultRate": "Hourly rate when no staff level is set (€ net)",
+    "defaultRateHint": "Otherwise the hourly rate of the person's staff level applies.",
+    "travel": "Travel",
+    "modes": {
+      "TIME": "By travel time",
+      "FLAT": "Flat amount per visit",
+      "NONE": "Don't bill"
+    },
+    "flat": "Flat travel amount (€ net)",
+    "travelRate": "Hourly rate for travel time (€ net)",
+    "travelRateHint": "Empty: the person's hourly rate.",
+    "save": "Save",
+    "saved": "Saved."
+  },
+  "Overdue": {
+    "title": "Overdue invoices",
+    "intro": "Issued invoices past their due date that are not paid, booked or cancelled. You can email a payment reminder and then up to two dunning letters.",
+    "empty": "No invoice is overdue.",
+    "number": "Number",
+    "buyer": "Customer",
+    "due": "Due",
+    "gross": "Amount",
+    "reminders": "Reminders",
+    "actions": "Actions",
+    "none": "none yet",
+    "daysOverdue": "{days, plural, one {# day overdue} other {# days overdue}}",
+    "reminderSent": "Payment reminder on {date}",
+    "dunningSent": "Dunning letter {level} on {date}",
+    "sendReminder": "Send payment reminder",
+    "sendDunning": "Send dunning letter {level}",
+    "promptReminder": "Send the payment reminder for invoice {number} to:",
+    "promptDunning": "Send the dunning letter for invoice {number} to:",
+    "sent": "Level {level} was sent for invoice {number}."
   }
 }

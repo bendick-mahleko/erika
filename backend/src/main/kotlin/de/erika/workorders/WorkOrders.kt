@@ -228,6 +228,19 @@ internal class WorkOrders(
         events.publishEvent(WorkOrderStatusChanged(workspaceId, actorId, id, current.status, WorkOrderStatus.SIGNED))
     }
 
+    /** INVOICED, set by MARA when the work order's report was invoiced (Stage 8); users can't set it. */
+    fun markInvoiced(
+        workspaceId: UUID,
+        actorId: UUID?,
+        id: UUID,
+    ) {
+        val current = orders.find(id) ?: throw WorkOrderErrors.notFound("WORK_ORDER")
+        if (current.status == WorkOrderStatus.INVOICED) return
+        if (!orders.update(workspaceId, current.copy(status = WorkOrderStatus.INVOICED), current.version)) throw Etags.conflict()
+        events.publishEvent(WorkOrdersChanged(workspaceId, actorId, "work_order", id, created = false))
+        events.publishEvent(WorkOrderStatusChanged(workspaceId, actorId, id, current.status, WorkOrderStatus.INVOICED))
+    }
+
     /** Work notes from the app (M-MO-01). */
     fun setWorkNotes(
         workspaceId: UUID,

@@ -293,6 +293,14 @@ internal class IssuedRepository(
             .optional()
             .orElse(null)
 
+    /** Invoices with a due date before [date] (for the overdue list). */
+    fun dueBefore(date: LocalDate): List<IssuedRow> =
+        jdbc
+            .sql("SELECT * FROM invoice WHERE workspace_id = current_workspace_id() AND due_date < :d ORDER BY due_date, number")
+            .param("d", date)
+            .query { rs, _ -> map(rs, "") }
+            .list()
+
     fun numberTaken(number: String): Boolean =
         jdbc
             .sql("SELECT EXISTS (SELECT 1 FROM invoice WHERE workspace_id = current_workspace_id() AND number = :n)")

@@ -1,0 +1,499 @@
+{
+  "rule": "invoicing.lines",
+  "version": 1,
+  "description": "Invoice lines from signed reports (M-IV-01, M-BR-04, M-BR-05). Work: each time entry is rounded up to the billing unit on its exact duration in seconds (a started unit counts in full; raw times stay unchanged), then summed per report and hourly rate (the technician's, else defaultHourlyRate); quantity = minutes / 60 rounded half up to 4 decimals; net = quantity × rate rounded half up to the cent. Travel: TIME bills travel entries the same way at travelHourlyRate (else the technician's rate); FLAT adds one line of travelFlatAmount per report (visit) and ignores travel entries; NONE bills no travel. Materials: net = quantity × net price rounded half up to the cent. Lines without a price have net 0.00 and priceMissing. Work and travel count as labour costs (§ 35a EStG). Decimals are compared without trailing zeros, amounts with two decimals. Line order: per report, work, travel, materials.",
+  "cases": [
+    {
+      "name": "a quarter hour started counts as a whole one; one line per report and rate",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T08:01:00Z",
+                "rate": "58.00"
+              },
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T09:00:00Z",
+                "end": "2027-05-10T09:14:59Z",
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 90,
+            "quantity": "1.5",
+            "unitCode": "HUR",
+            "netPrice": "58.00",
+            "net": "87.00",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "87.00"
+      }
+    },
+    {
+      "name": "exactly on the unit is not rounded up",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T08:15:00Z",
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 75,
+            "quantity": "1.25",
+            "unitCode": "HUR",
+            "netPrice": "58.00",
+            "net": "72.50",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "72.50"
+      }
+    },
+    {
+      "name": "per minute: the quantity has four decimals, the amount is rounded half up to the cent",
+      "input": {
+        "billingUnitMinutes": 1,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T07:50:20Z",
+                "rate": "57.50"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 51,
+            "quantity": "0.85",
+            "unitCode": "HUR",
+            "netPrice": "57.50",
+            "net": "48.88",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "48.88"
+      }
+    },
+    {
+      "name": "two technicians with different rates give two lines; the default rate where none is set",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "45.00",
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T09:00:00Z",
+                "rate": "65.00"
+              },
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T09:20:00Z"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 120,
+            "quantity": "2",
+            "unitCode": "HUR",
+            "netPrice": "65.00",
+            "net": "130.00",
+            "priceMissing": false,
+            "laborCost": true
+          },
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 150,
+            "quantity": "2.5",
+            "unitCode": "HUR",
+            "netPrice": "45.00",
+            "net": "112.50",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "242.50"
+      }
+    },
+    {
+      "name": "travel by time at the travel rate, rounded like work",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "TIME",
+        "travelHourlyRate": "40.00",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "TRAVEL",
+                "start": "2027-05-10T06:35:00Z",
+                "end": "2027-05-10T07:00:00Z",
+                "rate": "58.00"
+              },
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T08:00:00Z",
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 60,
+            "quantity": "1",
+            "unitCode": "HUR",
+            "netPrice": "58.00",
+            "net": "58.00",
+            "priceMissing": false,
+            "laborCost": true
+          },
+          {
+            "report": "r1",
+            "kind": "TRAVEL",
+            "minutes": 30,
+            "quantity": "0.5",
+            "unitCode": "HUR",
+            "netPrice": "40.00",
+            "net": "20.00",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "78.00"
+      }
+    },
+    {
+      "name": "travel by time without a travel rate uses the technician's rate",
+      "input": {
+        "billingUnitMinutes": 30,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "TIME",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "TRAVEL",
+                "start": "2027-05-10T06:35:00Z",
+                "end": "2027-05-10T07:00:00Z",
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "TRAVEL",
+            "minutes": 30,
+            "quantity": "0.5",
+            "unitCode": "HUR",
+            "netPrice": "58.00",
+            "net": "29.00",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "29.00"
+      }
+    },
+    {
+      "name": "a flat travel amount per visit: one per report, travel times aren't billed",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "FLAT",
+        "travelFlatAmount": "35.00",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "TRAVEL",
+                "start": "2027-05-10T06:35:00Z",
+                "end": "2027-05-10T07:00:00Z",
+                "rate": "58.00"
+              },
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T07:30:00Z",
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          },
+          {
+            "id": "r2",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-11T07:00:00Z",
+                "end": "2027-05-11T07:45:00Z",
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 30,
+            "quantity": "0.5",
+            "unitCode": "HUR",
+            "netPrice": "58.00",
+            "net": "29.00",
+            "priceMissing": false,
+            "laborCost": true
+          },
+          {
+            "report": "r1",
+            "kind": "TRAVEL",
+            "quantity": "1",
+            "unitCode": "LS",
+            "netPrice": "35.00",
+            "net": "35.00",
+            "priceMissing": false,
+            "laborCost": true
+          },
+          {
+            "report": "r2",
+            "kind": "WORK",
+            "minutes": 45,
+            "quantity": "0.75",
+            "unitCode": "HUR",
+            "netPrice": "58.00",
+            "net": "43.50",
+            "priceMissing": false,
+            "laborCost": true
+          },
+          {
+            "report": "r2",
+            "kind": "TRAVEL",
+            "quantity": "1",
+            "unitCode": "LS",
+            "netPrice": "35.00",
+            "net": "35.00",
+            "priceMissing": false,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "142.50"
+      }
+    },
+    {
+      "name": "materials: quantity times net price; a free-text material without a price is marked",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [],
+            "materials": [
+              {
+                "description": "Kupferrohr 15 mm",
+                "quantity": "3.5",
+                "unitCode": "MTR",
+                "netPrice": "4.39"
+              },
+              {
+                "description": "Dichtung",
+                "quantity": "2",
+                "unitCode": "C62",
+                "netPrice": "0.125"
+              },
+              {
+                "description": "Kleinmaterial",
+                "quantity": "1",
+                "unitCode": "LS"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "MATERIAL",
+            "quantity": "3.5",
+            "unitCode": "MTR",
+            "netPrice": "4.39",
+            "net": "15.37",
+            "priceMissing": false,
+            "laborCost": false
+          },
+          {
+            "report": "r1",
+            "kind": "MATERIAL",
+            "quantity": "2",
+            "unitCode": "C62",
+            "netPrice": "0.125",
+            "net": "0.25",
+            "priceMissing": false,
+            "laborCost": false
+          },
+          {
+            "report": "r1",
+            "kind": "MATERIAL",
+            "quantity": "1",
+            "unitCode": "LS",
+            "netPrice": null,
+            "net": "0.00",
+            "priceMissing": true,
+            "laborCost": false
+          }
+        ],
+        "totalNet": "15.62"
+      }
+    },
+    {
+      "name": "no rate anywhere: the work line has no price and is marked",
+      "input": {
+        "billingUnitMinutes": 15,
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T08:00:00Z"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [
+          {
+            "report": "r1",
+            "kind": "WORK",
+            "minutes": 60,
+            "quantity": "1",
+            "unitCode": "HUR",
+            "netPrice": null,
+            "net": "0.00",
+            "priceMissing": true,
+            "laborCost": true
+          }
+        ],
+        "totalNet": "0.00"
+      }
+    },
+    {
+      "name": "an entry without time and a running timer are left out",
+      "input": {
+        "billingUnitMinutes": 15,
+        "defaultHourlyRate": "50.00",
+        "travelMode": "NONE",
+        "reports": [
+          {
+            "id": "r1",
+            "times": [
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T07:00:00Z",
+                "end": "2027-05-10T07:00:00Z",
+                "rate": "58.00"
+              },
+              {
+                "kind": "WORK",
+                "start": "2027-05-10T08:00:00Z",
+                "end": null,
+                "rate": "58.00"
+              }
+            ],
+            "materials": []
+          }
+        ]
+      },
+      "expected": {
+        "lines": [],
+        "totalNet": "0.00"
+      }
+    }
+  ]
+}

@@ -13,8 +13,7 @@ This folder is the single source for those rules' **test vectors**. It holds no 
 | Sync: deletes and edits of deleted records | [vectors/sync/delete.json](vectors/sync/delete.json), [vectors/sync/edit-deleted.json](vectors/sync/edit-deleted.json) | `de.erika.sync.ConflictRules` | `mobile/lib/domain/rules/conflict_rules.dart` | MARA Stage 5 |
 | The canonical report and its SHA-256 (what the customer signs) | [vectors/report/canonical.json](vectors/report/canonical.json) | `de.erika.reports.ReportCanonical` | `mobile/lib/domain/rules/report_canonical.dart` | MARA Stage 7 |
 | Sync: field merge (who wins a concurrent change) | [vectors/sync/field-merge.json](vectors/sync/field-merge.json) | `de.erika.sync.ConflictRules` | `mobile/lib/domain/rules/conflict_rules.dart` | MARA Stage 4 |
-
-Planned: invoice lines with rounding to the billing unit (Stage 8).
+| Invoice lines from reports (billing unit, rates, travel, materials) | [vectors/invoicing/lines.json](vectors/invoicing/lines.json) | `de.erika.reportinvoicing.ReportLineRules` | – (server only) | MARA Stage 8 |
 
 ## Vector format
 

@@ -6,7 +6,7 @@ export async function WorkOrdersNav({
   current,
   canEdit,
 }: {
-  current: "list" | "calendar" | "new" | null;
+  current: "list" | "calendar" | "new" | "invoicing" | null;
   canEdit: boolean;
 }) {
   const t = await getTranslations("WorkOrders");
@@ -14,6 +14,7 @@ export async function WorkOrdersNav({
     ["list", "/work-orders", t("list")],
     ["calendar", "/work-orders/calendar", t("calendar")],
     ...(canEdit ? [["new", "/work-orders/new", t("new")] as const] : []),
+    ...(canEdit ? [["invoicing", "/work-orders/invoicing", t("invoicing")] as const] : []),
   ] as const;
   return (
     <nav aria-label={t("title")} className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-sm">
