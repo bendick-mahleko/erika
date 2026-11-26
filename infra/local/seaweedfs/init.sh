@@ -8,6 +8,8 @@
 #                    lifecycle expiry after 8 days as a backstop
 #   $UPLOADS_BUCKET  quarantine for uploads before the virus scan: no lock, objects expire
 #                    after a day, CORS for the browser's pre-signed PUT (ADR 0023)
+#   $MEDIA_BUCKET    MARA photos after the virus scan, with thumbnails (ADR 0040): no lock,
+#                    no expiry
 set -eu
 for b in "$BUCKET" "${BACKUP_BUCKET:-erika-backups}"; do
   if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$b" 2>/dev/null; then
@@ -39,6 +41,14 @@ EOF
 aws --endpoint-url "$S3_ENDPOINT" s3api put-bucket-lifecycle-configuration --bucket "$EXPORTS" \
   --lifecycle-configuration file:///tmp/exports-lifecycle.json \
   || echo "Lifecycle rule not supported by this S3 implementation; skipped (the app deletes expired exports)"
+
+MEDIA="${MEDIA_BUCKET:-erika-media}"
+if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$MEDIA" 2>/dev/null; then
+  echo "Bucket $MEDIA exists"
+else
+  aws --endpoint-url "$S3_ENDPOINT" s3api create-bucket --bucket "$MEDIA"
+  echo "Bucket $MEDIA created"
+fi
 
 UPLOADS="${UPLOADS_BUCKET:-erika-uploads}"
 if aws --endpoint-url "$S3_ENDPOINT" s3api head-bucket --bucket "$UPLOADS" 2>/dev/null; then

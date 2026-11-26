@@ -322,7 +322,6 @@
   "checklistSection": "Checkliste",
   "yes": "Ja",
   "no": "Nein",
-  "photoItemLater": "Fotos folgen in einer späteren Version der App.",
   "workDescriptionSection": "Arbeitsbeschreibung",
   "dictationHint": "Tippen oder mit dem Mikrofon der Tastatur diktieren.",
   "highContrast": "Hoher Kontrast",
@@ -333,5 +332,42 @@
   "rejectedTimerRunning": "Der Bericht wurde nicht abgeschlossen: Ein Timer läuft noch.",
   "rejectedChecklistIncomplete": "Der Bericht wurde nicht abgeschlossen: Pflichtpunkte der Checkliste sind offen.",
   "fieldWorkDescription": "Arbeitsbeschreibung",
-  "fieldAnswer": "Antwort"
+  "fieldAnswer": "Antwort",
+  "photosSection": "Fotos",
+  "takePhoto": "Foto aufnehmen",
+  "photoBefore": "Vorher",
+  "photoAfter": "Nachher",
+  "photoDefect": "Mangel",
+  "photoOther": "Sonstiges",
+  "photoCaption": "Beschreibung (optional)",
+  "photoNotSent": "noch nicht gesendet",
+  "photoWaiting": "wartet auf Upload",
+  "photoUploading": "wird hochgeladen: {percent} %",
+  "@photoUploading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "photoChecking": "wird geprüft",
+  "photoStored": "gespeichert",
+  "photoRejectedVirus": "abgelehnt: Virus gefunden",
+  "photoRejectedNotImage": "abgelehnt: kein Foto",
+  "photoGone": "Dieses Foto gibt es nicht mehr.",
+  "photoHintTitle": "Bevor Sie fotografieren",
+  "photoHint": "Fotografieren Sie die Arbeit, nicht die Menschen: keine Personen, keine Ausweise oder Dokumente, keine Bildschirme. Die Fotos bleiben in der App und landen nicht in Ihrer Galerie.",
+  "photoHintShort": "Keine Personen oder Dokumente fotografieren.",
+  "understood": "Verstanden",
+  "photosWaitForWifi": "Fotos werden hochgeladen, sobald das Telefon im WLAN ist.",
+  "photosWifiOnly": "Fotos nur über WLAN hochladen",
+  "photosForItem": "{count, plural, =1{1 Foto} other{{count} Fotos}}",
+  "@photosForItem": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rejectedPhotoTooLarge": "Das Foto ist zu groß."
 }

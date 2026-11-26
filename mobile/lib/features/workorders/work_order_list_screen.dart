@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
+import '../../data/media/media_providers.dart';
 import '../../data/session/session.dart';
 import '../../data/sync/sync_providers.dart';
 import '../../l10n/gen/app_localizations.dart';
@@ -62,10 +63,17 @@ class WorkOrderListScreen extends ConsumerWidget {
                 ref.read(sessionProvider.notifier).lock();
               } else if (value == 'contrast') {
                 ref.read(highContrastProvider.notifier).toggle();
+              } else if (value == 'wifi') {
+                ref.read(wifiOnlyProvider.notifier).toggle();
               }
             },
             itemBuilder: (_) => [
               PopupMenuItem(value: 'info', child: Text(t.infoMenu)),
+              CheckedPopupMenuItem(
+                value: 'wifi',
+                checked: ref.read(wifiOnlyProvider),
+                child: Text(t.photosWifiOnly),
+              ),
               CheckedPopupMenuItem(
                 value: 'contrast',
                 checked: ref.read(highContrastProvider),

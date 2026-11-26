@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA mobile API (MARA job reports)
-  version: 0.4.0
+  version: 0.5.0
   summary: Endpoints for the MARA technician app (ADR 0036–0038)
   description: |
     Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
@@ -30,6 +30,8 @@ tags:
     description: Device sign-in, token renewal and sign-out (ADR 0037)
   - name: mobile-sync
     description: Push and pull of syncable records (ADR 0038)
+  - name: mobile-uploads
+    description: Resumable photo uploads with the tus protocol (MARA Stage 6, ADR 0040)
 paths:
   /mobile/status:
     get:
@@ -275,6 +277,67 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PullResult" }
         default: { $ref: "#/components/responses/Problem" }
+  /mobile/uploads/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/PhotoId"
+    head:
+      tags: [mobile-uploads]
+      operationId: headPhotoUpload
+      summary: How much of a photo's file the server has (tus core protocol)
+      description: |
+        The photo record comes first, through sync (`photo` with `sizeBytes` and `sha256`), so
+        the upload URL is known and needs no creation request. This answers the offset to
+        resume from. Once the file is complete (state other than `PENDING_FILE`),
+        `Upload-Offset` equals `Upload-Length`. 404 for a photo the app's user can't see or
+        that hasn't been synced yet.
+      parameters:
+        - $ref: "#/components/parameters/TusResumable"
+      responses:
+        "200":
+          description: The upload's state.
+          headers:
+            Tus-Resumable: { schema: { type: string, examples: ["1.0.0"] } }
+            Upload-Offset: { schema: { type: integer, format: int64 } }
+            Upload-Length: { schema: { type: integer, format: int64 } }
+            Cache-Control: { schema: { type: string, examples: ["no-store"] } }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [mobile-uploads]
+      operationId: patchPhotoUpload
+      summary: Append a chunk to a photo's file (tus core protocol)
+      description: |
+        The app sends the file in chunks of about 1 MB (at most 2 MB), each starting at the
+        current `Upload-Offset`. Answers:
+        - `204` with the new `Upload-Offset`;
+        - `409 UPLOAD_OFFSET_MISMATCH` when `Upload-Offset` isn't the server's offset (the app
+          asks with `HEAD` and resumes from there);
+        - `460 CHECKSUM_MISMATCH` when the complete file's SHA-256 differs from the photo
+          record's `sha256`: the parts are discarded, the offset is 0 again and the app uploads
+          the file again;
+        - `413 UPLOAD_TOO_LARGE` for a chunk over 2 MB or past `sizeBytes`.
+
+        When the last chunk arrives and the hash matches, the photo's state becomes `UPLOADED`
+        and a worker job scans it for viruses (fail closed), checks that it is a JPEG image and
+        makes a thumbnail; then the state is `STORED` (or `REJECTED`), and the phones learn it
+        through sync. Sending a chunk of a complete upload changes nothing (`204`).
+      parameters:
+        - $ref: "#/components/parameters/TusResumable"
+        - name: Upload-Offset
+          in: header
+          required: true
+          schema: { type: integer, format: int64, minimum: 0, examples: [0] }
+      requestBody:
+        required: true
+        content:
+          application/offset+octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "204":
+          description: Appended.
+          headers:
+            Tus-Resumable: { schema: { type: string } }
+            Upload-Offset: { schema: { type: integer, format: int64 } }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     deviceToken:
@@ -282,6 +345,18 @@ components:
       scheme: bearer
       description: Access token of a registered device (15 minutes; renewed with the refresh token, ADR 0037).
   parameters:
+    PhotoId:
+      name: photoId
+      in: path
+      required: true
+      description: The photo record's ID (made on the phone, UUIDv7).
+      schema: { type: string, format: uuid }
+    TusResumable:
+      name: Tus-Resumable
+      in: header
+      required: true
+      description: The tus protocol version; only `1.0.0` is supported (412 otherwise).
+      schema: { type: string, maxLength: 10, examples: ["1.0.0"] }
     AppVersion:
       name: X-App-Version
       in: header

@@ -23,6 +23,7 @@ object TestInfrastructure {
     const val BUCKET = "erika-originals"
     const val BACKUP_BUCKET = "erika-backups"
     const val UPLOADS_BUCKET = "erika-uploads"
+    const val MEDIA_BUCKET = "erika-media"
     const val DERIVED_BUCKET = "erika-derived"
     const val EXPORTS_BUCKET = "erika-exports"
 
@@ -93,6 +94,7 @@ object TestInfrastructure {
             "erika.storage.uploads-bucket" to UPLOADS_BUCKET,
             "erika.storage.derived-bucket" to DERIVED_BUCKET,
             "erika.storage.exports-bucket" to EXPORTS_BUCKET,
+            "erika.storage.media-bucket" to MEDIA_BUCKET,
             "erika.billing.stripe-api-base" to FakeStripe.baseUrl,
             "erika.intake.clamav.host" to clamav.host,
             "erika.intake.clamav.port" to clamav.getMappedPort(CLAMAV_PORT).toString(),
@@ -125,6 +127,7 @@ object TestInfrastructure {
                 s3.createBucket(CreateBucketRequest.builder().bucket(UPLOADS_BUCKET).build())
                 s3.createBucket(CreateBucketRequest.builder().bucket(DERIVED_BUCKET).build())
                 s3.createBucket(CreateBucketRequest.builder().bucket(EXPORTS_BUCKET).build())
+                s3.createBucket(CreateBucketRequest.builder().bucket(MEDIA_BUCKET).build())
             }
     }
 

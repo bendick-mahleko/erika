@@ -103,6 +103,8 @@ erika:
     derived-bucket: ${ERIKA_S3_DERIVED_BUCKET:erika-derived}
     # Export ZIPs (EX-01, EX-04): deleted by the app after 7 days; lifecycle expiry as a backstop.
     exports-bucket: ${ERIKA_S3_EXPORTS_BUCKET:erika-exports}
+    # MARA photos after the virus scan, with thumbnails (ADR 0040): no lock, no expiry.
+    media-bucket: ${ERIKA_S3_MEDIA_BUCKET:erika-media}
     # Endpoint for pre-signed upload URLs as the browser sees it; empty = same as endpoint.
     public-endpoint: ${ERIKA_S3_PUBLIC_ENDPOINT:}
   jobs:

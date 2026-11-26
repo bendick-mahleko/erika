@@ -7,6 +7,7 @@ import '../../data/sync/sync_store.dart';
 import '../../l10n/gen/app_localizations.dart';
 import 'aufmass_editor_screen.dart';
 import 'material_picker.dart';
+import 'photos.dart';
 import 'report_providers.dart';
 import 'time_entry_dialog.dart';
 
@@ -93,6 +94,8 @@ class ReportScreen extends ConsumerWidget {
           _MaterialsSection(view: view, editable: editable),
           const Divider(height: 32),
           _AufmassSection(view: view, editable: editable),
+          const Divider(height: 32),
+          PhotosSection(view: view, editable: editable),
           if (view.checklist.isNotEmpty) ...[
             const Divider(height: 32),
             _ChecklistSection(view: view, editable: editable),
@@ -402,7 +405,26 @@ class _ChecklistSection extends ConsumerWidget {
                         ? (s) => writer.answer(view.workOrder.id, item.key, s.firstOrNull)
                         : null,
                   ),
-                  'PHOTO' => Text(t.photoItemLater, style: Theme.of(context).textTheme.bodySmall),
+                  'PHOTO' => Row(
+                    children: [
+                      FilledButton.tonalIcon(
+                        key: Key('check-${item.key}-photo'),
+                        style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                        icon: const Icon(Icons.photo_camera),
+                        label: Text(t.takePhoto),
+                        onPressed: editable
+                            ? () => takePhoto(
+                                context,
+                                ref,
+                                workOrderId: view.workOrder.id,
+                                checklistItemKey: item.key,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      if (item.answered) Text(t.photosForItem(int.parse(item.value!))),
+                    ],
+                  ),
                   _ => _AnswerField(
                     key: Key('check-${item.key}-text'),
                     initial: item.value ?? '',

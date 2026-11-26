@@ -367,6 +367,123 @@ test.describe("MARA work orders (full stack)", () => {
     await expectAccessible(page);
   });
 
+  test("a photo taken on the phone is uploaded with tus, scanned and shown on the work order page", async ({
+    page,
+    browser,
+  }) => {
+    await signedInAccount(page, "e2e-mara-photo");
+    const tech = await technician(page, browser, "Gerd Glaser");
+    const techId = (await apiCall(page, "GET", "/api/v1/staff")).body.items.find(
+      (s: { displayName: string }) => s.displayName === "Gerd Glaser",
+    ).userId as string;
+    const customer = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/customers",
+        { name: `Familie Herbst ${unique()}`, countryCode: "DE", vatTreatment: "DOMESTIC" },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+    const order = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/work-orders",
+        { customerId: customer, title: "Fenster tauschen", assigneeIds: [techId] },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+
+    const phone = tech.page.request;
+    const credentials = { email: tech.email, password };
+    const secret = (
+      (await (await phone.post("/api/v1/mobile/auth/totp-enrolment", { data: credentials })).json()) as {
+        secret: string;
+      }
+    ).secret;
+    const login = await phone.post("/api/v1/mobile/auth/device-login", {
+      data: {
+        ...credentials,
+        code: totp(secret),
+        device: { name: "Pixel 8", platform: "ANDROID", appVersion: "0.5.0" },
+      },
+    });
+    const auth = {
+      Authorization: `Bearer ${((await login.json()) as { tokens: { accessToken: string } }).tokens.accessToken}`,
+    };
+
+    // The record first, through sync (M-MO-05, ADR 0040) ...
+    const jpeg = Buffer.from(
+      "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAwAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5qgs89q0ILDPatO0s844rbs7DOOK7Mvwn1qxjQx3L1MKDTM4+WtGDSc/w1uCFICF2b39B2+tTw208p6lR6LxXp1cLgaEvZNOc+qj09Xt+b8j6DCY6T1vYzI9JRQC+1R6nircen26kAsp+gz/KtWLTYoseaQpPbqavQW6n/VwE8dW45+lctWNCD5ZUoRfZ3k/ujZ/efSYTGt9TIjsLcYwrPn0Xp+dX4NPhP/LKT/vkf41rpayKFLmOIew6/nVuC2GQQ8z5/u5GP5VzVPYxnaUIrysl9ybcvw/A+kwuMfc880+zzjitowGCJdgG9uBx096s6XZ5xxWilp5t23Bwvyjj0/8Ar5p4DFToYFOl8c2op9u7+78Wj+bKGLvLUzLHTRjJAAHUmr0ULu22AbU6bscn/CtM2peQQp9xfvY7mrqW2391CPm6Mw7ew96iVeNGLpUnyxjo2t5P+WP6/olr9HhcXfVmVDZRQHaV3P8A3QK0IrWQruYiKP2/x65rRhshBtREDSeh6CrkVmFb94DJLx8vp/hXHKu6ScF7qW6Tsl5NrWT/ALq+5M+kwuLv1My2sl4EMWT6sOKvRW54Bctk5xEOn41pranAEnJ/55px+dXIrYqApwn+yg+b8/8A9VcU8Qqd0tEvkvSyaX/gTb8uh9LhcXexwel2oWMuRwoycVesbTyoDJtyQOPrV+ytStm5A7Y/PitFLPKwxgDk7j6/560UMU4UKTjvGF16yfKvxVz+bMNi7szLa08iAFQN7cLx+tXre08hVRF/eMMjjoPWtOO1BmZm+5EMf4/jmrdvasq7yP3sh44zispV1TaUHZR0T7JaNrzk9I/LsfR4XF3M2Cz2/uoR83RmHb2+tXbe0C/LFtVRwZD/AErShsto8tMBAMuw/lVyK1BCsykIPuJ3J9a4J4jlt0tppsl1Sfbu95PRH0uFxfmZsFoFX5B5cecb8cn6Vet7TYowvlqenGWP+H+ea04rJgecGTr7IKtw2v8AECRnqxHzN9P8/lXLPEOD7W+Vu/XS2l0mv70m9D6XC4vzP//Z",
+      "base64",
+    );
+    const report = derivedId(order, "report/1");
+    const photo = crypto.randomUUID();
+    const pushed = await phone.post("/api/v1/mobile/sync/push", {
+      headers: auth,
+      data: {
+        protocolVersion: 1,
+        mutations: [
+          {
+            mutationId: crypto.randomUUID(),
+            entity: "report",
+            entityId: report,
+            op: "CREATE",
+            values: { workOrderId: order },
+          },
+          {
+            mutationId: crypto.randomUUID(),
+            entity: "photo",
+            entityId: photo,
+            op: "CREATE",
+            values: {
+              reportId: report,
+              caption: "Altes Fenster",
+              category: "BEFORE",
+              takenAt: new Date().toISOString(),
+              sizeBytes: jpeg.length,
+              sha256: createHash("sha256").update(jpeg).digest("hex"),
+            },
+          },
+        ],
+      },
+    });
+    const results = ((await pushed.json()) as { results: { status: string }[] }).results;
+    expect(results.map((r) => r.status)).toEqual(["APPLIED", "APPLIED"]);
+
+    // ... the office sees a placeholder while the file is on its way ...
+    await page.goto(`/work-orders/${order}`);
+    await expect(page.getByTestId("photo-placeholder")).toHaveText("Wird vom Telefon hochgeladen …");
+
+    // ... then the file in two tus chunks; the worker scans it and makes the thumbnail.
+    const url = `/api/v1/mobile/uploads/photos/${photo}`;
+    const tus = { ...auth, "Tus-Resumable": "1.0.0" };
+    const head = await phone.fetch(url, { method: "HEAD", headers: tus });
+    expect(head.headers()["upload-offset"]).toBe("0");
+    const half = Math.floor(jpeg.length / 2);
+    for (const [offset, chunk] of [
+      [0, jpeg.subarray(0, half)],
+      [half, jpeg.subarray(half)],
+    ] as const) {
+      const r = await phone.fetch(url, {
+        method: "PATCH",
+        headers: { ...tus, "Upload-Offset": String(offset), "Content-Type": "application/offset+octet-stream" },
+        data: Buffer.from(chunk),
+      });
+      expect(r.status(), await r.text()).toBe(204);
+    }
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByTestId("photo-thumbnail")).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+    await expect(page.getByTestId("report-photos")).toContainText("Vorher: Altes Fenster");
+    await expect(page.getByTestId("report-photos")).toContainText("Gerd Glaser");
+    const thumbnail = await page.request.get(`/api/v1/photos/${photo}/thumbnail`);
+    expect(thumbnail.headers()["content-type"]).toBe("image/jpeg");
+    await expectAccessible(page);
+  });
+
   test("staff levels, staff settings and checklist templates", async ({ page, browser }) => {
     await signedInAccount(page, "e2e-mara-settings");
     await technician(page, browser, "Carla Monteurin");

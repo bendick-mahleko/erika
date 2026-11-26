@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config.dart';
 import '../local/database.dart';
+import '../media/media_providers.dart';
 import '../session/session.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
@@ -96,6 +97,10 @@ class SyncCoordinator extends Notifier<SyncStatus> {
       outcome: outcome,
       lastSuccess: outcome == SyncOutcome.done ? DateTime.now() : state.lastSuccess,
     );
+    // Photo files follow the records, never holding the sync up (ADR 0040).
+    if (outcome == SyncOutcome.done) {
+      unawaited(ref.read(uploadCoordinatorProvider.notifier).uploadNow());
+    }
     return outcome;
   }
 

@@ -44,6 +44,9 @@ internal class MaraFeatureGuard(
                 "/api/v1/devices",
                 "/api/v1/mobile/auth",
                 "/api/v1/mobile/devices",
+                // MARA Stage 6: photos and their uploads.
+                "/api/v1/photos",
+                "/api/v1/mobile/uploads",
             ).flatMap { listOf(it, "$it/**") }
     }
 }

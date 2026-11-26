@@ -11,6 +11,7 @@ import de.erika.workorders.ChecklistItemKind
 import de.erika.workorders.WorkOrderDirectory
 import de.erika.workorders.WorkOrderRef
 import de.erika.workorders.WorkOrdersChanged
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -131,6 +132,7 @@ internal class ReportSyncEntity(
     private val guard: ReportGuard,
     private val workOrders: WorkOrderDirectory,
     private val events: ApplicationEventPublisher,
+    private val media: ObjectProvider<ReportMedia>,
 ) : SyncEntity {
     override val name = NAME
 
@@ -225,7 +227,7 @@ internal class ReportSyncEntity(
         events.publishEvent(ReportsChanged(viewer.workspaceId, viewer.userId, NAME, id, change))
     }
 
-    /** Mandatory checklist items answered, no timer running (M-MO-07). Photo items follow in Stage 6. */
+    /** Mandatory checklist items answered (photo items: a photo exists, Stage 6), no timer running (M-MO-07). */
     private fun checkCompletable(
         report: Report,
         order: WorkOrderRef,
@@ -238,7 +240,16 @@ internal class ReportSyncEntity(
                 .filter { !it.value.isNullOrBlank() }
                 .map { it.itemKey }
                 .toSet()
-        val missing = items.filter { it.required && it.kind != ChecklistItemKind.PHOTO && it.key !in answered }
+        val photographed =
+            media
+                .orderedStream()
+                .toList()
+                .flatMap { it.answeredItems(report.id) }
+                .toSet()
+        val missing =
+            items.filter { item ->
+                item.required && item.key !in (if (item.kind == ChecklistItemKind.PHOTO) photographed else answered)
+            }
         if (missing.isNotEmpty()) throw SyncRejection("CHECKLIST_INCOMPLETE")
     }
 

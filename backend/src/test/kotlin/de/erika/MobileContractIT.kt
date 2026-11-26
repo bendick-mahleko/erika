@@ -50,6 +50,10 @@ class MobileContractIT : ApiIntegrationTest() {
         val example: Any?,
         /** Required query parameters with a valid value (the schema's minimum, else 1). */
         val query: String,
+        /** Required header parameters with a valid value (the schema's example or minimum). */
+        val headers: List<Pair<String, String>>,
+        /** The body's media type when it isn't JSON (e.g. tus chunks); an empty body is sent. */
+        val rawType: String?,
     )
 
     private data class Tenant(
@@ -65,8 +69,27 @@ class MobileContractIT : ApiIntegrationTest() {
         Tenant(userA, device(userA)) to Tenant(userB, device(userB))
     }
 
-    /** Tenant B's IDs per path parameter (none yet: Stage 4 adds work orders and sync). */
-    private val fixturesB: Map<String, String> by lazy { emptyMap() }
+    /** Tenant B's IDs per path parameter: a photo of B (MARA Stage 6), written directly. */
+    private val fixturesB: Map<String, String> by lazy {
+        val b = tenants.second.user
+        val report = UUID.randomUUID()
+        val photo = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO report (id, workspace_id, work_order_id, created_by) VALUES (?, ?, ?, ?)",
+            report,
+            b.workspaceId,
+            UUID.randomUUID(),
+            b.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO photo (id, workspace_id, report_id, author_id, taken_at, size_bytes, sha256) VALUES (?, ?, ?, ?, now(), 10, repeat('a', 64))",
+            photo,
+            b.workspaceId,
+            report,
+            b.userId,
+        )
+        mapOf("photoId" to photo.toString())
+    }
 
     private val markersB by lazy {
         val b = tenants.second
@@ -98,6 +121,14 @@ class MobileContractIT : ApiIntegrationTest() {
         return Phones(this).phone().apply { accessToken = token }
     }
 
+    /** A parameter, with `$ref`s to `components/parameters` resolved. */
+    @Suppress("UNCHECKED_CAST")
+    private fun resolve(parameter: Map<String, Any?>): Map<String, Any?> {
+        val ref = parameter["\$ref"] as String? ?: return parameter
+        val components = (spec["components"] as Map<String, Any?>)["parameters"] as Map<String, Map<String, Any?>>
+        return components.getValue(ref.substringAfterLast('/'))
+    }
+
     private fun operations(): List<Operation> {
         @Suppress("UNCHECKED_CAST")
         val paths = spec["paths"] as Map<String, Map<String, Any?>>
@@ -122,7 +153,25 @@ class MobileContractIT : ApiIntegrationTest() {
                             .filter { it["in"] == "query" && it["required"] == true }
                             .joinToString("&") { "${it["name"]}=${((it["schema"] as Map<String, Any?>?)?.get("minimum") ?: 1)}" }
                             .let { if (it.isEmpty()) "" else "?$it" }
-                    Operation(method.uppercase(), path, security != null && security.isEmpty(), example, query)
+
+                    @Suppress("UNCHECKED_CAST")
+                    val headers =
+                        (operation["parameters"] as List<Map<String, Any?>>?)
+                            .orEmpty()
+                            .map(::resolve)
+                            .filter { it["in"] == "header" && it["required"] == true }
+                            .map {
+                                val schema = it["schema"] as Map<String, Any?>?
+                                val value = (schema?.get("examples") as List<*>?)?.firstOrNull() ?: schema?.get("minimum") ?: "1"
+                                it["name"] as String to value.toString()
+                            }
+
+                    @Suppress("UNCHECKED_CAST")
+                    val rawType =
+                        ((operation["requestBody"] as Map<String, Any?>?)?.get("content") as Map<String, Any?>?)
+                            ?.keys
+                            ?.firstOrNull { it != "application/json" }
+                    Operation(method.uppercase(), path, security != null && security.isEmpty(), example, query, headers, rawType)
                 }
         }
     }
@@ -145,10 +194,12 @@ class MobileContractIT : ApiIntegrationTest() {
                 if (missing.isNotEmpty()) fail("$name: no tenant-B fixture for path parameter(s) $missing")
                 val pathB = params.fold(op.path) { p, param -> p.replace("{$param}", fixturesB.getValue(param)) }
 
-                val anonymous = Phones(this).phone().send(op.method, "/api/v1$pathB${op.query}", op.example)
+                val body: Any? = if (op.rawType != null) ByteArray(0) else op.example
+                val headers = (op.headers + listOfNotNull(op.rawType?.let { "Content-Type" to it })).toTypedArray()
+                val anonymous = Phones(this).phone().send(op.method, "/api/v1$pathB${op.query}", body, headers)
                 assertEquals(401, anonymous.status, "$name must need a token: $anonymous")
 
-                val response = phoneOf(tenants.first).send(op.method, "/api/v1$pathB${op.query}", op.example)
+                val response = phoneOf(tenants.first).send(op.method, "/api/v1$pathB${op.query}", body, headers)
                 if (params.isNotEmpty()) {
                     assertEquals(404, response.status, "$name with tenant B's IDs must answer 404: $response")
                 } else {

@@ -81,10 +81,19 @@ class FakeSyncServer implements SyncTransport {
       'unitCode': _lww,
     },
     'checklist_answer': {'reportId': _lww, 'itemKey': _lww, 'value': _lww},
+    'photo': {
+      'reportId': _lww,
+      'caption': _lww,
+      'category': _lww,
+      'checklistItemKey': _lww,
+      'takenAt': _lww,
+      'sizeBytes': _lww,
+      'sha256': _lww,
+    },
   };
 
   /// Child records the phone may delete.
-  static const deletable = {'time_entry', 'material_line', 'aufmass_position'};
+  static const deletable = {'time_entry', 'material_line', 'aufmass_position', 'photo'};
 
   /// Live (not deleted) data of a record.
   Map<String, dynamic>? data(String entity, String id) {
@@ -170,7 +179,8 @@ class FakeSyncServer implements SyncTransport {
         if (r == null) {
           final created = _ServerRecord(m.entity, {});
           _records[key] = created;
-          _write(created, m.values);
+          // The server's own fields: a photo's file is still to come.
+          _write(created, {...m.values, if (m.entity == 'photo') 'state': 'PENDING_FILE'});
           return MutationResultDto(mutationId: m.mutationId, status: 'APPLIED', record: _dto(key));
         }
         // Derived IDs: merged like an edit made without seeing the record.

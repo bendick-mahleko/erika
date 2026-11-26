@@ -223,8 +223,28 @@ class ReportsSyncIT : ApiIntegrationTest() {
             ),
         )
         f.device.change("report", report, mapOf("state" to "COMPLETED"))
+        assertEquals(
+            "CHECKLIST_INCOMPLETE",
+            f.device
+                .pushResults()[1]
+                .path("code")
+                .asString(),
+            "the photo item is open (Stage 6)",
+        )
+
+        // A photo for the item: its record is enough, the file may still be on its way.
+        val photo =
+            de.erika.support.TestPhotos
+                .jpeg(200, 150)
+        f.device.create(
+            "photo",
+            id(),
+            de.erika.support.TestPhotos
+                .record(report, photo, extra = mapOf("checklistItemKey" to "foto")),
+        )
+        f.device.change("report", report, mapOf("state" to "COMPLETED"))
         val done = f.device.pushResults()
-        assertTrue(done.all { it.path("status").asString() == "APPLIED" }, "photo items wait for Stage 6: $done")
+        assertTrue(done.all { it.path("status").asString() == "APPLIED" }, "$done")
         assertEquals("COMPLETED", f.device.record("report", report)!!.data["state"])
 
         val office = f.owner.get("/api/v1/work-orders/$order/report")

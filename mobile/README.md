@@ -4,6 +4,8 @@ The technician app of MARA, ERIKA's job-report add-on. Plan: [docs/mara/BUILD_PL
 
 **State (MARA Stage 5):** a whole job report on site, offline: times by timer or entered afterwards (several technicians), materials from the article list or free text (recent items in three taps), Aufmaß with deductions and formulas, checklists with mandatory items, a work description (typed or dictated with the keyboard). Completing the report needs the mandatory items and no running timer. There is a high-contrast mode in the menu.
 
+Stage 6: photos with caption and category (before, after, defect), also for checklist photo items. They are compressed on capture, kept only in the app's folder (not in the gallery, not in cloud backups) and uploaded with tus after each sync, resuming after interruptions; "Wi-Fi first" is in the menu.
+
 From Stage 4: the work orders sync with ERIKA in both directions (ADR 0038): today's and upcoming work orders, status and work notes, route and call, new work orders and customers on site, a conflict inbox. All of it works offline.
 
 From Stage 3: device sign-in with password and TOTP (2FA can be set up in the app), PIN or biometric unlock, lock after 5 minutes in the background, sign-out, and deletion of all local data when the device is revoked (ADR 0037). After unlocking, a status screen shows who is signed in, the server check and the encrypted database. Photos, the signature and the report PDF follow in Stages 6 and 7.
@@ -18,6 +20,7 @@ From Stage 3: device sign-in with password and TOTP (2FA can be set up in the ap
 | `lib/data/sync/` | sync protocol: `SyncStore` (records, outbox, inbox), `SyncEngine` (push, then pull), `SyncApi`, the `SyncCoordinator` that decides when to sync |
 | `lib/data/session/` | session state (`SessionController`), key vault (PIN-wrapped database key), keystore, biometrics and local files behind interfaces |
 | `lib/domain/rules/` | rules shared with the back end; tested against `../mara-rules/vectors/` |
+| `lib/data/media/` | photos: `PhotoFiles` (app folder), `TusTransport` (tus client), `PhotoUploader` (the queue), `UploadCoordinator` (after each sync, "Wi-Fi first") |
 | `lib/features/reports/` | the job report: times, materials, Aufmaß editor, checklist, description; `ReportWriter` creates the report (derived ID) on the first write |
 | `lib/features/` | screens and their Riverpod providers (screens never touch the database directly) |
 | `lib/l10n/` | `app_de.arb` (template, German first) and `app_en.arb`; same keys (checked by a test) |

@@ -159,9 +159,28 @@ class TenantIsolationIT : ApiIntegrationTest() {
             userB.workspaceId,
             userB.userId,
         )
+        // MARA Stage 6: a stored photo of B (its report written directly; the files don't matter here).
+        val reportB = UUID.randomUUID()
+        val photoB = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO report (id, workspace_id, work_order_id, created_by) VALUES (?, ?, ?::uuid, ?)",
+            reportB,
+            userB.workspaceId,
+            workOrderB,
+            userB.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO photo (id, workspace_id, report_id, author_id, taken_at, size_bytes, sha256, state) " +
+                "VALUES (?, ?, ?, ?, now(), 10, repeat('b', 64), 'STORED')",
+            photoB,
+            userB.workspaceId,
+            reportB,
+            userB.userId,
+        )
         fixturesB =
             mapOf(
                 "deviceId" to deviceB.toString(),
+                "photoId" to photoB.toString(),
                 "siteId" to siteB,
                 "staffLevelId" to staffLevelB,
                 "checklistTemplateId" to templateB,

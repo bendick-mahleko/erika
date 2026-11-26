@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:path/path.dart' as p;
@@ -91,14 +92,39 @@ class PlatformBiometricAuth implements BiometricAuth {
 abstract interface class LocalFiles {
   Future<File> databaseFile();
 
+  /// Photos taken in the app (MARA Stage 6): app-private, never in the gallery, excluded from
+  /// cloud backups (ADR 0040).
+  Future<Directory> photosDirectory();
+
   /// Deletes the database and every other file the app keeps (lost device, sign-out).
   Future<void> deleteAll();
 }
 
 class PlatformLocalFiles implements LocalFiles {
+  static const _channel = MethodChannel('mara/files');
+  var _excluded = false;
+
   @override
-  Future<File> databaseFile() async =>
-      File(p.join((await getApplicationSupportDirectory()).path, 'mara.sqlite'));
+  Future<File> databaseFile() async => File(p.join((await _appDirectory()).path, 'mara.sqlite'));
+
+  @override
+  Future<Directory> photosDirectory() async =>
+      Directory(p.join((await _appDirectory()).path, 'photos')).create(recursive: true);
+
+  /// Application Support, excluded from iCloud backups once per start (Android: the manifest
+  /// switches backups off).
+  Future<Directory> _appDirectory() async {
+    final dir = await getApplicationSupportDirectory();
+    if (!_excluded && Platform.isIOS) {
+      try {
+        await _channel.invokeMethod<bool>('excludeFromBackup', dir.path);
+        _excluded = true;
+      } on PlatformException {
+        // Tried again on the next start; the files stay app-private either way.
+      }
+    }
+    return dir;
+  }
 
   @override
   Future<void> deleteAll() async {

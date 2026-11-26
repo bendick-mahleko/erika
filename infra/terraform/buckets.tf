@@ -126,6 +126,26 @@ resource "aws_s3_bucket_lifecycle_configuration" "exports" {
   }
 }
 
+# MARA photos (ADR 0040): scanned photos and their thumbnails, until a signed report moves
+# them to the archive (Stage 7). Versioned so an accidental overwrite can be undone; no
+# lifecycle rule: photos stay until the app deletes them.
+resource "aws_s3_bucket" "media" {
+  provider = aws.primary
+  bucket   = "${var.bucket_prefix}-media"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_s3_bucket_versioning" "media" {
+  provider = aws.primary
+  bucket   = aws_s3_bucket.media.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 # --- backup (second location) ---------------------------------------------------------
 
 # pgBackRest repository: encrypted client-side; pgBackRest itself expires old backups, so

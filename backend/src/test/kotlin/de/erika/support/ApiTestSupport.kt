@@ -104,6 +104,19 @@ class TestClient(
         vararg headers: Pair<String, String>,
     ) = send("POST", path, body, headers)
 
+    /** A binary download (an image): status and bytes. */
+    fun getBytes(path: String): Pair<Int, ByteArray> {
+        val request =
+            HttpRequest
+                .newBuilder(URI.create("$baseUrl$path"))
+                .header("X-Forwarded-For", ip)
+                .header("User-Agent", "ERIKA test client")
+                .GET()
+                .build()
+        val response = http.send(request, HttpResponse.BodyHandlers.ofByteArray())
+        return response.statusCode() to response.body()
+    }
+
     fun put(
         path: String,
         body: Any?,

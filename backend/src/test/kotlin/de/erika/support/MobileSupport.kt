@@ -52,6 +52,9 @@ class MobileClient(
         val publisher =
             if (body == null) {
                 HttpRequest.BodyPublishers.noBody()
+            } else if (body is ByteArray) {
+                // Raw bytes (tus chunks); the caller sends the Content-Type.
+                HttpRequest.BodyPublishers.ofByteArray(body)
             } else {
                 builder.header("Content-Type", "application/json")
                 HttpRequest.BodyPublishers.ofString(if (body is String) body else json.writeValueAsString(body))

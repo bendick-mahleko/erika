@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mara/app/root.dart';
+import 'package:mara/data/media/media_providers.dart';
+import 'package:mara/data/media/photo_uploader.dart';
 import 'package:mara/data/sync/sync_engine.dart';
 import 'package:mara/data/sync/sync_providers.dart';
 import 'package:mara/domain/derived_id.dart';
@@ -105,11 +107,7 @@ void main() {
     expect(find.byKey(const Key('cannot-complete')), findsOneWidget);
     expect(find.textContaining('Ein Timer läuft noch'), findsOneWidget);
     expect(find.textContaining('Wasser abgestellt'), findsWidgets);
-    expect(
-      find.textContaining('Pflichtpunkt offen: Foto'),
-      findsNothing,
-      reason: 'photos follow in Stage 6',
-    );
+    expect(find.textContaining('Pflichtpunkt offen: Foto'), findsOneWidget, reason: 'Stage 6');
     await tap(tester, find.text('OK'));
 
     device.now = device.now.add(const Duration(minutes: 10));
@@ -156,6 +154,18 @@ void main() {
     );
     await tap(tester, find.byKey(const Key('save-description')));
 
+    // The photo item: a photo for it, taken offline, answers it (M-MO-05, M-MO-07).
+    await tap(tester, find.byKey(const Key('check-foto-photo')));
+    expect(
+      find.byKey(const Key('photo-hint')),
+      findsOneWidget,
+      reason: 'the privacy hint comes first (M-NF-08)',
+    );
+    await tap(tester, find.byKey(const Key('photo-hint-ok')));
+    await tester.enterText(find.byKey(const Key('photo-caption')), 'Typenschild');
+    await tap(tester, find.byKey(const Key('save-photo')));
+    expect(find.text('1 Foto'), findsOneWidget);
+
     await tap(tester, find.byKey(const Key('complete-report')));
     expect(find.byKey(const Key('report-completed')), findsOneWidget);
     expect(device.syncServer.data('report', reportId), isNull, reason: 'still offline');
@@ -192,7 +202,76 @@ void main() {
       '1,8',
     );
     expect(await (await container.read(syncStoreProvider.future))!.pending(), isEmpty);
+    final photo = server.all.singleWhere((r) => r.$1 == 'photo');
+    expect(photo.$3['checklistItemKey'], 'foto');
+    expect(photo.$3['caption'], 'Typenschild');
     await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(device.tusServer.completed, [
+      photo.$2,
+    ], reason: 'the file followed the record after the sync');
+  });
+
+  testWidgets('photos: taken, saved in the app, uploaded after the sync, then stored', (
+    tester,
+  ) async {
+    await signIn(tester);
+    await tap(tester, find.byKey(const Key('take-photo')));
+    await tap(tester, find.byKey(const Key('photo-hint-ok')));
+    await tap(tester, find.byKey(const Key('category-DEFECT')));
+    await tap(tester, find.byKey(const Key('save-photo')));
+    expect(find.text('noch nicht gesendet'), findsOneWidget);
+
+    // A second photo: the hint isn't shown again; cancelling the camera adds nothing.
+    device.nextPhoto = null;
+    await tap(tester, find.byKey(const Key('take-photo')));
+    expect(find.byKey(const Key('photo-hint')), findsNothing);
+    expect(find.text('noch nicht gesendet'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(tester.element(find.byType(ReportScreen)));
+    expect(await container.read(syncCoordinatorProvider.notifier).syncNow(), SyncOutcome.done);
+    await tester.pumpAndSettle();
+    await container.read(uploadCoordinatorProvider.notifier).uploadNow();
+    expect(device.tusServer.completed, hasLength(1));
+    await container.read(syncCoordinatorProvider.notifier).syncNow();
+    await tester.pumpAndSettle();
+    expect(find.text('gespeichert'), findsOneWidget);
+    final record = device.syncServer.all.singleWhere((r) => r.$1 == 'photo').$3;
+    expect(record['category'], 'DEFECT');
+
+    // Wi-Fi first: off Wi-Fi, a new photo waits.
+    device.nextPhoto = testJpeg;
+    device.onWifi = false;
+    await container.read(wifiOnlyProvider.notifier).toggle();
+    await tap(tester, find.byKey(const Key('take-photo')));
+    await tap(tester, find.byKey(const Key('save-photo')));
+    await container.read(syncCoordinatorProvider.notifier).syncNow();
+    await tester.pumpAndSettle();
+    expect(
+      await container.read(uploadCoordinatorProvider.notifier).uploadNow(),
+      UploadOutcome.skipped,
+    );
+    expect(find.textContaining('sobald das Telefon im WLAN ist'), findsOneWidget);
+    expect(device.tusServer.completed, hasLength(1));
+
+    // Deleted on the phone: gone on the server too.
+    await tap(
+      tester,
+      find.byKey(
+        Key(
+          'photo-${device.syncServer.all.singleWhere((r) => r.$1 == 'photo' && r.$3['category'] == 'DEFECT').$2}',
+        ),
+      ),
+    );
+    await tap(tester, find.byKey(const Key('delete-photo')));
+    await container.read(syncCoordinatorProvider.notifier).syncNow();
+    await tester.pumpAndSettle();
+    expect(
+      device.syncServer.all.where((r) => r.$1 == 'photo' && r.$3['category'] == 'DEFECT'),
+      isEmpty,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a material used before takes three taps', (tester) async {

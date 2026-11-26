@@ -4,9 +4,12 @@ import de.erika.contract.api.ReportsApi
 import de.erika.contract.model.AufmassDeduction
 import de.erika.contract.model.AufmassKind
 import de.erika.contract.model.ChecklistItemKind
+import de.erika.contract.model.PhotoCategory
+import de.erika.contract.model.PhotoState
 import de.erika.contract.model.ReportAufmassPosition
 import de.erika.contract.model.ReportChecklistItem
 import de.erika.contract.model.ReportMaterialLine
+import de.erika.contract.model.ReportPhoto
 import de.erika.contract.model.ReportState
 import de.erika.contract.model.ReportSummary
 import de.erika.contract.model.ReportTimeEntry
@@ -16,8 +19,10 @@ import de.erika.creator.ArticleDirectory
 import de.erika.identity.WorkspaceContacts
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.web.ErikaException
+import de.erika.reports.ReportMedia
 import de.erika.reports.ReportsRepository
 import de.erika.workorders.WorkOrderDirectory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.annotation.Profile
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -35,6 +40,7 @@ internal class ReportsController(
     private val workOrders: WorkOrderDirectory,
     private val people: WorkspaceContacts,
     private val articles: ArticleDirectory,
+    private val media: ObjectProvider<ReportMedia>,
 ) : ReportsApi {
     override fun getWorkOrderReport(workOrderId: UUID): ResponseEntity<WorkOrderReport> {
         val order =
@@ -58,13 +64,15 @@ internal class ReportsController(
                     materials = emptyList(),
                     aufmass = emptyList(),
                     checklist = checklist,
+                    photos = emptyList(),
                 ),
             )
         }
         val times = repo.timeEntriesOf(report.id)
         val materials = repo.materialsOf(report.id)
         val answers = repo.answersOf(report.id).associateBy { it.itemKey }
-        val names = people.displayNames(times.map { it.technicianId } + listOfNotNull(report.completedBy))
+        val photos = media.orderedStream().toList().flatMap { it.photos(report.id) }
+        val names = people.displayNames(times.map { it.technicianId } + photos.map { it.authorId } + listOfNotNull(report.completedBy))
         val articleRefs = articles.findAll(materials.mapNotNull { it.articleId })
         return ResponseEntity.ok(
             WorkOrderReport(
@@ -134,6 +142,21 @@ internal class ReportsController(
                             kind = ChecklistItemKind.forValue(it.kind.name),
                             required = it.required,
                             value = answers[it.key]?.value,
+                        )
+                    },
+                photos =
+                    photos.map {
+                        ReportPhoto(
+                            id = it.id,
+                            caption = it.caption,
+                            category = PhotoCategory.forValue(it.category),
+                            checklistItemKey = it.checklistItemKey,
+                            state = PhotoState.forValue(it.state),
+                            rejectReason = it.rejectReason?.let(ReportPhoto.RejectReason::forValue),
+                            takenAt = it.takenAt,
+                            authorName = names[it.authorId] ?: "?",
+                            width = it.width,
+                            height = it.height,
                         )
                     },
             ),

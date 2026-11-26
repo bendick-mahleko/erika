@@ -53,6 +53,7 @@ services:
       BUCKET: erika-originals
       BACKUP_BUCKET: erika-backups
       UPLOADS_BUCKET: erika-uploads
+      MEDIA_BUCKET: erika-media
       WEB_ORIGIN: http://localhost:${ERIKA_WEB_PORT:-3000}
     volumes: [./seaweedfs/init.sh:/init.sh:ro]
     entrypoint: ["/bin/sh", "/init.sh"]

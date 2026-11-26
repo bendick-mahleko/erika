@@ -349,7 +349,7 @@ class SyncFaultIT : ApiIntegrationTest() {
 
         // Child records the phone holds and hasn't deleted yet.
         fun live() =
-            (device.all("time_entry") + device.all("material_line")).filter { r ->
+            (device.all("time_entry") + device.all("material_line") + device.all("photo")).filter { r ->
                 r.data["reportId"] == report && device.outbox.none { it.entityId == r.id && it.op == "DELETE" }
             }
 
@@ -357,6 +357,17 @@ class SyncFaultIT : ApiIntegrationTest() {
             when (random.nextInt(11)) {
                 0 -> {
                     val day = random.nextInt(10)
+                    // MARA Stage 6: photo records go the same way (their files are tested in PhotoNetworkFaultIT).
+                    if (random.nextBoolean()) {
+                        val bytes = "foto ${random.nextInt()}".toByteArray()
+                        device.create(
+                            "photo",
+                            UUID.randomUUID().toString(),
+                            de.erika.support.TestPhotos
+                                .record(report, bytes, extra = mapOf("caption" to "Foto ${random.nextInt(1000)}")),
+                        )
+                        return@repeat
+                    }
                     device.create(
                         "time_entry",
                         UUID.randomUUID().toString(),
@@ -384,6 +395,8 @@ class SyncFaultIT : ApiIntegrationTest() {
                     live().randomOrNull(random)?.let { r ->
                         if (r.entity == "time_entry") {
                             device.change(r.entity, r.id, mapOf("note" to "Notiz ${random.nextInt(1000)}"))
+                        } else if (r.entity == "photo") {
+                            device.change(r.entity, r.id, mapOf("caption" to "Foto ${random.nextInt(1000)}"))
                         } else {
                             device.change(r.entity, r.id, mapOf("quantity" to "${random.nextInt(1, 99)}.${random.nextInt(1, 10)}"))
                         }
@@ -462,8 +475,14 @@ class SyncFaultIT : ApiIntegrationTest() {
         )
         val serverTimes = office.path("timeEntries").values().associateBy { it.path("id").asString() }
         val serverMaterials = office.path("materials").values().associateBy { it.path("id").asString() }
+        val serverPhotos = office.path("photos").values().associateBy { it.path("id").asString() }
         for ((id, e) in expected) {
-            val server = if (e.entity == "time_entry") serverTimes[id] else serverMaterials[id]
+            val server =
+                when (e.entity) {
+                    "time_entry" -> serverTimes[id]
+                    "photo" -> serverPhotos[id]
+                    else -> serverMaterials[id]
+                }
             val local = device.record(e.entity, id)
             if (e.deleted) {
                 assertEquals(null, server, "deleted ${e.entity} $id is gone on the server")
@@ -472,13 +491,14 @@ class SyncFaultIT : ApiIntegrationTest() {
             }
             checkNotNull(server) { "${e.entity} $id exists on the server" }
             checkNotNull(local) { "${e.entity} $id exists on the phone" }
-            for (field in listOf("note", "quantity", "description").filter { it in e.values }) {
+            for (field in listOf("note", "quantity", "description", "caption").filter { it in e.values }) {
                 assertEquals(e.values[field], server.path(field).takeIf { it.isString }?.asString(), "server $field of $id")
                 assertEquals(e.values[field], local.data[field], "phone $field of $id")
             }
         }
         assertEquals(expected.values.count { !it.deleted && it.entity == "time_entry" }, serverTimes.size, "no extra time entries")
         assertEquals(expected.values.count { !it.deleted && it.entity == "material_line" }, serverMaterials.size, "no extra materials")
+        assertEquals(expected.values.count { !it.deleted && it.entity == "photo" }, serverPhotos.size, "no extra photos")
     }
 
     @Test

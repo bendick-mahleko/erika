@@ -1171,7 +1171,9 @@
     "none": "Noch kein Bericht aufgenommen.",
     "states": {
       "OPEN": "In Arbeit",
-      "COMPLETED": "Abgeschlossen"
+      "COMPLETED": "Abgeschlossen",
+      "PENDING_FILE": "Wird vom Telefon hochgeladen …",
+      "UPLOADED": "Wird geprüft …"
     },
     "completedBy": "Abgeschlossen von {person} am {at}.",
     "times": "Zeiten",
@@ -1203,7 +1205,17 @@
       "LTR": "l",
       "HUR": "Std.",
       "LS": "pauschal"
-    }
+    },
+    "photos": "Fotos",
+    "download": "Foto herunterladen",
+    "categories": {
+      "BEFORE": "Vorher",
+      "AFTER": "Nachher",
+      "DEFECT": "Mangel",
+      "OTHER": "Sonstiges"
+    },
+    "rejectedVirus": "Abgelehnt: Virus gefunden",
+    "rejectedNotImage": "Abgelehnt: kein Foto"
   },
   "Staff": {
     "title": "Mitarbeitende und Stundensätze",

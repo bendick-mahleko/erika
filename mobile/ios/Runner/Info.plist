@@ -20,6 +20,8 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>NSCameraUsageDescription</key>
+	<string>MARA nimmt Fotos für den Arbeitsbericht auf. Sie bleiben in der App und landen nicht in Ihren Fotos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>MARA entsperrt mit Face ID die Daten auf diesem Gerät.</string>
 	<key>CFBundleName</key>

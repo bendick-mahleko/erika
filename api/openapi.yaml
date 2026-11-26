@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.10.0
+  version: 0.11.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -51,6 +51,8 @@ tags:
     description: Notes on concurrent changes from the MARA app (ADR 0038)
   - name: reports
     description: Job reports recorded in the MARA app (MARA Stage 5), read-only in the office
+  - name: photos
+    description: Photos of job reports from the MARA app (MARA Stage 6), read-only in the office
   - name: devices
     description: Phones signed in to the MARA app; the owner can revoke them (ADR 0037)
   - name: invitations
@@ -1822,6 +1824,35 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/WorkOrderReport" }
         default: { $ref: "#/components/responses/Problem" }
+  /photos/{photoId}/thumbnail:
+    get:
+      tags: [photos]
+      operationId: getPhotoThumbnail
+      summary: A photo's thumbnail (JPEG, long side 400 px)
+      description: Only for photos in state STORED (404 otherwise). Not cached by the browser.
+      parameters:
+        - $ref: "#/components/parameters/PhotoId"
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
+  /photos/{photoId}/file:
+    get:
+      tags: [photos]
+      operationId: getPhotoFile
+      summary: A photo as taken (JPEG, long side up to 2,048 px), as a download
+      parameters:
+        - $ref: "#/components/parameters/PhotoId"
+      responses:
+        "200":
+          description: The image, with attachment disposition.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
   /invoices:
     get:
       tags: [invoices]
@@ -2251,6 +2282,11 @@ components:
       schema: { type: string, format: uuid }
     WorkOrderId:
       name: workOrderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PhotoId:
+      name: photoId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -3293,7 +3329,7 @@ components:
         value: { type: string, description: "YES or NO for YES_NO items, text otherwise; missing when unanswered" }
     WorkOrderReport:
       type: object
-      required: [workOrderId, timeEntries, materials, aufmass, checklist]
+      required: [workOrderId, timeEntries, materials, aufmass, checklist, photos]
       properties:
         workOrderId: { type: string, format: uuid }
         report: { $ref: "#/components/schemas/ReportSummary" }
@@ -3309,6 +3345,33 @@ components:
         checklist:
           type: array
           items: { $ref: "#/components/schemas/ReportChecklistItem" }
+        photos:
+          type: array
+          items: { $ref: "#/components/schemas/ReportPhoto" }
+    PhotoState:
+      type: string
+      enum: [PENDING_FILE, UPLOADED, STORED, REJECTED]
+      description: |
+        PENDING_FILE: the record arrived, the file is still on its way from the phone;
+        UPLOADED: complete, waiting for the virus scan; STORED: scanned, with thumbnail;
+        REJECTED: a virus, or not a JPEG image (see `rejectReason`).
+    PhotoCategory:
+      type: string
+      enum: [BEFORE, AFTER, DEFECT, OTHER]
+    ReportPhoto:
+      type: object
+      required: [id, category, state, takenAt, authorName]
+      properties:
+        id: { type: string, format: uuid }
+        caption: { type: string }
+        category: { $ref: "#/components/schemas/PhotoCategory" }
+        checklistItemKey: { type: string, description: "The checklist item this photo answers, if any" }
+        state: { $ref: "#/components/schemas/PhotoState" }
+        rejectReason: { type: string, enum: [VIRUS, NOT_AN_IMAGE] }
+        takenAt: { type: string, format: date-time }
+        authorName: { type: string }
+        width: { type: integer, format: int32 }
+        height: { type: integer, format: int32 }
     Decimal:
       type: string
       pattern: "^-?[0-9]{1,12}(\\.[0-9]{1,4})?$"

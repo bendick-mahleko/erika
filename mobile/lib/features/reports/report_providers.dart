@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/session/session.dart';
 import '../../data/sync/sync_providers.dart';
 import '../../data/sync/sync_store.dart';
+import '../../data/media/media_providers.dart';
 import '../../domain/derived_id.dart';
+import '../../domain/uuid7.dart';
 import '../workorders/work_order_providers.dart';
 
 /*
@@ -35,6 +39,7 @@ final answerRecordsProvider = StreamProvider<List<LocalRecord>>(
   (ref) => _watch(ref, 'checklist_answer'),
 );
 final articleRecordsProvider = StreamProvider<List<LocalRecord>>((ref) => _watch(ref, 'article'));
+final photoRecordsProvider = StreamProvider<List<LocalRecord>>((ref) => _watch(ref, 'photo'));
 final staffRecordsProvider = StreamProvider<List<LocalRecord>>(
   (ref) => _watch(ref, 'staff_member'),
 );
@@ -92,6 +97,7 @@ class ReportView {
     required this.aufmass,
     required this.checklist,
     required this.staffNames,
+    required this.photos,
   });
 
   final WorkOrderView workOrder;
@@ -105,15 +111,18 @@ class ReportView {
   final List<ChecklistItemView> checklist;
   final Map<String, String> staffNames;
 
+  /// Photos (not deleted here), oldest first (M-MO-05).
+  final List<LocalRecord> photos;
+
   bool get completed => report?.text('state') == 'COMPLETED';
   String? get workDescription => report?.text('workDescription');
   bool get locked => workOrder.locked;
 
   List<LocalRecord> get runningTimers => times.where((t) => t.text('endedAt') == null).toList();
 
-  /// Mandatory items still open; photo items follow in Stage 6 and don't block yet (M-MO-07).
+  /// Mandatory items still open (M-MO-07); a photo item is answered by a photo for it.
   List<ChecklistItemView> get missingItems =>
-      checklist.where((i) => i.required && i.kind != 'PHOTO' && !i.answered).toList();
+      checklist.where((i) => i.required && !i.answered).toList();
 
   bool get completable => runningTimers.isEmpty && missingItems.isEmpty;
 }
@@ -140,6 +149,15 @@ final reportViewProvider = Provider.family<ReportView?, String>((ref, workOrderI
   final answers = {
     for (final a in _children(ref.watch(answerRecordsProvider), reportId)) a.text('itemKey'): a,
   };
+  final photos = _children(ref.watch(photoRecordsProvider), reportId);
+  // A photo item is answered by a photo for it that wasn't rejected (the file may still be on its way).
+  final photosPerItem = <String, int>{};
+  for (final p in photos) {
+    final key = p.text('checklistItemKey');
+    if (key != null && p.text('state') != 'REJECTED') {
+      photosPerItem[key] = (photosPerItem[key] ?? 0) + 1;
+    }
+  }
   final template = (ref.watch(templateRecordsProvider).value ?? const <LocalRecord>[])
       .where((t) => t.id == order.checklistTemplateId)
       .firstOrNull;
@@ -151,7 +169,9 @@ final reportViewProvider = Provider.family<ReportView?, String>((ref, workOrderI
         label: i['label'] as String,
         kind: i['kind'] as String,
         required: i['required'] == true,
-        value: answers[i['key']]?.text('value'),
+        value: i['kind'] == 'PHOTO'
+            ? (photosPerItem[i['key']] == null ? null : '${photosPerItem[i['key']]}')
+            : answers[i['key']]?.text('value'),
       ),
   ];
   return ReportView(
@@ -167,6 +187,7 @@ final reportViewProvider = Provider.family<ReportView?, String>((ref, workOrderI
       for (final s in ref.watch(staffRecordsProvider).value ?? const <LocalRecord>[])
         s.id: s.text('displayName') ?? '',
     },
+    photos: photos,
   );
 });
 
@@ -270,6 +291,33 @@ class ReportWriter {
     if (store == null) return;
     await store.delete(entity, id);
     _changed();
+  }
+
+  /// A photo just taken (M-MO-05): the file goes into the app's folder, the record (with size and
+  /// SHA-256) into the outbox; the uploader sends the file once the server has the record.
+  Future<String?> addPhoto(
+    String workOrderId,
+    Uint8List bytes, {
+    String? caption,
+    required String category,
+    String? checklistItemKey,
+  }) async {
+    final store = await _store();
+    final reportId = await ensureReport(workOrderId);
+    if (store == null || reportId == null) return null;
+    final id = uuid7();
+    final saved = await ref.read(photoFilesProvider).save(id, bytes);
+    await store.create('photo', {
+      'reportId': reportId,
+      'caption': caption,
+      'category': category,
+      'checklistItemKey': checklistItemKey,
+      'takenAt': ref.read(clockProvider)().toUtc().toIso8601String(),
+      'sizeBytes': saved.size,
+      'sha256': saved.sha256,
+    }, id: id);
+    _changed();
+    return id;
   }
 
   /// Answers a checklist item (the answer's ID is derived from report and item key).

@@ -45,4 +45,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0037](0037-mobile-sign-in-devices-tokens.md) | Mobile sign-in: devices, bearer tokens, 2FA at registration | Accepted (MARA Stage 3) |
 | [0038](0038-mara-sync-protocol.md) | MARA sync protocol: outbox, change feed, field versions | Accepted (MARA Stage 4) |
 | [0039](0039-technician-role.md) | The TECHNICIAN role | Accepted |
-| [0040](0040-mara-storage-and-retention.md) | MARA storage: device database, photos, signed reports and retention | Proposed (device part done in MARA Stage 1) |
+| [0040](0040-mara-storage-and-retention.md) | MARA storage: device database, photos, signed reports and retention | Proposed (device part MARA Stage 1, photos Stage 6) |

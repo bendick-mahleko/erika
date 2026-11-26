@@ -62,6 +62,7 @@ String _fieldName(AppLocalizations t, String? field) => switch (field) {
   'quantity' => t.quantityLabel,
   'description' => t.descriptionLabel,
   'note' => t.noteLabel,
+  'caption' => t.photoCaption,
   _ => field ?? '',
 };
 
@@ -76,6 +77,7 @@ String inboxText(AppLocalizations t, InboxEntry e) {
       'NOT_AUTHOR' => t.rejectedNotAuthor,
       'TIMER_RUNNING' => t.rejectedTimerRunning,
       'CHECKLIST_INCOMPLETE' => t.rejectedChecklistIncomplete,
+      'PHOTO_TOO_LARGE' => t.rejectedPhotoTooLarge,
       _ => t.rejectedOther(e.code ?? ''),
     };
   }

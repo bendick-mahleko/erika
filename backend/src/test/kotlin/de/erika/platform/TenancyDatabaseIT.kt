@@ -304,6 +304,13 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             report,
             user.userId,
         )
+        // MARA Stage 6: a photo of the report.
+        TestDatabase.update(
+            "INSERT INTO photo (id, workspace_id, report_id, author_id, taken_at, size_bytes, sha256) VALUES (gen_random_uuid(), ?, ?, ?, now(), 10, repeat('c', 64))",
+            user.workspaceId,
+            report,
+            user.userId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

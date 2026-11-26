@@ -62,6 +62,8 @@ data class StorageProperties(
      * rule removes anything left over.
      */
     val exportsBucket: String = "erika-exports",
+    /** MARA photos after the virus scan, and their thumbnails (ADR 0040): no lock, no expiry. */
+    val mediaBucket: String = "erika-media",
     /**
      * Endpoint the browser uses for pre-signed upload URLs, when it differs from [endpoint]
      * (locally the API reaches S3 as `http://s3:8333`, the browser as `http://localhost:9000`).

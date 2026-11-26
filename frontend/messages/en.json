@@ -1171,7 +1171,9 @@
     "none": "No report recorded yet.",
     "states": {
       "OPEN": "In progress",
-      "COMPLETED": "Completed"
+      "COMPLETED": "Completed",
+      "PENDING_FILE": "Uploading from the phone …",
+      "UPLOADED": "Being checked …"
     },
     "completedBy": "Completed by {person} on {at}.",
     "times": "Times",
@@ -1203,7 +1205,17 @@
       "LTR": "l",
       "HUR": "h",
       "LS": "lump sum"
-    }
+    },
+    "photos": "Photos",
+    "download": "Download photo",
+    "categories": {
+      "BEFORE": "Before",
+      "AFTER": "After",
+      "DEFECT": "Defect",
+      "OTHER": "Other"
+    },
+    "rejectedVirus": "Refused: virus found",
+    "rejectedNotImage": "Refused: not a photo"
   },
   "Staff": {
     "title": "Staff and hourly rates",

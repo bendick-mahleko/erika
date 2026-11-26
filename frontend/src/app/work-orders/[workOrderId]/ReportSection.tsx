@@ -153,6 +153,46 @@ export async function ReportSection({ report }: { report: WorkOrderReport }) {
         </div>
       )}
 
+      {report.photos.length > 0 && (
+        <div>
+          <h3 className="font-medium">{t("photos")}</h3>
+          <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="report-photos">
+            {report.photos.map((p) => {
+              const label = [t(`categories.${p.category}`), p.caption].filter(Boolean).join(": ");
+              return (
+                <li key={p.id} className="space-y-1 text-sm">
+                  {p.state === "STORED" ? (
+                    <a href={`/api/v1/photos/${p.id}/file`} title={t("download")}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- served by the API with the session cookie */}
+                      <img
+                        src={`/api/v1/photos/${p.id}/thumbnail`}
+                        alt={label}
+                        loading="lazy"
+                        className="aspect-[4/3] w-full rounded border border-slate-200 object-cover"
+                        data-testid="photo-thumbnail"
+                      />
+                    </a>
+                  ) : (
+                    <div
+                      className="flex aspect-[4/3] w-full items-center justify-center rounded border border-dashed border-slate-400 bg-slate-50 p-2 text-center text-slate-600"
+                      data-testid="photo-placeholder"
+                    >
+                      {p.state === "REJECTED"
+                        ? t(p.rejectReason === "VIRUS" ? "rejectedVirus" : "rejectedNotImage")
+                        : t(`states.${p.state}`)}
+                    </div>
+                  )}
+                  <p>{label}</p>
+                  <p className="text-slate-600">
+                    {p.authorName}, {day(p.takenAt)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {summary?.workDescription && (
         <div>
           <h3 className="font-medium">{t("workDescription")}</h3>
