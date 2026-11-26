@@ -703,6 +703,7 @@
     "vatId": "VAT ID",
     "email": "Email for invoices",
     "contactName": "Contact person",
+    "phone": "Phone",
     "buyerReference": "Buyer reference (for XRechnung)",
     "vatTreatment": "VAT",
     "preferredFormat": "Preferred format",
@@ -1142,7 +1143,24 @@
     "moveToLabel": "Move {title} to",
     "moved": "“{title}” is now with {name}.",
     "noOrdersDay": "No work orders on this day.",
-    "loading": "Loading …"
+    "loading": "Loading …",
+    "fromApp": "From the MARA app",
+    "workNotes": "Technicians’ work notes",
+    "conflictsTitle": "Concurrent changes",
+    "conflictsIntro": "The office and a phone changed the same field at the same time. Planning comes from the office; status and notes come from the phone.",
+    "conflictDeviceWon": "{field}: {person} entered “{app}” in the app, and that applies. The office had “{office}”.",
+    "conflictServerWon": "{field}: the office had “{office}”, and that applies. {person} had entered “{app}” in the app.",
+    "syncFields": {
+      "status": "Status",
+      "workNotes": "Work notes",
+      "title": "Short description",
+      "description": "Description",
+      "plannedFrom": "Start",
+      "plannedTo": "End",
+      "assigneeIds": "Assigned",
+      "customerId": "Customer",
+      "siteId": "Site"
+    }
   },
   "Staff": {
     "title": "Staff and hourly rates",

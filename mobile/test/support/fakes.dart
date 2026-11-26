@@ -1,13 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show DatabaseConnection;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mara/data/api/auth_api.dart';
+import 'package:mara/data/local/database.dart';
 import 'package:mara/data/session/device_platform.dart';
 import 'package:mara/data/session/key_vault.dart';
 import 'package:mara/data/session/session.dart';
+import 'package:mara/data/sync/sync_providers.dart';
+
+import 'fake_sync_server.dart';
 
 /// A scriptable ERIKA server for the mobile endpoints (api/mobile.yaml).
 class FakeServer {
@@ -118,6 +124,7 @@ class TestDevice {
   final files = FakeLocalFiles();
   final biometrics = FakeBiometrics();
   DateTime now = DateTime.now();
+  final syncServer = FakeSyncServer();
 
   List<Override> get overrides => [
     authApiProvider.overrideWithValue(server.api),
@@ -126,5 +133,18 @@ class TestDevice {
     localFilesProvider.overrideWithValue(files),
     biometricAuthProvider.overrideWithValue(biometrics),
     clockProvider.overrideWithValue(() => now),
+    syncTransportProvider.overrideWithValue(syncServer),
+    syncIntervalProvider.overrideWithValue(null),
+    // In memory and in this isolate, so widget tests' fake time works; SQLCipher itself is
+    // covered by the database and sync tests.
+    appDatabaseProvider.overrideWith((ref) async {
+      final session = ref.watch(sessionProvider).value;
+      if (session is! Unlocked && session is! ReauthRequired) return null;
+      final db = AppDatabase(
+        DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true),
+      );
+      ref.onDispose(db.close);
+      return db;
+    }),
   ];
 }

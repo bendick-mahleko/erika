@@ -7,6 +7,7 @@ import de.erika.contract.mobile.model.DeviceUser
 import de.erika.contract.mobile.model.MobileRole
 import de.erika.contract.mobile.model.MobileStatus
 import de.erika.contract.mobile.model.ProtocolVersions
+import de.erika.contract.mobile.model.PushToken
 import de.erika.identity.MobileDevices
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
@@ -37,6 +38,11 @@ internal class MobileStatusController(
     private val devices: MobileDevices,
     private val clock: Clock = Clock.systemUTC(),
 ) : MobileApi {
+    override fun setPushToken(pushToken: PushToken): ResponseEntity<Unit> {
+        devices.setPushToken(checkNotNull(ErikaPrincipal.current().deviceId), pushToken.token.trim())
+        return ResponseEntity.noContent().build()
+    }
+
     override fun getDeviceStatus(xAppVersion: String?): ResponseEntity<DeviceStatus> {
         val principal = ErikaPrincipal.current()
         val deviceId = checkNotNull(principal.deviceId) { "device request without a device" }

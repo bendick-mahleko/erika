@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA mobile API (MARA job reports)
-  version: 0.2.0
+  version: 0.3.0
   summary: Endpoints for the MARA technician app (ADR 0036–0038)
   description: |
     Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
@@ -28,6 +28,8 @@ tags:
     description: App and device status
   - name: mobile-auth
     description: Device sign-in, token renewal and sign-out (ADR 0037)
+  - name: mobile-sync
+    description: Push and pull of syncable records (ADR 0038)
 paths:
   /mobile/status:
     get:
@@ -170,6 +172,93 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/DeviceStatus" }
         default: { $ref: "#/components/responses/Problem" }
+  /mobile/devices/me/push-token:
+    put:
+      tags: [mobile]
+      operationId: setPushToken
+      summary: Register the app's push token for "sync now" messages
+      description: |
+        The server sends data-only messages without personal data (`{"type": "sync"}`) when
+        something in the workspace changed (ADR 0038). The token is deleted with the device.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushToken" }
+            example: { token: "fcm-registration-token-from-the-app" }
+      responses:
+        "204": { description: Saved. }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/sync/push:
+    post:
+      tags: [mobile-sync]
+      operationId: syncPush
+      summary: Send the outbox (up to 200 mutations, in order)
+      description: |
+        Each mutation is applied in its own savepoint. A mutation ID that was applied before
+        (within 30 days) gets its stored result again and changes nothing, so a resend after a
+        timeout is safe.
+
+        Updates carry the version of each changed field as the phone saw it (`baseVersions`).
+        A field the server changed since then is a conflict, decided by the field's rule:
+        planning fields of work orders keep the server value (office wins); status and work
+        notes take the phone's value (technician wins); customer data takes the later write
+        with a note to the office. Results:
+        - `APPLIED`: `record` is the server's current record;
+        - `CONFLICT`: some fields were decided against one side; `conflicts` lists them and
+          `record` is the server's current record;
+        - `REJECTED`: a rule was broken (`code`, e.g. `WORK_ORDER_LOCKED`, `NOT_IN_SCOPE`,
+          `FIELD_NOT_ALLOWED`); nothing changed and the phone reverts its change.
+
+        `426 PROTOCOL_UNSUPPORTED` when `protocolVersion` is outside the supported range.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushRequest" }
+            example:
+              protocolVersion: 1
+              mutations:
+                - mutationId: "0193a5f0-7d2c-7b4e-9a10-2c4d5e6f7a8b"
+                  entity: work_order
+                  entityId: "0193a5f0-11aa-7c3d-8e9f-0a1b2c3d4e5f"
+                  op: UPDATE
+                  values: { status: IN_PROGRESS }
+                  baseVersions: { status: 41 }
+      responses:
+        "200":
+          description: One result per mutation, in order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushResult" }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/sync/pull:
+    get:
+      tags: [mobile-sync]
+      operationId: syncPull
+      summary: Changes since the cursor (up to 500 records), within the user's scope
+      description: |
+        Records are the current state, in change order. A record that left the user's scope
+        (e.g. a work order assigned to someone else) arrives as a removal. Start with no
+        cursor; repeat with `nextCursor` while `hasMore`. The phone keeps its own pending
+        changes on top until their push result arrives.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: "`nextCursor` of the previous pull; empty for the first."
+          schema: { type: string, maxLength: 40, pattern: "^[0-9]*$" }
+        - name: protocolVersion
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PullResult" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     deviceToken:
@@ -309,6 +398,108 @@ components:
         minAppVersion: { type: string }
         appUpdate: { $ref: "#/components/schemas/AppUpdate" }
         serverTime: { type: string, format: date-time }
+    PushToken:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 4096 }
+    MutationOp:
+      type: string
+      enum: [CREATE, UPDATE]
+    Mutation:
+      type: object
+      required: [mutationId, entity, entityId, op, values]
+      properties:
+        mutationId:
+          type: string
+          format: uuid
+          description: Made on the phone (UUIDv7) when the change was saved; the same on every resend.
+        entity: { type: string, maxLength: 40, examples: [work_order] }
+        entityId: { type: string, format: uuid }
+        op: { $ref: "#/components/schemas/MutationOp" }
+        values:
+          type: object
+          additionalProperties: true
+          description: The changed fields (all fields for CREATE).
+        baseVersions:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+          description: For UPDATE, the version of each changed field as the phone saw it.
+    PushRequest:
+      type: object
+      required: [protocolVersion, mutations]
+      properties:
+        protocolVersion: { type: integer, format: int32, minimum: 1 }
+        mutations:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/Mutation" }
+    MutationStatus:
+      type: string
+      enum: [APPLIED, CONFLICT, REJECTED]
+    ConflictWinner:
+      type: string
+      enum: [SERVER, DEVICE]
+    FieldConflict:
+      type: object
+      required: [field, winner]
+      properties:
+        field: { type: string }
+        serverValue: { description: The server's value before this mutation (any JSON value). }
+        deviceValue: { description: The phone's value (any JSON value). }
+        winner: { $ref: "#/components/schemas/ConflictWinner" }
+    SyncRecord:
+      type: object
+      required: [entity, id, version, fieldVersions, data]
+      properties:
+        entity: { type: string }
+        id: { type: string, format: uuid }
+        version:
+          type: integer
+          format: int64
+          description: Sequence number of the record's last change.
+        fieldVersions:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        data:
+          type: object
+          additionalProperties: true
+    MutationResult:
+      type: object
+      required: [mutationId, status]
+      properties:
+        mutationId: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/MutationStatus" }
+        record: { $ref: "#/components/schemas/SyncRecord" }
+        conflicts:
+          type: array
+          items: { $ref: "#/components/schemas/FieldConflict" }
+        code: { type: string }
+    PushResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/MutationResult" }
+    SyncRemoval:
+      type: object
+      required: [entity, id]
+      properties:
+        entity: { type: string }
+        id: { type: string, format: uuid }
+    PullResult:
+      type: object
+      required: [records, removals, nextCursor, hasMore]
+      properties:
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/SyncRecord" }
+        removals:
+          type: array
+          items: { $ref: "#/components/schemas/SyncRemoval" }
+        nextCursor: { type: string }
+        hasMore: { type: boolean }
     Problem:
       type: object
       description: RFC 9457 problem details with ERIKA's stable error code.

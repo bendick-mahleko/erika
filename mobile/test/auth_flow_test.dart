@@ -7,6 +7,8 @@ import 'package:mara/app/root.dart';
 import 'package:mara/data/api/status_api.dart';
 import 'package:mara/features/auth/pin_screens.dart';
 import 'package:mara/features/status/status_providers.dart';
+import 'package:mara/features/workorders/work_order_detail_screen.dart';
+import 'package:mara/features/workorders/work_order_list_screen.dart';
 import 'package:mara/l10n/gen/app_localizations.dart';
 
 import 'support/fakes.dart';
@@ -47,6 +49,13 @@ void main() {
     ),
   );
 
+  Future<void> openInfo(WidgetTester tester) async {
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Info und Gerät'));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> enterCredentials(WidgetTester tester) async {
     await tester.enterText(find.byKey(const Key('email')), 'anna@example.test');
     await tester.enterText(find.byKey(const Key('password')), 'ein langer Satz');
@@ -85,6 +94,8 @@ void main() {
 
   testWidgets('sign in with password and TOTP, choose a PIN, see who is signed in', (tester) async {
     await signedInAndUnlocked(tester);
+    expect(find.byType(WorkOrderListScreen), findsOneWidget, reason: 'the work orders come first');
+    await openInfo(tester);
     expect(find.byKey(const Key('account')), findsOneWidget);
     expect(find.text('Anna Geselle'), findsOneWidget);
     expect(find.text('Techniker/in'), findsOneWidget);
@@ -146,7 +157,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('account')), findsOneWidget, reason: 'two minutes: still open');
+    expect(find.byType(WorkOrderListScreen), findsOneWidget, reason: 'two minutes: still open');
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
@@ -158,6 +169,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LockScreen), findsOneWidget);
     expect(find.text('Hallo Anna Geselle'), findsOneWidget);
+    expect(
+      find.byType(WorkOrderListScreen),
+      findsNothing,
+      reason: 'nothing stays open over the lock',
+    );
     expect(device.biometrics.prompts, 1, reason: 'biometrics offered right away');
 
     await tester.enterText(find.byKey(const Key('pin')), '111111');
@@ -167,7 +183,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('pin')), '482913');
     await tester.tap(find.text('Entsperren'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('account')), findsOneWidget);
+    expect(find.byType(WorkOrderListScreen), findsOneWidget);
   });
 
   testWidgets('lost device: revoked in the web app, the next contact deletes the local data', (
@@ -193,6 +209,7 @@ void main() {
 
   testWidgets('sign-out asks first, then deletes the local data', (tester) async {
     await signedInAndUnlocked(tester);
+    await openInfo(tester);
     device.server.routes['POST /api/v1/mobile/auth/logout'] = (_) => FakeServer.json({}, 204);
     await tester.tap(find.byKey(const Key('sign-out')));
     await tester.pumpAndSettle();
@@ -209,6 +226,78 @@ void main() {
       findsOneWidget,
     );
     expect(device.server.calls('POST /api/v1/mobile/auth/logout'), hasLength(1));
+  });
+
+  testWidgets('office work orders appear; a status change on site reaches the server', (
+    tester,
+  ) async {
+    final today = DateTime.now();
+    final at9 = DateTime(today.year, today.month, today.day, 9).toUtc().toIso8601String();
+    device.syncServer
+      ..officeWrite('customer', 'c1', {
+        'name': 'Familie Keller',
+        'street': 'Gartenweg 3',
+        'postalCode': '04109',
+        'city': 'Leipzig',
+        'phone': '0341 123456',
+      })
+      ..officeWrite('work_order', 'wo1', {
+        'title': 'Heizung warten',
+        'status': 'PLANNED',
+        'customerId': 'c1',
+        'plannedFrom': at9,
+      });
+    final launched = <Uri>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...device.overrides,
+          externalLauncherProvider.overrideWithValue((uri) async {
+            launched.add(uri);
+            return true;
+          }),
+        ],
+        retry: (_, _) => null,
+        child: MaterialApp(
+          locale: const Locale('de'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const MaraRoot(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    device.server.routes['POST /api/v1/mobile/auth/device-login'] = (_) =>
+        FakeServer.json(FakeServer.session());
+    await tester.enterText(find.byKey(const Key('email')), 'anna@example.test');
+    await tester.enterText(find.byKey(const Key('password')), 'ein langer Satz');
+    await tester.tap(find.text('Weiter'));
+    await tester.pumpAndSettle();
+    await choosePin(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Heute'), findsOneWidget);
+    expect(find.text('Heizung warten'), findsOneWidget);
+    await tester.tap(find.text('Heizung warten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Gartenweg 3, 04109 Leipzig'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('route')));
+    await tester.tap(find.byKey(const Key('call')));
+    expect(launched.map((u) => u.scheme), ['geo', 'tel']);
+    expect(launched.last.path, '0341123456');
+
+    await tester.tap(find.text('In Arbeit'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('pending')),
+      findsOneWidget,
+      reason: 'saved on the phone, not yet sent',
+    );
+    await tester.pump(const Duration(seconds: 3)); // the sync a moment after the change
+    await tester.pumpAndSettle();
+    expect(device.syncServer.data('work_order', 'wo1')!['status'], 'IN_PROGRESS');
+    expect(find.byKey(const Key('pending')), findsNothing);
   });
 
   test('simple PINs are refused', () {

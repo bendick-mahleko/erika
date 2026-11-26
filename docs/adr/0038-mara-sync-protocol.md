@@ -1,6 +1,6 @@
 # 0038. MARA sync protocol: outbox, change feed, field versions
 
-- Status: Proposed (status endpoint in MARA Stage 1; protocol in Stage 4)
+- Status: Accepted (status endpoint in MARA Stage 1; protocol in Stage 4)
 - Date: 2026-11-25
 
 ## Context
@@ -32,6 +32,49 @@ Technicians work offline. Changes must reach the server, and office changes must
 - **Tests.**
   - Shared JSON vectors for push/pull in `mara-rules/`.
   - Fault injection with toxiproxy and property-based tests: disconnects, timeouts after commit, duplicate and out-of-order requests, concurrent edits, clock skew. There must be no loss or duplicate in 10,000 runs: a smaller count on every build, the full count nightly.
+
+## Implementation (MARA Stage 4)
+- **One feed, published by `sync`.** Modules make records syncable by implementing `sync.SyncEntity` (`load`, `view`, `create`, `update`, a `FieldPolicy` per writable field) and call `sync.ChangeFeed.changed` in the changing transaction. In practice they do this from a listener on their own audit events (`WorkOrdersChanged`, `MasterDataChanged`), so office edits in the web app and app edits take the same path. `sync` never reads other modules' tables.
+- **`change_log`: one row per record, not a history.**
+  - The row holds the sequence number of the record's last change and, per field, `[version, sha256 of the value]`. A field's version is the sequence number of the change that last changed its value. Values are compared by hash, so the feed stores no customer data.
+  - A pull returns the records' current state in sequence order.
+  - The counter is the workspace's row in `sync_counter`, locked by `INSERT … ON CONFLICT DO UPDATE … RETURNING` until commit.
+  - Each record gets its own number, so a page boundary never splits one number.
+- **First sync of a workspace.** Records written before the feed existed are entered once, at the first push or pull (`sync_counter.bootstrapped`), because field hashes are computed in code.
+- **Entities in Stage 4:**
+  - `work_order`: create and update;
+  - `customer`: create and update, last writer wins with a note;
+  - read-only: `site`, `checklist_template`, `staff_level` (rate only with price visibility) and `article` (net price only with price visibility).
+- **Writing from the app.**
+  - Technicians create work orders (they are assigned automatically) and customers.
+  - On existing work orders they change only `status` and `workNotes`; other fields are rejected with `FIELD_NOT_ALLOWED`.
+  - Owners and members may change planning fields from the app too; on a conflict the server's value stays.
+  - A technician's new work order sends the office an email.
+- **Wire format.** Times are UTC instants and decimals are strings. A field missing from `data` is null.
+- **Scope.**
+  - Owners and members see every work order; technicians see the ones assigned to them or created by them.
+  - Finished work orders (done, cancelled, signed, invoiced) that ended more than 30 days ago leave the phones.
+  - There is **no upper limit of 60 days**: a work order that moves into such a window over time causes no change, so it would never arrive.
+  - A record that leaves the scope arrives as a removal.
+- **No deletable entities yet.** Work orders are cancelled and customers archived. So tombstones occur only as scope removals, and "a delete loses against a concurrent edit" applies once Stage 5's child records (times, materials) can be deleted.
+- **Rejections** are stored like successes in `applied_mutation`, so a resend gets the same `REJECTED` answer. Every mutation runs in a savepoint (`PROPAGATION_NESTED`).
+- **Notes for the office** go into `sync_conflict` and show on the work order page (`GET /sync-conflicts?entityId=`). There is no customer page view yet.
+- **Push messages.**
+  - `ChangeFeed` queues one `sync.notify-devices` job per changing transaction, which sends a data-only message to every active phone with a push token (`PUT /mobile/devices/me/push-token`).
+  - The FCM sender needs a Firebase project and is open. Until then `LoggingPushSender` is used, and the app registers no token.
+- **On the phone (Flutter):**
+  - `SyncRecords` holds the server state plus a display state with the pending changes of the `Outbox` on top. The `InboxEntries` table is the conflict inbox.
+  - Every local change is one transaction: the record and its outbox entry.
+  - Push results and pull pages are applied in one transaction each. An older answer never replaces a newer one.
+  - The app syncs on unlock, on return to the foreground, two seconds after a local change and every 30 seconds while it is open.
+  - **No background sync while locked.** The database key is released only by the PIN (ADR 0037). Background sync would need a key the OS can release without the user, which is a Stage 11 decision.
+- **Tests:**
+  - shared vectors `mara-rules/vectors/sync/field-merge.json` (Kotlin `ConflictRules`, Dart `decideField`);
+  - `SyncIT` for the protocol rules;
+  - `SyncFaultIT`, a seeded random simulation against the real API (lost answers after commit, lost requests, duplicate pushes, replayed pulls, office edits in between, records made on site, plus parallel office writers against a pulling phone);
+  - `SyncNetworkFaultIT` through toxiproxy (cut-off answers, connection resets, latency);
+  - the app's sync tests on the real encrypted database (including a kill between push and result) and its property test against an in-memory server.
+  - Counts: 20 runs per build and 10,000 nightly (`.github/workflows/sync-faults.yml`, 8 shards) for the back end; 40 per build and 10,000 nightly for the app.
 
 ## Consequences
 - The protocol is ours to maintain, including the signed-report rules, without a vendor dependency.

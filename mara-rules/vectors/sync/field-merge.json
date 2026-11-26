@@ -1,0 +1,16 @@
+{
+  "rule": "sync.field-merge",
+  "version": 1,
+  "description": "What the server does with one field of an UPDATE mutation (ADR 0038). baseVersion is the field's version the phone saw, serverVersion the field's version on the server now, sameValue whether the phone's value equals the server's. Results: APPLY (no concurrent change), SAME (nothing to do), KEEP_SERVER (conflict, the server value stays), APPLY_OVER (conflict, the phone's value is applied and the office gets a note). Policies: SERVER_WINS for work-order planning fields, DEVICE_WINS for status and work notes, LAST_WRITER_WINS for customer data.",
+  "cases": [
+    { "name": "no concurrent change: the phone's value is applied", "input": { "policy": "SERVER_WINS", "baseVersion": 12, "serverVersion": 12, "sameValue": false }, "expected": { "result": "APPLY" } },
+    { "name": "the server's version is older than the phone's base (resend after a later pull)", "input": { "policy": "SERVER_WINS", "baseVersion": 14, "serverVersion": 12, "sameValue": false }, "expected": { "result": "APPLY" } },
+    { "name": "no concurrent change and no change at all", "input": { "policy": "DEVICE_WINS", "baseVersion": 7, "serverVersion": 7, "sameValue": true }, "expected": { "result": "SAME" } },
+    { "name": "planning field changed in the office meanwhile: the office wins", "input": { "policy": "SERVER_WINS", "baseVersion": 12, "serverVersion": 15, "sameValue": false }, "expected": { "result": "KEEP_SERVER" } },
+    { "name": "status changed in the office meanwhile: the technician wins", "input": { "policy": "DEVICE_WINS", "baseVersion": 12, "serverVersion": 15, "sameValue": false }, "expected": { "result": "APPLY_OVER" } },
+    { "name": "customer data changed meanwhile: the later write wins, with a note", "input": { "policy": "LAST_WRITER_WINS", "baseVersion": 3, "serverVersion": 9, "sameValue": false }, "expected": { "result": "APPLY_OVER" } },
+    { "name": "both changed the field to the same value: no conflict", "input": { "policy": "SERVER_WINS", "baseVersion": 3, "serverVersion": 9, "sameValue": true }, "expected": { "result": "SAME" } },
+    { "name": "a field the phone never saw (base 0) that the server set since", "input": { "policy": "SERVER_WINS", "baseVersion": 0, "serverVersion": 4, "sameValue": false }, "expected": { "result": "KEEP_SERVER" } },
+    { "name": "a new field nobody set yet (both 0)", "input": { "policy": "DEVICE_WINS", "baseVersion": 0, "serverVersion": 0, "sameValue": false }, "expected": { "result": "APPLY" } }
+  ]
+}

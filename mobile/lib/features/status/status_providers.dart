@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config.dart';
 import '../../data/api/status_api.dart';
-import '../../data/local/database.dart';
 import '../../data/session/session.dart';
+import '../../data/sync/sync_providers.dart';
 
 final statusApiProvider = Provider<StatusApi>(
   (ref) => StatusApi(ref.watch(httpClientProvider), AppConfig.apiBaseUrl),
@@ -23,19 +23,16 @@ class LocalDatabaseInfo {
   final Duration openTime;
 }
 
-/// Opens the database with the key the PIN or biometrics released (ADR 0037).
+/// The open database (opened with the key the PIN or biometrics released, ADR 0037); the time
+/// covers opening it and the first query.
 final localDatabaseInfoProvider = FutureProvider<LocalDatabaseInfo>((ref) async {
   final session = ref.watch(sessionProvider).value;
   if (session is! Unlocked) throw StateError('locked');
   final watch = Stopwatch()..start();
-  final file = await ref.watch(localFilesProvider).databaseFile();
-  final db = AppDatabase.openEncrypted(file, session.databaseKey);
-  try {
-    final version = await db.cipherVersion();
-    await db.putSetting('lastOpenedAt', DateTime.now().toUtc().toIso8601String());
-    watch.stop();
-    return LocalDatabaseInfo(cipherVersion: version ?? '?', openTime: watch.elapsed);
-  } finally {
-    await db.close();
-  }
+  final db = await ref.watch(appDatabaseProvider.future);
+  if (db == null) throw StateError('locked');
+  final version = await db.cipherVersion();
+  await db.putSetting('lastOpenedAt', DateTime.now().toUtc().toIso8601String());
+  watch.stop();
+  return LocalDatabaseInfo(cipherVersion: version ?? '?', openTime: watch.elapsed);
 });

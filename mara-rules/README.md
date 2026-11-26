@@ -7,8 +7,9 @@ This folder is the single source for those rules' **test vectors**. It holds no 
 | Rule | Vectors | Kotlin | Dart | Since |
 |---|---|---|---|---|
 | Aufmaß: area (length × width) | [vectors/aufmass/area.json](vectors/aufmass/area.json) | `de.erika.reports.AufmassRules` | `mobile/lib/domain/rules/aufmass.dart` | MARA Stage 1 |
+| Sync: field merge (who wins a concurrent change) | [vectors/sync/field-merge.json](vectors/sync/field-merge.json) | `de.erika.sync.ConflictRules` | `mobile/lib/domain/rules/conflict_rules.dart` | MARA Stage 4 |
 
-Planned: the other Aufmaß formulas and deductions (Stage 5), the canonical report JSON and its SHA-256 (Stage 7), invoice lines with rounding to the billing unit (Stage 8), and the sync protocol cases (Stage 4).
+Planned: the other Aufmaß formulas and deductions (Stage 5), the canonical report JSON and its SHA-256 (Stage 7), and invoice lines with rounding to the billing unit (Stage 8).
 
 ## Vector format
 

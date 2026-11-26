@@ -29,4 +29,24 @@ class MobileDevices internal constructor(
         val workspace = workspaces.find(device.workspaceId) ?: return null
         return DeviceHolder(device.userId, device.displayName, role, workspace.name)
     }
+
+    /** Active phones of the current workspace that registered a push token. */
+    fun pushTargets(): List<PushTarget> = devices.pushTargets().map { (id, token) -> PushTarget(id, token) }
+
+    fun setPushToken(
+        deviceId: UUID,
+        token: String,
+    ) = devices.setPushToken(deviceId, token)
+
+    /** The push service no longer knows the token (app uninstalled). */
+    fun clearPushToken(deviceId: UUID) = devices.setPushToken(deviceId, null)
+
+    /** For the owner's device list: when the phone last synced. */
+    fun recordSync(deviceId: UUID) = devices.recordSync(deviceId)
 }
+
+/** A phone to send a data-only "sync now" message to. */
+data class PushTarget(
+    val deviceId: UUID,
+    val token: String,
+)

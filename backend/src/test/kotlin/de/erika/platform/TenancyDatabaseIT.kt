@@ -246,6 +246,26 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.workspaceId,
             device,
         )
+        // MARA Stage 4: the sync engine's tables.
+        TestDatabase.update("INSERT INTO sync_counter (workspace_id, value) VALUES (?, 1) ON CONFLICT DO NOTHING", user.workspaceId)
+        TestDatabase.update(
+            "INSERT INTO change_log (workspace_id, entity, entity_id, seq) VALUES (?, 'work_order', ?, 1) ON CONFLICT DO NOTHING",
+            user.workspaceId,
+            order,
+        )
+        TestDatabase.update(
+            "INSERT INTO applied_mutation (workspace_id, mutation_id, device_id, result) VALUES (?, gen_random_uuid(), ?, '{}')",
+            user.workspaceId,
+            device,
+        )
+        TestDatabase.update(
+            "INSERT INTO sync_conflict (id, workspace_id, entity, entity_id, field, winner, user_id, device_id) " +
+                "VALUES (gen_random_uuid(), ?, 'work_order', ?, 'status', 'DEVICE', ?, ?)",
+            user.workspaceId,
+            order,
+            user.userId,
+            device,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

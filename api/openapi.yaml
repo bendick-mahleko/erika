@@ -47,6 +47,8 @@ tags:
     description: Articles and services for the invoice creator (CR-05)
   - name: workorders
     description: MARA job reports add-on - sites, staff levels, checklist templates and work orders (ADR 0036)
+  - name: sync
+    description: Notes on concurrent changes from the MARA app (ADR 0038)
   - name: devices
     description: Phones signed in to the MARA app; the owner can revoke them (ADR 0037)
   - name: invitations
@@ -1565,6 +1567,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StaffMember" }
         default: { $ref: "#/components/responses/Problem" }
+  /sync-conflicts:
+    get:
+      tags: [sync]
+      operationId: listSyncConflicts
+      summary: Concurrent changes from the MARA app to one work order or customer
+      description: |
+        When the office and a phone changed the same field at the same time, the field's rule
+        decided (work orders: the office wins planning fields, the technician wins status and
+        work notes; customers: the later write wins). The other value is kept here, newest first.
+      parameters:
+        - name: entityId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The notes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SyncConflictList" }
+        default: { $ref: "#/components/responses/Problem" }
   /devices:
     get:
       tags: [devices]
@@ -3009,6 +3032,27 @@ components:
       properties:
         staffLevelId: { type: string, format: uuid, description: "Empty = no staff level" }
         canSeePrices: { type: boolean, description: "Technicians see prices in the app only if set (ADR 0039)" }
+    SyncConflict:
+      type: object
+      required: [id, entity, entityId, field, winner, userId, displayName, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        entity: { type: string, description: "work_order or customer" }
+        entityId: { type: string, format: uuid }
+        field: { type: string }
+        serverValue: { type: string, description: The value in ERIKA before the phone's change (JSON) }
+        deviceValue: { type: string, description: The phone's value (JSON) }
+        winner: { type: string, enum: [SERVER, DEVICE] }
+        userId: { type: string, format: uuid }
+        displayName: { type: string, description: Who changed it on the phone }
+        createdAt: { type: string, format: date-time }
+    SyncConflictList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SyncConflict" }
     DevicePlatform:
       type: string
       enum: [ANDROID, IOS]
@@ -3140,6 +3184,7 @@ components:
           type: array
           items: { type: string, format: uuid }
         checklistTemplateId: { type: string, format: uuid }
+        workNotes: { type: string, description: "Notes the technicians wrote in the MARA app (read-only here)" }
         version: { type: integer, format: int32 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -3248,6 +3293,7 @@ components:
         vatId: { type: string, pattern: "^[A-Za-z]{2}[0-9A-Za-z+*.]{2,12}$" }
         email: { type: string, maxLength: 320 }
         contactName: { type: string, maxLength: 200 }
+        phone: { type: string, maxLength: 50, description: "Phone number, e.g. for the technician on site (MARA)" }
         buyerReference: { type: string, maxLength: 100, description: "BT-10, e.g. the customer's order or cost centre reference" }
         vatTreatment: { $ref: "#/components/schemas/VatTreatment" }
         preferredFormat: { $ref: "#/components/schemas/InvoiceFormat" }
@@ -3272,6 +3318,7 @@ components:
         vatId: { type: string, pattern: "^[A-Za-z]{2}[0-9A-Za-z+*.]{2,12}$" }
         email: { type: string, maxLength: 320 }
         contactName: { type: string, maxLength: 200 }
+        phone: { type: string, maxLength: 50, description: "Phone number, e.g. for the technician on site (MARA)" }
         buyerReference: { type: string, maxLength: 100, description: "BT-10, e.g. the customer's order or cost centre reference" }
         vatTreatment: { $ref: "#/components/schemas/VatTreatment" }
         preferredFormat: { $ref: "#/components/schemas/InvoiceFormat" }

@@ -39,6 +39,7 @@ export function CustomersManager({ initial, canEdit }: { initial: Customer[]; ca
       vatId: text("vatId")?.replace(/\s/g, ""),
       email: text("email"),
       contactName: text("contactName"),
+      phone: text("phone"),
       buyerReference: text("buyerReference"),
       vatTreatment: (text("vatTreatment") ?? "DOMESTIC") as CustomerInput["vatTreatment"],
       preferredFormat: text("preferredFormat") as CustomerInput["preferredFormat"],
@@ -159,6 +160,7 @@ export function CustomersManager({ initial, canEdit }: { initial: Customer[]; ca
             <Field id="vatId" label={t("vatId")} maxLength={14} defaultValue={current?.vatId} />
             <Field id="email" label={t("email")} type="email" maxLength={320} defaultValue={current?.email} />
             <Field id="contactName" label={t("contactName")} maxLength={200} defaultValue={current?.contactName} />
+            <Field id="phone" label={t("phone")} type="tel" maxLength={50} defaultValue={current?.phone} />
             <Field
               id="leitwegId"
               label={t("leitwegId")}

@@ -91,7 +91,7 @@ internal class MobileDeviceRepository(
     ): Boolean =
         jdbc
             .sql(
-                "UPDATE mobile_device SET revoked_at = now(), revoked_by = :by, revoked_reason = :reason " +
+                "UPDATE mobile_device SET revoked_at = now(), revoked_by = :by, revoked_reason = :reason, push_token = NULL " +
                     "WHERE id = :id AND workspace_id = current_workspace_id() AND revoked_at IS NULL",
             ).param("id", id)
             .param("by", by)
@@ -112,6 +112,39 @@ internal class MobileDeviceRepository(
                 """.trimIndent(),
             ).param("id", id)
             .param("version", appVersion)
+            .update()
+    }
+
+    /** Active devices of the current workspace with a push token, whose user is still a member. */
+    fun pushTargets(): List<Pair<UUID, String>> =
+        jdbc
+            .sql(
+                """
+                SELECT d.id, d.push_token FROM mobile_device d
+                  JOIN membership m ON m.user_id = d.user_id AND m.workspace_id = d.workspace_id
+                 WHERE d.workspace_id = current_workspace_id() AND d.revoked_at IS NULL AND d.push_token IS NOT NULL
+                 ORDER BY d.id
+                """.trimIndent(),
+            ).query { rs, _ -> rs.getObject(1, UUID::class.java) to rs.getString(2) }
+            .list()
+
+    fun setPushToken(
+        id: UUID,
+        token: String?,
+    ) {
+        jdbc
+            .sql(
+                "UPDATE mobile_device SET push_token = :token, push_token_updated_at = now() " +
+                    "WHERE id = :id AND workspace_id = current_workspace_id()",
+            ).param("id", id)
+            .param("token", token)
+            .update()
+    }
+
+    fun recordSync(id: UUID) {
+        jdbc
+            .sql("UPDATE mobile_device SET last_sync_at = now() WHERE id = :id AND workspace_id = current_workspace_id()")
+            .param("id", id)
             .update()
     }
 

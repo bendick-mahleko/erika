@@ -1,0 +1,56 @@
+# MARA sync fault injection, full count (ADR 0038, MARA build plan Stage 4): 10,000 random runs
+# of SyncFaultIT (lost answers after commit, lost requests, duplicates, replayed pulls, office
+# edits in between) plus the app's own property test. Every build runs a small count; this
+# runs the full one nightly, in 8 shards with different seeds.
+name: Sync faults (nightly)
+
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Back end, shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    defaults:
+      run: { working-directory: backend }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+      # 8 × 1,250 = 10,000 runs; the seed repeats a failure (shown in the test report).
+      - run: ./gradlew test --no-daemon --tests '*SyncFaultIT' --tests '*SyncNetworkFaultIT'
+        env:
+          SYNC_FAULT_RUNS: "1250"
+          SYNC_FAULT_SEED: "${{ github.run_id }}${{ matrix.shard }}000000"
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-fault-reports-${{ matrix.shard }}
+          path: backend/build/reports/tests
+
+  mobile:
+    name: App sync property test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container: ghcr.io/cirruslabs/flutter:3.44.0
+    defaults:
+      run: { working-directory: mobile }
+    steps:
+      - uses: actions/checkout@v4
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter test test/sync_test.dart
+        env:
+          SYNC_FAULT_RUNS: "10000"

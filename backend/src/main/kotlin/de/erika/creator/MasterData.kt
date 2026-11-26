@@ -32,6 +32,8 @@ data class Customer(
     val customerType: CustomerType = CustomerType.BUSINESS,
     /** Leitweg-ID of a public authority (B2G). */
     val leitwegId: String? = null,
+    /** Phone number (MARA: the technician calls the customer). */
+    val phone: String? = null,
 )
 
 enum class CustomerType { BUSINESS, PRIVATE }
@@ -122,9 +124,9 @@ internal class CustomerRepository(
                     """
                     INSERT INTO party (id, workspace_id, customer_number, name, street, additional_line, postal_code, city, country_code,
                                        vat_id, email, contact_name, buyer_reference, vat_treatment, preferred_format, payment_terms_days,
-                                       archived, customer_type, leitweg_id)
+                                       archived, customer_type, leitweg_id, phone)
                     VALUES (:id, :ws, :number, :name, :street, :additional, :postal, :city, :country, :vatId, :email, :contact,
-                            :buyerRef, :treatment, :format, :days, :archived, :customerType, :leitwegId)
+                            :buyerRef, :treatment, :format, :days, :archived, :customerType, :leitwegId, :phone)
                     """.trimIndent(),
                 ).bind(c)
                 .param("ws", workspaceId)
@@ -148,7 +150,7 @@ internal class CustomerRepository(
                                postal_code = :postal, city = :city, country_code = :country, vat_id = :vatId, email = :email,
                                contact_name = :contact, buyer_reference = :buyerRef, vat_treatment = :treatment,
                                preferred_format = :format, payment_terms_days = :days, archived = :archived,
-                               customer_type = :customerType, leitweg_id = :leitwegId,
+                               customer_type = :customerType, leitweg_id = :leitwegId, phone = :phone,
                                version = version + 1, updated_at = now()
                          WHERE id = :id AND workspace_id = current_workspace_id() AND version = :expected
                         """.trimIndent(),
@@ -180,6 +182,7 @@ internal class CustomerRepository(
             .param("archived", c.archived)
             .param("customerType", c.customerType.name)
             .param("leitwegId", c.leitwegId)
+            .param("phone", c.phone)
 
     private fun map(
         rs: ResultSet,
@@ -204,6 +207,7 @@ internal class CustomerRepository(
         version = rs.getInt("version"),
         customerType = CustomerType.valueOf(rs.getString("customer_type")),
         leitwegId = rs.getString("leitweg_id"),
+        phone = rs.getString("phone"),
     )
 }
 
@@ -233,6 +237,17 @@ internal class ArticleRepository(
             .query(::map)
             .list()
     }
+
+    fun findAll(ids: Collection<UUID>): List<Article> =
+        if (ids.isEmpty()) {
+            emptyList()
+        } else {
+            jdbc
+                .sql("SELECT * FROM article WHERE workspace_id = current_workspace_id() AND id IN (:ids)")
+                .param("ids", ids)
+                .query(::map)
+                .list()
+        }
 
     fun find(id: UUID): Article? =
         jdbc

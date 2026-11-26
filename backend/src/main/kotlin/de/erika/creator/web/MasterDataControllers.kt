@@ -108,6 +108,7 @@ internal class CustomersController(
             archived = archived ?: false,
             customerType = customerType?.let { CustomerType.valueOf(it.value) } ?: CustomerType.BUSINESS,
             leitwegId = leitwegId.clean(),
+            phone = phone.clean(),
         )
 
     private fun Customer.toApi() =
@@ -131,6 +132,7 @@ internal class CustomersController(
             paymentTermsDays = paymentTermsDays,
             customerType = ApiCustomerType.forValue(customerType.name),
             leitwegId = leitwegId,
+            phone = phone,
         )
 }
 

@@ -341,8 +341,8 @@ internal class WorkOrderRepository(
             .sql(
                 """
                 INSERT INTO work_order (id, workspace_id, customer_id, site_id, title, description, planned_from, planned_to, status,
-                                        checklist_template_id, created_by)
-                VALUES (:id, :ws, :customer, :site, :title, :description, :from, :to, :status, :template, :createdBy)
+                                        checklist_template_id, created_by, work_notes)
+                VALUES (:id, :ws, :customer, :site, :title, :description, :from, :to, :status, :template, :createdBy, :notes)
                 """.trimIndent(),
             ).bind(w)
             .param("ws", workspaceId)
@@ -363,7 +363,7 @@ internal class WorkOrderRepository(
                     """
                     UPDATE work_order SET customer_id = :customer, site_id = :site, title = :title, description = :description,
                            planned_from = :from, planned_to = :to, status = :status, checklist_template_id = :template,
-                           version = version + 1, updated_at = now()
+                           work_notes = :notes, version = version + 1, updated_at = now()
                      WHERE id = :id AND $WS AND version = :expected
                     """.trimIndent(),
                 ).bind(w)
@@ -415,6 +415,7 @@ internal class WorkOrderRepository(
             .param("to", w.plannedTo)
             .param("status", w.status.name)
             .param("template", w.checklistTemplateId)
+            .param("notes", w.workNotes)
 
     private fun map(
         rs: ResultSet,
@@ -434,5 +435,25 @@ internal class WorkOrderRepository(
         version = rs.getInt("version"),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
+        workNotes = rs.getString("work_notes"),
     )
+
+    fun allIds(): List<UUID> =
+        jdbc
+            .sql("SELECT id FROM work_order WHERE $WS ORDER BY id")
+            .query(UUID::class.java)
+            .list()
+            .filterNotNull()
+
+    fun findAll(ids: Collection<UUID>): List<WorkOrder> {
+        if (ids.isEmpty()) return emptyList()
+        val rows =
+            jdbc
+                .sql("SELECT * FROM work_order WHERE id IN (:ids) AND $WS")
+                .param("ids", ids)
+                .query(::map)
+                .list()
+        val assignees = assignees(rows.map { it.id })
+        return rows.map { it.copy(assigneeIds = assignees[it.id].orEmpty()) }
+    }
 }

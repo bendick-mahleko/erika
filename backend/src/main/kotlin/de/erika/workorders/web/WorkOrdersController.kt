@@ -344,6 +344,7 @@ internal class WorkOrdersController(
                 plannedFrom = w.plannedFrom,
                 plannedTo = w.plannedTo,
                 checklistTemplateId = w.checklistTemplateId,
+                workNotes = w.workNotes,
             )
         }
     }

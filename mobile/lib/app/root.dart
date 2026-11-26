@@ -6,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/session/session.dart';
 import '../features/auth/pin_screens.dart';
 import '../features/auth/sign_in_screen.dart';
-import '../features/status/status_screen.dart';
+import '../data/sync/sync_providers.dart';
+import '../features/workorders/work_order_list_screen.dart';
 
 /// Shows the screen for the session's state (ADR 0037).
 class MaraRoot extends ConsumerWidget {
@@ -15,6 +16,13 @@ class MaraRoot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
+    // Locked, signed out or wiped: close every screen opened on top (a work order, the info
+    // screen), so nothing stays visible over the lock or sign-in screen.
+    ref.listen(sessionProvider, (previous, next) {
+      if (previous?.value is Unlocked && next.value is! Unlocked) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
     return AutoLock(
       child: switch (session.value) {
         null when session.isLoading => const Scaffold(
@@ -24,7 +32,7 @@ class MaraRoot extends ConsumerWidget {
         SignedOut(:final reason) => SignInScreen(reason: reason),
         PinSetup() => const PinSetupScreen(),
         Locked() => const LockScreen(),
-        Unlocked() => const StatusScreen(),
+        Unlocked() => const WorkOrderListScreen(),
         ReauthRequired() => const SignInScreen(reauth: true),
         UpdateRequired() => const UpdateRequiredScreen(),
       },
@@ -70,7 +78,10 @@ class _AutoLockState extends ConsumerState<AutoLock> with WidgetsBindingObserver
         final since = _backgroundSince;
         _backgroundSince = null;
         if (since != null && now().difference(since) >= widget.after) session.lock();
-        if (since != null) unawaited(session.checkDevice());
+        if (since != null) {
+          unawaited(session.checkDevice());
+          unawaited(ref.read(syncCoordinatorProvider.notifier).syncNow());
+        }
       case AppLifecycleState.inactive || AppLifecycleState.detached:
         // Inactive: a system dialog such as the fingerprint prompt; not the background.
         break;

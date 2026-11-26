@@ -156,6 +156,84 @@ test.describe("MARA work orders (full stack)", () => {
     expect(((await refused.json()) as { code: string }).code).toBe("DEVICE_REVOKED");
   });
 
+  test("a status change and notes made on the phone appear in the web app", async ({ page, browser }) => {
+    await signedInAccount(page, "e2e-mara-sync");
+    const tech = await technician(page, browser, "Emil Monteur");
+    const techId = (await apiCall(page, "GET", "/api/v1/staff")).body.items.find(
+      (s: { displayName: string }) => s.displayName === "Emil Monteur",
+    ).userId as string;
+    const customer = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/customers",
+        { name: `Familie Sommer ${unique()}`, countryCode: "DE", vatTreatment: "DOMESTIC", phone: "0341 987654" },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+    const order = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/work-orders",
+        { customerId: customer, title: "Therme warten", assigneeIds: [techId] },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+
+    // The phone signs in, pulls its work orders and reports progress (api/mobile.yaml, ADR 0038).
+    const phone = tech.page.request;
+    const credentials = { email: tech.email, password };
+    const secret = (
+      (await (await phone.post("/api/v1/mobile/auth/totp-enrolment", { data: credentials })).json()) as {
+        secret: string;
+      }
+    ).secret;
+    const login = await phone.post("/api/v1/mobile/auth/device-login", {
+      data: {
+        ...credentials,
+        code: totp(secret),
+        device: { name: "Pixel 8", platform: "ANDROID", appVersion: "0.3.0" },
+      },
+    });
+    const auth = {
+      Authorization: `Bearer ${((await login.json()) as { tokens: { accessToken: string } }).tokens.accessToken}`,
+    };
+    type Pulled = {
+      records: { entity: string; id: string; fieldVersions: Record<string, number>; data: Record<string, unknown> }[];
+    };
+    const pulled = (await (
+      await phone.get("/api/v1/mobile/sync/pull?protocolVersion=1", { headers: auth })
+    ).json()) as Pulled;
+    const record = pulled.records.find((r) => r.entity === "work_order" && r.id === order);
+    expect(record?.data.title).toBe("Therme warten");
+    expect(pulled.records.find((r) => r.entity === "customer" && r.id === customer)?.data.phone).toBe("0341 987654");
+    const pushed = await phone.post("/api/v1/mobile/sync/push", {
+      headers: auth,
+      data: {
+        protocolVersion: 1,
+        mutations: [
+          {
+            mutationId: crypto.randomUUID(),
+            entity: "work_order",
+            entityId: order,
+            op: "UPDATE",
+            values: { status: "IN_PROGRESS", workNotes: "Brenner gereinigt, Abgaswerte ok" },
+            baseVersions: { status: record!.fieldVersions.status, workNotes: record!.fieldVersions.workNotes },
+          },
+        ],
+      },
+    });
+    expect(((await pushed.json()) as { results: { status: string }[] }).results[0]?.status).toBe("APPLIED");
+
+    // The office sees it at once (M-OF-02: within a minute).
+    await page.goto(`/work-orders/${order}`);
+    await expect(page.getByTestId("work-order-status")).toHaveText("In Arbeit");
+    await expect(page.getByTestId("work-notes")).toHaveText("Brenner gereinigt, Abgaswerte ok");
+    await expect(page.getByRole("heading", { name: "Aus der MARA-App" })).toBeVisible();
+    await expectAccessible(page);
+  });
+
   test("staff levels, staff settings and checklist templates", async ({ page, browser }) => {
     await signedInAccount(page, "e2e-mara-settings");
     await technician(page, browser, "Carla Monteurin");

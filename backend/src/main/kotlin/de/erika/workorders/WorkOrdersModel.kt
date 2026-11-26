@@ -85,6 +85,8 @@ data class WorkOrder(
     val assigneeIds: List<UUID>,
     val createdBy: UUID?,
     val version: Int = 0,
+    /** Notes the technicians write in the app (M-MO-01); the technician wins on conflicts. */
+    val workNotes: String? = null,
     val createdAt: OffsetDateTime? = null,
     val updatedAt: OffsetDateTime? = null,
 )

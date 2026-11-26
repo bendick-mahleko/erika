@@ -703,6 +703,7 @@
     "vatId": "USt-IdNr.",
     "email": "E-Mail für Rechnungen",
     "contactName": "Ansprechperson",
+    "phone": "Telefon",
     "buyerReference": "Käuferreferenz (für XRechnung)",
     "vatTreatment": "Umsatzsteuer",
     "preferredFormat": "Bevorzugtes Format",
@@ -1142,7 +1143,24 @@
     "moveToLabel": "{title} verschieben zu",
     "moved": "„{title}“ ist jetzt bei {name}.",
     "noOrdersDay": "Keine Aufträge an diesem Tag.",
-    "loading": "Wird geladen …"
+    "loading": "Wird geladen …",
+    "fromApp": "Aus der MARA-App",
+    "workNotes": "Arbeitsnotizen der Techniker",
+    "conflictsTitle": "Gleichzeitige Änderungen",
+    "conflictsIntro": "Büro und Telefon haben dasselbe Feld gleichzeitig geändert. Die Planung gilt aus dem Büro, Status und Notizen gelten vom Telefon.",
+    "conflictDeviceWon": "{field}: {person} hat in der App „{app}“ eingetragen – das gilt. Im Büro stand „{office}“.",
+    "conflictServerWon": "{field}: Im Büro stand „{office}“ – das gilt. {person} hatte in der App „{app}“ eingetragen.",
+    "syncFields": {
+      "status": "Status",
+      "workNotes": "Arbeitsnotizen",
+      "title": "Kurzbeschreibung",
+      "description": "Beschreibung",
+      "plannedFrom": "Beginn",
+      "plannedTo": "Ende",
+      "assigneeIds": "Zugewiesen",
+      "customerId": "Kunde",
+      "siteId": "Einsatzort"
+    }
   },
   "Staff": {
     "title": "Mitarbeitende und Stundensätze",

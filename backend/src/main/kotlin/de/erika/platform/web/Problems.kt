@@ -66,6 +66,11 @@ class ProblemDetailsAdvice : ResponseEntityExceptionHandler() {
         return super.handleMethodArgumentNotValid(ex, headers, status, request)
     }
 
+    /** Bean validation of a path, query or header parameter (e.g. `@Min` from the contract). */
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException::class)
+    fun handleConstraintViolation(ex: jakarta.validation.ConstraintViolationException): ProblemDetail =
+        problem(HttpStatus.BAD_REQUEST, "A parameter is not valid.", "VALIDATION_FAILED")
+
     /** `@PreAuthorize` denied the call: the role doesn't allow it. */
     @ExceptionHandler(AccessDeniedException::class)
     fun handleAccessDenied(ex: AccessDeniedException): ProblemDetail =

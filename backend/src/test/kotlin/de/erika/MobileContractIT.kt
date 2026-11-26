@@ -48,6 +48,8 @@ class MobileContractIT : ApiIntegrationTest() {
         val path: String,
         val public: Boolean,
         val example: Any?,
+        /** Required query parameters with a valid value (the schema's minimum, else 1). */
+        val query: String,
     )
 
     private data class Tenant(
@@ -112,7 +114,15 @@ class MobileContractIT : ApiIntegrationTest() {
                         ((operation["requestBody"] as Map<String, Any?>?)?.get("content") as Map<String, Map<String, Any?>>?)
                             ?.get("application/json")
                             ?.get("example")
-                    Operation(method.uppercase(), path, security != null && security.isEmpty(), example)
+
+                    @Suppress("UNCHECKED_CAST")
+                    val query =
+                        (operation["parameters"] as List<Map<String, Any?>>?)
+                            .orEmpty()
+                            .filter { it["in"] == "query" && it["required"] == true }
+                            .joinToString("&") { "${it["name"]}=${((it["schema"] as Map<String, Any?>?)?.get("minimum") ?: 1)}" }
+                            .let { if (it.isEmpty()) "" else "?$it" }
+                    Operation(method.uppercase(), path, security != null && security.isEmpty(), example, query)
                 }
         }
     }
@@ -135,10 +145,10 @@ class MobileContractIT : ApiIntegrationTest() {
                 if (missing.isNotEmpty()) fail("$name: no tenant-B fixture for path parameter(s) $missing")
                 val pathB = params.fold(op.path) { p, param -> p.replace("{$param}", fixturesB.getValue(param)) }
 
-                val anonymous = Phones(this).phone().send(op.method, "/api/v1$pathB", op.example)
+                val anonymous = Phones(this).phone().send(op.method, "/api/v1$pathB${op.query}", op.example)
                 assertEquals(401, anonymous.status, "$name must need a token: $anonymous")
 
-                val response = phoneOf(tenants.first).send(op.method, "/api/v1$pathB", op.example)
+                val response = phoneOf(tenants.first).send(op.method, "/api/v1$pathB${op.query}", op.example)
                 if (params.isNotEmpty()) {
                     assertEquals(404, response.status, "$name with tenant B's IDs must answer 404: $response")
                 } else {

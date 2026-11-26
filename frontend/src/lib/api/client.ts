@@ -283,6 +283,15 @@ export async function fetchWorkOrders(status?: WorkOrderStatus): Promise<WorkOrd
 }
 
 /** One work order plus ETag for optimistic locking, or null. */
+export type SyncConflict = components["schemas"]["SyncConflict"];
+
+/** Notes on concurrent changes from the MARA app to one work order or customer (ADR 0038). */
+export async function fetchSyncConflicts(entityId: string): Promise<SyncConflict[]> {
+  return (
+    (await authed((init) => api.GET("/sync-conflicts", { ...init, params: { query: { entityId } } })))?.items ?? []
+  );
+}
+
 export async function fetchWorkOrder(workOrderId: string): Promise<{ workOrder: WorkOrder; etag: string } | null> {
   try {
     const { data, response } = await api.GET("/work-orders/{workOrderId}", {

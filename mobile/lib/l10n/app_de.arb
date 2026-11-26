@@ -132,5 +132,101 @@
   "roleMEMBER": "Mitglied",
   "roleTECHNICIAN": "Techniker/in",
   "updateTitle": "Update erforderlich",
-  "updateBody": "Diese Version der MARA-App wird nicht mehr unterstützt. Bitte installieren Sie das Update aus dem App Store oder Google Play."
+  "updateBody": "Diese Version der MARA-App wird nicht mehr unterstützt. Bitte installieren Sie das Update aus dem App Store oder Google Play.",
+  "workOrdersTitle": "Aufträge",
+  "inboxTitle": "Hinweise zur Synchronisation",
+  "inboxEmpty": "Keine Hinweise. Alle Änderungen wurden übernommen.",
+  "syncNow": "Jetzt synchronisieren",
+  "infoMenu": "Info und Gerät",
+  "newWorkOrder": "Neuer Auftrag",
+  "noWorkOrders": "Keine Aufträge. Neue Aufträge aus dem Büro erscheinen hier, sobald das Telefon synchronisiert.",
+  "todaySection": "Heute",
+  "upcomingSection": "Demnächst",
+  "unplannedSection": "Ohne Termin",
+  "earlierSection": "Vergangene",
+  "notYetSent": "Noch nicht übertragen",
+  "syncOffline": "Offline: Änderungen werden später übertragen",
+  "syncPending": "{count} Änderungen warten",
+  "@syncPending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncLast": "Zuletzt synchronisiert {time}",
+  "@syncLast": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "statusPlanned": "Geplant",
+  "statusInProgress": "In Arbeit",
+  "statusDone": "Erledigt",
+  "statusSigned": "Unterschrieben",
+  "statusInvoiced": "Abgerechnet",
+  "statusCancelled": "Abgesagt",
+  "statusLabel": "Status",
+  "workOrderGone": "Dieser Auftrag ist nicht mehr auf dem Telefon (z. B. jemand anderem zugewiesen).",
+  "noDate": "Ohne Termin",
+  "route": "Route",
+  "callCustomer": "Anrufen",
+  "workNotesLabel": "Arbeitsnotizen",
+  "savedLocally": "Gespeichert. Wird übertragen, sobald eine Verbindung besteht.",
+  "saveButton": "Speichern",
+  "titleLabel": "Kurzbeschreibung",
+  "titleRequired": "Bitte eine Kurzbeschreibung eingeben.",
+  "customerRequired": "Bitte einen Kunden wählen oder neu anlegen.",
+  "newCustomer": "Neuer Kunde",
+  "customerLabel": "Kunde",
+  "customerNameLabel": "Name des Kunden",
+  "streetLabel": "Straße und Hausnummer",
+  "postalCodeLabel": "PLZ",
+  "cityLabel": "Ort",
+  "phoneLabel": "Telefon",
+  "descriptionLabel": "Beschreibung",
+  "pickDate": "Datum",
+  "pickTime": "Uhrzeit",
+  "createWorkOrder": "Auftrag anlegen",
+  "rejectedLocked": "Ein Auftrag ist schon unterschrieben oder abgerechnet; Ihre Änderung wurde nicht übernommen.",
+  "rejectedNotInScope": "Ein Auftrag ist Ihnen nicht mehr zugewiesen; Ihre Änderung wurde nicht übernommen.",
+  "rejectedNotFound": "Ein Auftrag existiert nicht mehr; Ihre Änderung wurde nicht übernommen.",
+  "rejectedOther": "Eine Änderung wurde vom Server abgelehnt ({code}).",
+  "@rejectedOther": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictDeviceWon": "{field}: Ihr Wert „{mine}\" wurde übernommen; im Büro war gleichzeitig „{office}\" eingetragen.",
+  "@conflictDeviceWon": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "mine": {
+        "type": "String"
+      },
+      "office": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictServerWon": "{field}: Das Büro hatte gleichzeitig „{office}\" eingetragen; das gilt. Ihr Wert war „{mine}\".",
+  "@conflictServerWon": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "office": {
+        "type": "String"
+      },
+      "mine": {
+        "type": "String"
+      }
+    }
+  }
 }

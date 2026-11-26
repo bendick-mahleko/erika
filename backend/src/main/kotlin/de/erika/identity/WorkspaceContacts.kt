@@ -93,6 +93,27 @@ class WorkspaceContacts(
                 )
             }.list()
 
+    /** Verified owners and members of the current workspace: the office (e.g. work orders from the MARA app). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun officeRecipients(): List<Contact> =
+        jdbc
+            .sql(
+                """
+                SELECT u.id, u.email, u.display_name, u.locale
+                  FROM membership m JOIN app_user u ON u.id = m.user_id
+                 WHERE m.workspace_id = current_workspace_id() AND m.role IN ('OWNER', 'MEMBER')
+                   AND u.email_verified_at IS NOT NULL
+                 ORDER BY u.id
+                """.trimIndent(),
+            ).query { rs, _ ->
+                Contact(
+                    userId = rs.getObject("id", UUID::class.java),
+                    email = rs.getString("email"),
+                    displayName = rs.getString("display_name"),
+                    locale = rs.getString("locale"),
+                )
+            }.list()
+
     /** Verified owners of the current workspace (e.g. for billing notices). */
     @Transactional(propagation = Propagation.MANDATORY)
     fun owners(): List<Contact> =

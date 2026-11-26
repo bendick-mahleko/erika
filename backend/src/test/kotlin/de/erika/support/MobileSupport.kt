@@ -16,6 +16,8 @@ class MobileClient(
     private val baseUrl: String,
     private val json: JsonMapper,
     val ip: String = TestClient.nextIp(),
+    /** Per-request timeout, for tests through a faulty network. */
+    private val timeout: java.time.Duration? = null,
 ) {
     private val http = HttpClient.newHttpClient()
     var accessToken: String? = null
@@ -44,6 +46,7 @@ class MobileClient(
                 .newBuilder(URI.create("$baseUrl$path"))
                 .header("X-Forwarded-For", ip)
                 .header("User-Agent", "MARA test app")
+        timeout?.let { builder.timeout(it) }
         accessToken?.let { builder.header("Authorization", "Bearer $it") }
         headers.forEach { (k, v) -> builder.header(k, v) }
         val publisher =

@@ -212,6 +212,23 @@ internal class WorkOrders(
         return orders.find(id) ?: throw WorkOrderErrors.notFound("WORK_ORDER")
     }
 
+    /** Work notes from the app (M-MO-01). */
+    fun setWorkNotes(
+        workspaceId: UUID,
+        actorId: UUID,
+        id: UUID,
+        notes: String?,
+    ): WorkOrder {
+        val current = orders.find(id) ?: throw WorkOrderErrors.notFound("WORK_ORDER")
+        if (current.status.locked) {
+            throw WorkOrderErrors.conflict("WORK_ORDER_LOCKED", "A signed or invoiced work order can't be changed.")
+        }
+        val cleaned = notes?.trim()?.take(MAX_NOTES)?.ifEmpty { null }
+        if (!orders.update(workspaceId, current.copy(workNotes = cleaned), current.version)) throw Etags.conflict()
+        events.publishEvent(WorkOrdersChanged(workspaceId, actorId, "work_order", id, created = false))
+        return orders.find(id) ?: throw WorkOrderErrors.notFound("WORK_ORDER")
+    }
+
     private fun check(
         change: WorkOrderChange,
         current: WorkOrder?,
@@ -241,6 +258,10 @@ internal class WorkOrders(
                 throw WorkOrderErrors.invalid("ASSIGNEE_INVALID", "Only owners, members and technicians of this workspace can be assigned.")
             }
         }
+    }
+
+    private companion object {
+        const val MAX_NOTES = 10_000
     }
 
     private fun statusNotAllowed() =

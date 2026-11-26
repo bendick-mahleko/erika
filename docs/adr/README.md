@@ -43,6 +43,6 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0035](0035-release-1-1.md) | Release 1.1: allow-list and quarantine, due reminders, GiroCode, logo, recurring invoices, English | Accepted |
 | [0036](0036-mara-as-erika-modules.md) | MARA (job reports for trades) as modules of ERIKA | Accepted (spikes S1-a, S1-c open) |
 | [0037](0037-mobile-sign-in-devices-tokens.md) | Mobile sign-in: devices, bearer tokens, 2FA at registration | Accepted (MARA Stage 3) |
-| [0038](0038-mara-sync-protocol.md) | MARA sync protocol: outbox, change feed, field versions | Proposed (MARA Stage 4) |
+| [0038](0038-mara-sync-protocol.md) | MARA sync protocol: outbox, change feed, field versions | Accepted (MARA Stage 4) |
 | [0039](0039-technician-role.md) | The TECHNICIAN role | Accepted |
 | [0040](0040-mara-storage-and-retention.md) | MARA storage: device database, photos, signed reports and retention | Proposed (device part done in MARA Stage 1) |
