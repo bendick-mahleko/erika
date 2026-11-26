@@ -53,7 +53,7 @@ internal class WorkspaceAccessInterceptor(
         val READ_METHODS = setOf("GET", "HEAD", "OPTIONS")
 
         /** Reading data out and leaving: exports, feedback, sign-in/out and switching workspace. */
-        val ALLOWED_WHEN_CLOSED = listOf("/api/v1/exports", "/api/v1/feedback", "/api/v1/auth")
+        val ALLOWED_WHEN_CLOSED = listOf("/api/v1/exports", "/api/v1/feedback", "/api/v1/auth", "/api/v1/mobile/auth")
     }
 }
 

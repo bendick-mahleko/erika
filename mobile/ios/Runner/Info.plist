@@ -20,6 +20,8 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>MARA entsperrt mit Face ID die Daten auf diesem Gerät.</string>
 	<key>CFBundleName</key>
 	<string>mara</string>
 	<key>CFBundlePackageType</key>

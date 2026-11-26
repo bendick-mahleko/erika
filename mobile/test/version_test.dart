@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -11,10 +12,11 @@ void main() {
   });
 
   test('German and English texts have the same keys', () {
-    Set<String> keys(String file) => RegExp(
-      r'^\s*"([a-zA-Z]\w*)"\s*:',
-      multiLine: true,
-    ).allMatches(File('lib/l10n/$file').readAsStringSync()).map((m) => m.group(1)!).toSet();
+    // Top-level message keys; `@key` metadata and `@@locale` don't count.
+    Set<String> keys(String file) =>
+        (jsonDecode(File('lib/l10n/$file').readAsStringSync()) as Map<String, dynamic>).keys
+            .where((k) => !k.startsWith('@'))
+            .toSet();
     expect(keys('app_en.arb'), keys('app_de.arb'));
   });
 }

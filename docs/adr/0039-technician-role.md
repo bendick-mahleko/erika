@@ -1,6 +1,6 @@
 # 0039. The TECHNICIAN role
 
-- Status: Accepted (web side implemented in MARA Stage 2; the app sign-in follows in Stage 3)
+- Status: Accepted (web side in MARA Stage 2, app sign-in in Stage 3)
 - Date: 2026-11-25
 
 ## Context

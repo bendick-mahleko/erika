@@ -243,7 +243,8 @@
     "WORK_ORDER_NOT_FOUND": "Der Auftrag wurde nicht gefunden.",
     "STAFF_LEVEL_NOT_FOUND": "Der Stundensatz wurde nicht gefunden.",
     "CHECKLIST_TEMPLATE_NOT_FOUND": "Die Checkliste wurde nicht gefunden.",
-    "CHECKLIST_KEYS_DUPLICATE": "Zwei Punkte haben denselben Schlüssel. Bitte geben Sie jedem Punkt einen eigenen."
+    "CHECKLIST_KEYS_DUPLICATE": "Zwei Punkte haben denselben Schlüssel. Bitte geben Sie jedem Punkt einen eigenen.",
+    "DEVICE_NOT_FOUND": "Dieses Gerät gibt es nicht (mehr)."
   },
   "Inbox": {
     "title": "Eingang",
@@ -796,7 +797,8 @@
     "account": "Konto",
     "intake": "E-Mail-Eingang",
     "staff": "Mitarbeitende",
-    "checklists": "Checklisten"
+    "checklists": "Checklisten",
+    "devices": "Geräte"
   },
   "Team": {
     "title": "Team und Steuerberatung",
@@ -1191,5 +1193,30 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "saved": "Gespeichert."
+  },
+  "Devices": {
+    "title": "Geräte in der MARA-App",
+    "intro": "Hier sehen Sie, auf welchen Telefonen Ihr Team in der MARA-App angemeldet ist. Ein verlorenes oder gestohlenes Telefon melden Sie hier ab: Es wird sofort gesperrt und löscht beim nächsten Kontakt mit dem Server alle Daten auf dem Gerät.",
+    "ownerOnly": "Nur Inhaberinnen und Inhaber sehen die Geräte und können sie abmelden.",
+    "none": "Noch ist niemand in der MARA-App angemeldet.",
+    "leftWorkspace": "nicht mehr im Team",
+    "platforms": {
+      "ANDROID": "Android",
+      "IOS": "iPhone"
+    },
+    "appVersion": "App {version}",
+    "signedInAt": "angemeldet {when}",
+    "lastSeen": "zuletzt aktiv {when}",
+    "reasons": {
+      "OWNER": "Abgemeldet {when} (in ERIKA)",
+      "TOKEN_REUSE": "Gesperrt {when}: Die Anmeldung wurde auf einem anderen Gerät benutzt",
+      "SIGNED_OUT": "In der App abgemeldet {when}"
+    },
+    "revoke": "Abmelden",
+    "deviceOf": "{name} von {person}",
+    "confirm": "{name} jetzt abmelden? Die Daten auf dem Gerät werden gelöscht, auch noch nicht übertragene.",
+    "revokeNow": "Ja, abmelden",
+    "cancel": "Abbrechen",
+    "revoked": "{name} von {person} ist abgemeldet."
   }
 }

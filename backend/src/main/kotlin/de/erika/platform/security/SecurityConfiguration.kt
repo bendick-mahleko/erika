@@ -64,9 +64,6 @@ class SecurityConfiguration {
                     .permitAll()
                     .requestMatchers("/api/v1/auth/**", "/error")
                     .permitAll()
-                    // MARA app status before sign-in (api/mobile.yaml, ADR 0038): versions and server time only.
-                    .requestMatchers(HttpMethod.GET, "/api/v1/mobile/status")
-                    .permitAll()
                     // Postfix → API (api/internal.yaml): checked against the shared secret in the controller.
                     // Not routed by the reverse proxy; reachable only on the internal network.
                     .requestMatchers(HttpMethod.POST, "/internal/intake/**")

@@ -193,7 +193,7 @@ internal class EntitlementInterceptor(
 
     private companion object {
         val READ_METHODS = setOf("GET", "HEAD", "OPTIONS")
-        val ALLOWED = listOf("/api/v1/billing", "/api/v1/exports", "/api/v1/feedback", "/api/v1/auth")
+        val ALLOWED = listOf("/api/v1/billing", "/api/v1/exports", "/api/v1/feedback", "/api/v1/auth", "/api/v1/mobile/auth")
     }
 }
 

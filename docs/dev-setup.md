@@ -172,6 +172,8 @@ MARA is built as ERIKA modules plus a Flutter app (ADR 0036, plan: [docs/mara/BU
 - **Office endpoints (Stage 2)** are in `api/openapi.yaml`, tag `workorders`: `/sites`, `/staff-levels`, `/staff`, `/checklist-templates`, `/work-orders`. Customers and people come from `creator.CustomerDirectory` and `identity.WorkspaceContacts.workforce()`.
 - **Technicians** (role `TECHNICIAN`, ADR 0039) are invited like other members, but the web sign-in answers 403 `TECHNICIAN_USE_APP`; they never get a web session and aren't offered for workspace switching. Hourly rates and "sees prices" live in `staff_level` / `staff_profile` (owner only).
 - Web pages: `/work-orders` (list), `/work-orders/calendar?day=YYYY-MM-DD` (day view by person, drag to reassign or use the "Verschieben zu" menu), `/settings/staff`, `/settings/checklists`.
+- **App sign-in (Stage 3, ADR 0037):** `api/mobile.yaml`, tag `mobile-auth`. Bearer tokens only under `/api/v1/mobile/**` (own stateless filter chain, `MobileSecurityConfiguration`). Device tokens and devices are in `mobile_device` / `mobile_token`; tests write them directly (see `MobileContractIT`) or sign in through the API (`support/MobileSupport.kt`). Owners see and revoke phones at `/settings/devices`.
+- **Trying the app sign-in locally:** invite a technician in the web app, sign up with the link from Mailpit, then sign in in the app on the emulator: it sets up 2FA (enter the shown key in an authenticator app), shows the recovery codes and asks for a PIN. Revoke the phone at `/settings/devices`; the app deletes its data when it next reaches the server (on return to the foreground or on unlock).
 
 ## VS Code
 

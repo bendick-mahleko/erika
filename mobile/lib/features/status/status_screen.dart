@@ -4,11 +4,13 @@ import 'package:intl/intl.dart';
 
 import '../../app/version.dart';
 import '../../data/api/status_api.dart';
+import '../../data/session/session.dart';
+import '../auth/widgets.dart';
 import '../../l10n/gen/app_localizations.dart';
 import 'status_providers.dart';
 
-/// MARA Stage 1: shows that the app reaches the server and that the local
-/// database is encrypted. Replaced by the job list in Stage 4.
+/// Shown when unlocked: who is signed in, that the app reaches the server and
+/// that the local database is encrypted. Replaced by the job list in Stage 4.
 class StatusScreen extends ConsumerWidget {
   const StatusScreen({super.key});
 
@@ -18,7 +20,17 @@ class StatusScreen extends ConsumerWidget {
     final status = ref.watch(mobileStatusProvider);
     final database = ref.watch(localDatabaseInfoProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(t.appTitle)),
+      appBar: AppBar(
+        title: Text(t.appTitle),
+        actions: [
+          IconButton(
+            key: const Key('lock'),
+            tooltip: t.lockNow,
+            icon: const Icon(Icons.lock_outline),
+            onPressed: () => ref.read(sessionProvider.notifier).lock(),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(mobileStatusProvider);
@@ -31,6 +43,7 @@ class StatusScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const _AccountSection(),
             _Section(
               title: t.serverSection,
               child: status.when(
@@ -190,4 +203,52 @@ class _ServerError extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// Who is signed in on this phone, and the sign-out (deletes the local data).
+class _AccountSection extends ConsumerWidget {
+  const _AccountSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final session = ref.watch(sessionProvider).value;
+    if (session is! Unlocked) return const SizedBox.shrink();
+    final user = session.user;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _Section(
+        title: t.accountSection,
+        child: Column(
+          key: const Key('account'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(user.displayName, style: Theme.of(context).textTheme.titleMedium),
+            Text(user.workspaceName),
+            Text(switch (user.role) {
+              'OWNER' => t.roleOWNER,
+              'MEMBER' => t.roleMEMBER,
+              _ => t.roleTECHNICIAN,
+            }),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const Key('sign-out'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(120, 48)),
+              onPressed: () async {
+                final confirmed = await confirmSignOut(
+                  context,
+                  title: t.signOutConfirmTitle,
+                  body: t.signOutConfirmBody,
+                  confirm: t.signOutButton,
+                  cancel: t.cancel,
+                );
+                if (confirmed) await ref.read(sessionProvider.notifier).signOut();
+              },
+              child: Text(t.signOutButton),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

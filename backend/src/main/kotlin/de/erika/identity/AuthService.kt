@@ -131,6 +131,24 @@ internal class AuthService(
         email: String,
         password: String,
     ): PasswordAccepted {
+        val user = verifiedUser(email, password)
+        val all = membershipsOf(user.id)
+        // The web app opens the first workspace whose role may use it; technicians use the app (ADR 0039).
+        val membership =
+            all.firstOrNull { it.role.usesWebApp }
+                ?: if (all.isNotEmpty()) throw IdentityErrors.technicianUseApp() else throw IdentityErrors.invalidCredentials()
+        return PasswordAccepted(user.id, membership.workspaceId, membership.role, user.totpEnabled)
+    }
+
+    /**
+     * Checks email and password (also for the MARA device sign-in, ADR 0037) and returns the
+     * user. Unknown user, wrong password and locked account look the same; a wrong password
+     * counts towards the lockout.
+     */
+    fun verifiedUser(
+        email: String,
+        password: String,
+    ): UserRow {
         val user = users.findByEmail(email)
         if (user == null || user.isLocked(Instant.now())) {
             passwords.matches(password, null) // same work as a real check
@@ -141,19 +159,16 @@ internal class AuthService(
             throw IdentityErrors.invalidCredentials()
         }
         if (user.emailVerifiedAt == null) throw IdentityErrors.emailNotVerified()
-
-        val all =
-            tx
-                .execute {
-                    tenant.enterUser(user.id)
-                    memberships.forUser(user.id)
-                }.orEmpty()
-        // The web app opens the first workspace whose role may use it; technicians use the app (ADR 0039).
-        val membership =
-            all.firstOrNull { it.role.usesWebApp }
-                ?: if (all.isNotEmpty()) throw IdentityErrors.technicianUseApp() else throw IdentityErrors.invalidCredentials()
-        return PasswordAccepted(user.id, membership.workspaceId, membership.role, user.totpEnabled)
+        return user
     }
+
+    /** All memberships of a user, oldest first. */
+    fun membershipsOf(userId: UUID): List<MembershipRow> =
+        tx
+            .execute {
+                tenant.enterUser(userId)
+                memberships.forUser(userId)
+            }.orEmpty()
 
     /** Second step with a code from the authenticator app or a recovery code. */
     fun verifySecondFactor(
@@ -165,12 +180,25 @@ internal class AuthService(
     ): LoginCompleted {
         val user = users.findById(pending.userId) ?: throw IdentityErrors.loginRequired()
         if (!user.totpEnabled || user.totpSecret == null) throw IdentityErrors.wrongStep()
-        if (user.isLocked(Instant.now())) throw IdentityErrors.invalidCode()
+        val method = checkSecondFactor(user, code, recoveryCode)
+        return complete(user, pending, method, deviceToken, deviceLabel)
+    }
 
+    /**
+     * Checks a TOTP code or a recovery code of a user with 2FA and returns the method used
+     * ("totp" or "recovery_code"). A wrong code counts towards the lockout.
+     */
+    fun checkSecondFactor(
+        user: UserRow,
+        code: String?,
+        recoveryCode: String?,
+    ): String {
+        val secret = checkNotNull(user.totpSecret) { "user has no 2FA" }
+        if (user.isLocked(Instant.now())) throw IdentityErrors.invalidCode()
         val method =
             when {
                 code != null && recoveryCode == null -> {
-                    val step = totp.verify(cipher.decrypt(user.totpSecret), code, user.totpLastStep)
+                    val step = totp.verify(cipher.decrypt(secret), code, user.totpLastStep)
                     if (step != null && users.advanceTotpStep(user.id, step)) "totp" else null
                 }
 
@@ -187,7 +215,7 @@ internal class AuthService(
             recordFailure(user, "second_factor")
             throw IdentityErrors.invalidCode()
         }
-        return complete(user, pending, method, deviceToken, deviceLabel)
+        return method
     }
 
     /** Creates (or replaces) the not-yet-confirmed TOTP secret. */
@@ -254,7 +282,7 @@ internal class AuthService(
         }!!
 
     /** Counts the failure and records it in every workspace of the user, in its own transaction. */
-    private fun recordFailure(
+    fun recordFailure(
         user: UserRow,
         step: String,
     ) {

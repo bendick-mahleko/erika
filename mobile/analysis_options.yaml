@@ -1,5 +1,9 @@
 include: package:flutter_lints/flutter.yaml
 
+# Same width as `dart format --line-length 100` in CI; gen-l10n formats its output with it.
+formatter:
+  page_width: 100
+
 analyzer:
   exclude:
     - "**/*.g.dart"

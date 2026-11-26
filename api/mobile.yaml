@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA mobile API (MARA job reports)
-  version: 0.1.0
+  version: 0.2.0
   summary: Endpoints for the MARA technician app (ADR 0036–0038)
   description: |
     Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
@@ -25,7 +25,9 @@ security:
   - deviceToken: []
 tags:
   - name: mobile
-    description: App status, and from Stage 3 device sign-in and sync
+    description: App and device status
+  - name: mobile-auth
+    description: Device sign-in, token renewal and sign-out (ADR 0037)
 paths:
   /mobile/status:
     get:
@@ -39,15 +41,11 @@ paths:
         REQUIRED below the minimum, RECOMMENDED below the recommended version, otherwise NONE
         (also when the header is missing or not a version).
 
-        The device-specific check (revoked device, ADR 0037) follows in Stage 3 as
+        The device-specific check (revoked device, ADR 0037) is
         `GET /mobile/devices/me/status`, with a token.
       security: []
       parameters:
-        - name: X-App-Version
-          in: header
-          required: false
-          description: The app's version, e.g. `0.1.0`.
-          schema: { type: string, maxLength: 40, examples: ["0.1.0"] }
+        - $ref: "#/components/parameters/AppVersion"
       responses:
         "200":
           description: The status.
@@ -55,12 +53,136 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MobileStatus" }
         default: { $ref: "#/components/responses/Problem" }
+  /mobile/auth/totp-enrolment:
+    post:
+      tags: [mobile-auth]
+      operationId: startMobileTotpEnrolment
+      summary: Start setting up two-factor authentication from the app
+      description: |
+        For an account without 2FA (technicians never use the web app, ADR 0039). Checks email
+        and password and creates a new, not yet confirmed authenticator secret. The app shows
+        the secret and offers the `otpauth://` link; the next `device-login` with a code from
+        the authenticator app confirms it and returns the recovery codes.
+
+        `409 TOTP_ALREADY_ENABLED` when the account already has 2FA. Wrong passwords count
+        towards the account lockout, like the web sign-in.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Credentials" }
+            example: { email: "anna@beispiel-handwerk.de", password: "ein langer Satz als Passwort" }
+      responses:
+        "200":
+          description: The secret to add to the authenticator app.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MobileTotpEnrolment" }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/auth/device-login:
+    post:
+      tags: [mobile-auth]
+      operationId: deviceLogin
+      summary: Sign in on a phone and register it (password and TOTP)
+      description: |
+        Checks email, password and a TOTP or recovery code (ADR 0017: every role uses 2FA), then
+        registers the phone and returns an access token (15 minutes) and a refresh token.
+        The workspace is the user's oldest membership that may use the app (OWNER, MEMBER or
+        TECHNICIAN); tax advisors don't use the app (`403 APP_NOT_FOR_ROLE`).
+
+        Errors: `401 INVALID_CREDENTIALS`, `401 TOTP_REQUIRED` (password right, code missing),
+        `409 TOTP_ENROLMENT_REQUIRED` (no 2FA yet: call `totp-enrolment` first),
+        `401 INVALID_CODE`, `403 EMAIL_NOT_VERIFIED`, `426 APP_UPDATE_REQUIRED`, `429 RATE_LIMITED`.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceLogin" }
+            example:
+              email: "anna@beispiel-handwerk.de"
+              password: "ein langer Satz als Passwort"
+              code: "123456"
+              device: { name: "Pixel 7", platform: ANDROID, appVersion: "0.2.0" }
+      responses:
+        "200":
+          description: Signed in; the device is registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceSession" }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/auth/refresh:
+    post:
+      tags: [mobile-auth]
+      operationId: refreshDeviceTokens
+      summary: Exchange the refresh token for new tokens (rotation)
+      description: |
+        Each refresh token works once and is replaced by a new one. Presenting a used refresh
+        token again revokes the device (`401 DEVICE_REVOKED`), because it means the token was
+        copied. The app must therefore never run two refreshes at the same time.
+
+        `401 REFRESH_TOKEN_INVALID`: unknown or expired; the app asks for a new sign-in and
+        keeps its local data. `401 DEVICE_REVOKED`: the app deletes its local data.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+            example: { refreshToken: "q8N0c3J5bW9hZ2V0b2tlbmV4YW1wbGVfX19fX19fX18" }
+      responses:
+        "200":
+          description: New tokens.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceTokens" }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/auth/logout:
+    post:
+      tags: [mobile-auth]
+      operationId: deviceLogout
+      summary: Sign this phone out (revokes the device)
+      description: The device's tokens stop working at once. The app deletes its local data.
+      responses:
+        "204": { description: Signed out. }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/devices/me/status:
+    get:
+      tags: [mobile]
+      operationId: getDeviceStatus
+      summary: Who this device belongs to, and whether the app may continue
+      description: |
+        The app calls this on start and when it returns to the foreground. A revoked device
+        gets `401 DEVICE_REVOKED` (the app deletes its local data). `appUpdate: REQUIRED` or a
+        protocol outside `protocol` means the app must be updated before it can sync; other
+        token requests from such an app answer `426 APP_UPDATE_REQUIRED`.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: The device's status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceStatus" }
+        default: { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     deviceToken:
       type: http
       scheme: bearer
       description: Access token of a registered device (15 minutes; renewed with the refresh token, ADR 0037).
+  parameters:
+    AppVersion:
+      name: X-App-Version
+      in: header
+      required: false
+      description: The app's version, e.g. `0.1.0`.
+      schema: { type: string, maxLength: 40, examples: ["0.1.0"] }
   responses:
     Problem:
       description: Error (RFC 9457 problem details).
@@ -96,6 +218,97 @@ components:
     AppUpdate:
       type: string
       enum: [NONE, RECOMMENDED, REQUIRED]
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 1000 }
+    MobileTotpEnrolment:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret:
+          type: string
+          description: Base32, for typing into the authenticator app.
+        otpauthUri:
+          type: string
+          description: "`otpauth://` link that opens the authenticator app on the same phone."
+    DevicePlatform:
+      type: string
+      enum: [ANDROID, IOS]
+    DeviceInfo:
+      type: object
+      required: [name, platform, appVersion]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Shown to the owner in the device list, e.g. the phone model.
+        platform: { $ref: "#/components/schemas/DevicePlatform" }
+        appVersion: { type: string, maxLength: 40 }
+    DeviceLogin:
+      type: object
+      required: [email, password, device]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 1000 }
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: Code from the authenticator app. Send either this or `recoveryCode`.
+        recoveryCode: { type: string, maxLength: 40 }
+        device: { $ref: "#/components/schemas/DeviceInfo" }
+    DeviceTokens:
+      type: object
+      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt]
+      properties:
+        accessToken:
+          type: string
+          description: "Send as `Authorization: Bearer`. Valid 15 minutes."
+        accessTokenExpiresAt: { type: string, format: date-time }
+        refreshToken:
+          type: string
+          description: Works once; keep it in the platform keystore.
+        refreshTokenExpiresAt: { type: string, format: date-time }
+    MobileRole:
+      type: string
+      enum: [OWNER, MEMBER, TECHNICIAN]
+    DeviceUser:
+      type: object
+      required: [userId, displayName, role, workspaceName]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        role: { $ref: "#/components/schemas/MobileRole" }
+        workspaceName: { type: string }
+    DeviceSession:
+      type: object
+      required: [deviceId, tokens, user]
+      properties:
+        deviceId: { type: string, format: uuid }
+        tokens: { $ref: "#/components/schemas/DeviceTokens" }
+        user: { $ref: "#/components/schemas/DeviceUser" }
+        recoveryCodes:
+          type: array
+          description: Only when this sign-in confirmed the 2FA set-up. Shown once.
+          items: { type: string }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1, maxLength: 200 }
+    DeviceStatus:
+      type: object
+      required: [deviceId, user, protocol, minAppVersion, appUpdate, serverTime]
+      properties:
+        deviceId: { type: string, format: uuid }
+        user: { $ref: "#/components/schemas/DeviceUser" }
+        protocol: { $ref: "#/components/schemas/ProtocolVersions" }
+        minAppVersion: { type: string }
+        appUpdate: { $ref: "#/components/schemas/AppUpdate" }
+        serverTime: { type: string, format: date-time }
     Problem:
       type: object
       description: RFC 9457 problem details with ERIKA's stable error code.

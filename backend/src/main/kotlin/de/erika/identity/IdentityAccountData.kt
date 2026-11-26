@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
 import java.util.UUID
 
-/** Workspace profile, members and invitations for the full account export (EX-04, NF-09). No secrets. */
+/** Workspace profile, members, invitations and MARA phones for the full account export (EX-04, NF-09). No secrets or tokens. */
 @Component
 internal class IdentityAccountData(
     private val jdbc: JdbcClient,
@@ -36,6 +36,12 @@ internal class IdentityAccountData(
                     json,
                     "SELECT id, email, role, invited_by, created_at, expires_at, accepted_at, accepted_by, revoked_at " +
                         "FROM invitation WHERE workspace_id = current_workspace_id() ORDER BY created_at",
+                ),
+            "mobileDevices" to
+                jdbc.jsonRows(
+                    json,
+                    "SELECT id, user_id, name, platform, app_version, created_at, last_seen_at, last_sync_at, revoked_at, " +
+                        "revoked_by, revoked_reason FROM mobile_device WHERE workspace_id = current_workspace_id() ORDER BY created_at",
                 ),
         )
 

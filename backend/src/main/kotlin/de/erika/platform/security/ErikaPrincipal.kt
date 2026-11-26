@@ -25,12 +25,15 @@ enum class WorkspaceRole {
 
 /**
  * A fully signed-in user (password + second factor), bound to one workspace.
- * Stored in the server-side session; the workspace never comes from the request.
+ * Web: stored in the server-side session. MARA app: built per request from the device's
+ * bearer token, with [deviceId] set (ADR 0037). The workspace never comes from the request.
  */
 data class ErikaPrincipal(
     val userId: UUID,
     val workspaceId: UUID,
     val role: WorkspaceRole,
+    /** The registered phone for MARA app requests; null for web sessions. */
+    val deviceId: UUID? = null,
 ) : AuthenticatedPrincipal,
     Serializable {
     /** Name used by Spring Security and Spring Session (`principal_name`): the user ID. */

@@ -34,8 +34,17 @@ internal class MaraFeatureGuard(
 
     companion object {
         val PATHS =
-            listOf("/api/v1/sites", "/api/v1/staff-levels", "/api/v1/staff", "/api/v1/checklist-templates", "/api/v1/work-orders")
-                .flatMap { listOf(it, "$it/**") }
+            listOf(
+                "/api/v1/sites",
+                "/api/v1/staff-levels",
+                "/api/v1/staff",
+                "/api/v1/checklist-templates",
+                "/api/v1/work-orders",
+                // MARA Stage 3: device sign-in, the device status and the owner's device list.
+                "/api/v1/devices",
+                "/api/v1/mobile/auth",
+                "/api/v1/mobile/devices",
+            ).flatMap { listOf(it, "$it/**") }
     }
 }
 

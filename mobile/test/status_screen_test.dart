@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mara/data/api/status_api.dart';
+import 'package:mara/data/session/device_platform.dart';
+import 'package:mara/data/session/session.dart';
 import 'package:mara/features/status/status_providers.dart';
 import 'package:mara/features/status/status_screen.dart';
 import 'package:mara/l10n/gen/app_localizations.dart';
 
 Widget app(List<Override> overrides, {Locale locale = const Locale('de')}) => ProviderScope(
-  overrides: overrides,
+  // No signed-in session: the screen's server and database parts on their own.
+  overrides: [secureStoreProvider.overrideWithValue(MemorySecureStore()), ...overrides],
   // Riverpod retries failed providers on its own; tests check the retry button alone.
   retry: (_, _) => null,
   child: MaterialApp(

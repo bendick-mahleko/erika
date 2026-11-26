@@ -30,6 +30,12 @@ data class IdentityProperties(
     val recoveryCodeCount: Int = 10,
     /** `Secure` flag for the device cookie; off only for local http development. */
     val secureCookies: Boolean = true,
+    /** MARA app (ADR 0037): access tokens are short-lived; refresh tokens rotate on every use. */
+    val mobileAccessTokenValidity: Duration = Duration.ofMinutes(15),
+    /** A phone offline for longer than this signs in again (its local data stays). */
+    val mobileRefreshTokenValidity: Duration = Duration.ofDays(60),
+    /** Token renewals per device and window. */
+    val mobileRefreshRateLimit: Int = 30,
 )
 
 @Configuration(proxyBeanMethods = false)

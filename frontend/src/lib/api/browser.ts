@@ -92,6 +92,7 @@ export type Site = components["schemas"]["Site"];
 export type SiteInput = components["schemas"]["SiteInput"];
 export type StaffLevel = components["schemas"]["StaffLevel"];
 export type StaffMember = components["schemas"]["StaffMember"];
+export type Device = components["schemas"]["Device"];
 export type ChecklistTemplate = components["schemas"]["ChecklistTemplate"];
 export type ChecklistItem = components["schemas"]["ChecklistItem"];
 export type ChecklistItemKind = components["schemas"]["ChecklistItemKind"];

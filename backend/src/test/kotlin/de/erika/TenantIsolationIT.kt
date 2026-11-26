@@ -151,8 +151,17 @@ class TenantIsolationIT : ApiIntegrationTest() {
                 "/api/v1/work-orders",
                 mapOf("customerId" to customerB, "siteId" to siteB, "title" to "Auftrag von B", "assigneeIds" to listOf(userB.userId)),
             )
+        // MARA Stage 3: a phone of B.
+        val deviceB = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO mobile_device (id, workspace_id, user_id, name, platform) VALUES (?, ?, ?, 'Telefon von B', 'ANDROID')",
+            deviceB,
+            userB.workspaceId,
+            userB.userId,
+        )
         fixturesB =
             mapOf(
+                "deviceId" to deviceB.toString(),
                 "siteId" to siteB,
                 "staffLevelId" to staffLevelB,
                 "checklistTemplateId" to templateB,

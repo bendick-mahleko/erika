@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { fetchSession } from "@/lib/api/client";
 
 /** The MARA sections only appear when the add-on is switched on (ADR 0036). */
-const MARA = new Set(["staff", "checklists"]);
+const MARA = new Set(["staff", "checklists", "devices"]);
 
 const SECTIONS = [
   ["workspace", "/settings/workspace"],
@@ -12,6 +12,7 @@ const SECTIONS = [
   ["team", "/settings/team"],
   ["staff", "/settings/staff"],
   ["checklists", "/settings/checklists"],
+  ["devices", "/settings/devices"],
   ["datev", "/settings/datev"],
   ["billing", "/settings/billing"],
   ["account", "/settings/account"],

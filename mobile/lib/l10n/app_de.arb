@@ -1,7 +1,9 @@
 {
   "@@locale": "de",
   "appTitle": "MARA",
-  "@appTitle": { "description": "Product name in the app bar." },
+  "@appTitle": {
+    "description": "Product name in the app bar."
+  },
   "serverSection": "Server",
   "databaseSection": "Daten auf diesem Gerät",
   "loading": "Wird geladen …",
@@ -9,9 +11,21 @@
   "serverUnreachable": "Der Server ist nicht erreichbar. Prüfen Sie die Verbindung.",
   "protocolLabel": "Synchronisation",
   "protocolSupported": "Version {version} wird unterstützt",
-  "@protocolSupported": { "placeholders": { "version": { "type": "int" } } },
+  "@protocolSupported": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
   "protocolUnsupported": "Version {version} wird nicht mehr unterstützt",
-  "@protocolUnsupported": { "placeholders": { "version": { "type": "int" } } },
+  "@protocolUnsupported": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
   "updateLabel": "App-Version",
   "updateNone": "Aktuell",
   "updateRecommended": "Update empfohlen",
@@ -19,12 +33,104 @@
   "serverTimeLabel": "Serverzeit",
   "clockSkewLabel": "Abweichung der Geräteuhr",
   "seconds": "{count} s",
-  "@seconds": { "placeholders": { "count": { "type": "int" } } },
+  "@seconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "milliseconds": "{count} ms",
-  "@milliseconds": { "placeholders": { "count": { "type": "int" } } },
+  "@milliseconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "databaseEncrypted": "Verschlüsselt mit SQLCipher",
   "databaseOpenTime": "Geöffnet in",
   "databaseError": "Die Daten auf diesem Gerät können nicht geöffnet werden",
   "appVersionLabel": "MARA {version}",
-  "@appVersionLabel": { "placeholders": { "version": { "type": "String" } } }
+  "@appVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "signInTitle": "Anmelden",
+  "signInIntro": "Melden Sie sich einmal mit Ihrem ERIKA-Konto an. Danach entsperren Sie die App mit Ihrer PIN.",
+  "emailLabel": "E-Mail-Adresse",
+  "passwordLabel": "Passwort",
+  "deviceNameLabel": "Name dieses Telefons",
+  "deviceNameHint": "So sieht Ihre Firma das Gerät in ERIKA.",
+  "continueButton": "Weiter",
+  "codeLabel": "Code aus der Authenticator-App",
+  "codeIntro": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
+  "useRecoveryCode": "Stattdessen einen Wiederherstellungscode verwenden",
+  "recoveryCodeLabel": "Wiederherstellungscode",
+  "signInButton": "Anmelden",
+  "enrolTitle": "Zwei-Faktor-Anmeldung einrichten",
+  "enrolIntro": "Ihr Konto braucht einen zweiten Faktor. Installieren Sie eine Authenticator-App (z. B. Google Authenticator oder Microsoft Authenticator), fügen Sie dort ein Konto hinzu und geben Sie diesen Schlüssel ein:",
+  "copySecret": "Schlüssel kopieren",
+  "copied": "Kopiert",
+  "enrolCodeIntro": "Geben Sie danach den Code ein, den die App anzeigt.",
+  "confirmButton": "Bestätigen",
+  "recoveryTitle": "Wiederherstellungscodes",
+  "recoveryIntro": "Bewahren Sie diese Codes sicher auf, z. B. auf Papier. Mit jedem Code können Sie sich einmal anmelden, wenn Sie Ihre Authenticator-App nicht zur Hand haben. Sie werden nur jetzt angezeigt.",
+  "copyCodes": "Codes kopieren",
+  "recoveryDone": "Ich habe die Codes notiert",
+  "reasonRevoked": "Dieses Telefon wurde abgemeldet. Die Daten auf dem Gerät wurden gelöscht.",
+  "reasonPinAttempts": "Zu viele falsche PINs. Die Daten auf dem Gerät wurden zur Sicherheit gelöscht.",
+  "reasonSignedOut": "Sie sind abgemeldet. Die Daten auf dem Gerät wurden gelöscht.",
+  "reauthIntro": "Ihre Anmeldung ist abgelaufen. Melden Sie sich erneut an; Ihre Daten auf dem Gerät bleiben erhalten.",
+  "errorInvalidCredentials": "E-Mail-Adresse oder Passwort ist falsch.",
+  "errorInvalidCode": "Der Code ist falsch oder abgelaufen.",
+  "errorEmailNotVerified": "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse (Link in der E-Mail von ERIKA).",
+  "errorAppNotForRole": "Mit diesem Konto können Sie die MARA-App nicht nutzen.",
+  "errorRateLimited": "Zu viele Versuche. Bitte warten Sie einige Minuten.",
+  "errorUpdateRequired": "Bitte aktualisieren Sie die MARA-App.",
+  "errorNotAvailable": "MARA ist für Ihre Firma noch nicht freigeschaltet.",
+  "errorNetwork": "Keine Verbindung zum Server. Prüfen Sie die Internetverbindung.",
+  "errorGeneric": "Das hat nicht geklappt. Bitte versuchen Sie es erneut.",
+  "pinSetupTitle": "PIN festlegen",
+  "pinSetupIntro": "Mit dieser PIN entsperren Sie die App. Sie schützt die Daten auf dem Telefon und gilt nur für dieses Gerät.",
+  "pinLabel": "PIN (6 Ziffern)",
+  "pinRepeatLabel": "PIN wiederholen",
+  "pinInvalid": "Die PIN muss aus 6 Ziffern bestehen und darf nicht zu einfach sein (z. B. 123456).",
+  "pinMismatch": "Die beiden PINs stimmen nicht überein.",
+  "biometricsSwitch": "Mit Fingerabdruck oder Gesichtserkennung entsperren",
+  "savePin": "PIN speichern",
+  "lockTitle": "Gesperrt",
+  "lockGreeting": "Hallo {name}",
+  "@lockGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "unlockButton": "Entsperren",
+  "unlockBiometrics": "Mit Fingerabdruck oder Gesicht entsperren",
+  "biometricReason": "Entsperren Sie MARA.",
+  "pinWrong": "Falsche PIN. Noch {count} Versuche, danach werden die Daten auf dem Gerät gelöscht.",
+  "@pinWrong": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signOutButton": "Abmelden",
+  "signOutConfirmTitle": "Abmelden?",
+  "signOutConfirmBody": "Die Daten auf diesem Telefon werden gelöscht, auch noch nicht übertragene. Danach müssen Sie sich neu anmelden.",
+  "cancel": "Abbrechen",
+  "lockNow": "Sperren",
+  "accountSection": "Angemeldet",
+  "roleOWNER": "Inhaber/in",
+  "roleMEMBER": "Mitglied",
+  "roleTECHNICIAN": "Techniker/in",
+  "updateTitle": "Update erforderlich",
+  "updateBody": "Diese Version der MARA-App wird nicht mehr unterstützt. Bitte installieren Sie das Update aus dem App Store oder Google Play."
 }

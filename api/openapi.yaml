@@ -47,6 +47,8 @@ tags:
     description: Articles and services for the invoice creator (CR-05)
   - name: workorders
     description: MARA job reports add-on - sites, staff levels, checklist templates and work orders (ADR 0036)
+  - name: devices
+    description: Phones signed in to the MARA app; the owner can revoke them (ADR 0037)
   - name: invitations
     description: Inviting team members and the tax advisor (EX-02)
   - name: exports
@@ -1563,6 +1565,38 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StaffMember" }
         default: { $ref: "#/components/responses/Problem" }
+  /devices:
+    get:
+      tags: [devices]
+      operationId: listDevices
+      summary: Phones signed in to the MARA app, per person (owner only)
+      description: |
+        Active devices first, then revoked ones (newest first). Tokens are never shown.
+      responses:
+        "200":
+          description: The devices.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceList" }
+        default: { $ref: "#/components/responses/Problem" }
+  /devices/{deviceId}/revoke:
+    post:
+      tags: [devices]
+      operationId: revokeDevice
+      summary: Lock a phone out of the MARA app (owner only)
+      description: |
+        The device's tokens stop working at once; on its next request the app gets
+        `401 DEVICE_REVOKED` and deletes its local data (M-NF-07). Revoking an already revoked
+        device changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      responses:
+        "200":
+          description: Revoked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        default: { $ref: "#/components/responses/Problem" }
   /checklist-templates:
     get:
       tags: [workorders]
@@ -2163,6 +2197,11 @@ components:
       schema: { type: string, format: uuid }
     ChecklistTemplateId:
       name: checklistTemplateId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DeviceId:
+      name: deviceId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -2970,6 +3009,38 @@ components:
       properties:
         staffLevelId: { type: string, format: uuid, description: "Empty = no staff level" }
         canSeePrices: { type: boolean, description: "Technicians see prices in the app only if set (ADR 0039)" }
+    DevicePlatform:
+      type: string
+      enum: [ANDROID, IOS]
+    DeviceRevokedReason:
+      type: string
+      description: OWNER = revoked in the web app; TOKEN_REUSE = a copied refresh token was used; SIGNED_OUT = signed out in the app.
+      enum: [OWNER, TOKEN_REUSE, SIGNED_OUT]
+    Device:
+      type: object
+      required: [id, userId, displayName, name, platform, createdAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        displayName: { type: string, description: The person who signed in on the phone }
+        role:
+          $ref: "#/components/schemas/Role"
+          description: Missing when the person has left the workspace.
+        name: { type: string, description: "Name the app reported, e.g. the phone model" }
+        platform: { $ref: "#/components/schemas/DevicePlatform" }
+        appVersion: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        lastSyncAt: { type: string, format: date-time }
+        revokedAt: { type: string, format: date-time }
+        revokedReason: { $ref: "#/components/schemas/DeviceRevokedReason" }
+    DeviceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Device" }
     StaffMember:
       type: object
       required: [memberId, userId, displayName, role, canSeePrices]

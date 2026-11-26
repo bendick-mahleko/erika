@@ -1,6 +1,6 @@
 # 0037. Mobile sign-in: devices, bearer tokens, 2FA at registration
 
-- Status: Proposed (implemented in MARA Stage 3)
+- Status: Accepted (implemented in MARA Stage 3)
 - Date: 2026-11-25
 
 ## Context
@@ -24,6 +24,28 @@ The MARA design required TOTP only for admins on the device.
   - The workspace comes from the token, never from the request.
 - **Rate limits.** Device login uses the same limits as the web sign-in. Refresh is limited per device.
 - **Tests.** The mobile isolation harness, generated from `api/mobile.yaml` (`MobileContractIT`), calls every token operation with tenant B's IDs. Further tests: sign-in without TOTP is refused, refresh reuse revokes the device, a revoked device is refused at once.
+
+## Implementation (MARA Stage 3)
+- **Tables** (`V13`): `mobile_device` and `mobile_token`, both tenant tables with RLS. A bearer request arrives without a workspace, so the SECURITY DEFINER function `mobile_token_workspace(hash)` returns only the token's workspace; everything else is read with RLS in place.
+- **2FA set-up in the app.** Technicians never use the web app, so they can't set up TOTP there. `POST /mobile/auth/totp-enrolment` (email and password) creates the pending secret. The next `device-login` with a code confirms it and returns the recovery codes once. `device-login` without a code answers `401 TOTP_REQUIRED`, or `409 TOTP_ENROLMENT_REQUIRED` for an account without 2FA.
+- **Workspace.** The device belongs to the user's oldest membership with a role that may use the app (OWNER, MEMBER, TECHNICIAN). Tax advisors get `403 APP_NOT_FOR_ROLE`. Choosing between several firms on one phone can follow when someone needs it.
+- **Role per request.** The token filter reads the current role from the membership on every request. A role change applies at once, and a removed member's phones get `401 DEVICE_REVOKED`.
+- **Answers that tell the app what to do:**
+  - `401 TOKEN_EXPIRED`: renew with the refresh token;
+  - `401 DEVICE_REVOKED`: delete local data;
+  - `401 REFRESH_TOKEN_INVALID`: sign in again (after 60 days offline) and keep the local data;
+  - `426 APP_UPDATE_REQUIRED`: the app is below `erika.mobile.min-app-version`, on every MARA request except the status checks and sign-out.
+- **Sign-out** in the app revokes the device (reason `SIGNED_OUT`). Owners revoke in the web app (`/settings/devices`, reason `OWNER`). A reused refresh token revokes with reason `TOKEN_REUSE`. Each revocation is audited (`identity.device.revoked`), and so is each registration (`identity.device.registered`). A new phone also triggers the existing new-device email.
+- **Feature switch.** Device endpoints sit behind `erika.features.mara` like the office endpoints.
+- **On the phone:**
+  - The database key is created at the first sign-in. It is stored only wrapped: AES-256-GCM under a key derived from the 6-digit PIN with PBKDF2-HMAC-SHA256 (60,000 rounds, recorded with the wrapped key so later versions can raise it), in the Keystore/Keychain.
+  - Simple PINs (all one digit, straight runs) are refused.
+  - After 10 wrong PINs in a row the app deletes its data.
+  - With biometrics on, a second copy of the key is read from the keystore only after `local_auth` recognised the user. This is an app-level gate; a hardware-bound key (`setUserAuthenticationRequired` / `kSecAccessControlBiometryCurrentSet`) is a hardening item for Stage 11.
+- **App behaviour:**
+  - It locks after 5 minutes in the background (short switches don't count) and checks `GET /mobile/devices/me/status` on unlock and on return to the foreground.
+  - Offline, it keeps working.
+  - Token renewals run one at a time, so the app never presents the same refresh token twice.
 
 ## Consequences
 - Technicians type a TOTP code once per phone, not on site.

@@ -2,7 +2,7 @@
 
 The technician app of MARA, ERIKA's job-report add-on. Plan: [docs/mara/BUILD_PLAN.md](../docs/mara/BUILD_PLAN.md). Decisions: ADR 0036–0040 in [docs/adr/](../docs/adr/README.md).
 
-**State (MARA Stage 1):** one screen that checks the server (`GET /api/v1/mobile/status`) and opens the encrypted local database. Sign-in, sync and the report screens follow in Stages 3–7.
+**State (MARA Stage 3):** device sign-in with password and TOTP (2FA can be set up in the app), PIN or biometric unlock, lock after 5 minutes in the background, sign-out, and deletion of all local data when the device is revoked (ADR 0037). After unlocking, a status screen shows who is signed in, the server check and the encrypted database. Sync and the report screens follow in Stages 4–7.
 
 ## Layout
 
@@ -10,7 +10,8 @@ The technician app of MARA, ERIKA's job-report add-on. Plan: [docs/mara/BUILD_PL
 |---|---|
 | `lib/app/` | version (keep equal to `pubspec.yaml`) and build-time config |
 | `lib/data/api/` | HTTP clients for `api/mobile.yaml` |
-| `lib/data/local/` | drift database (SQLCipher) and the key store |
+| `lib/data/local/` | drift database (SQLCipher) and the database key generator |
+| `lib/data/session/` | session state (`SessionController`), key vault (PIN-wrapped database key), keystore, biometrics and local files behind interfaces |
 | `lib/domain/rules/` | rules shared with the back end; tested against `../mara-rules/vectors/` |
 | `lib/features/` | screens and their Riverpod providers (screens never touch the database directly) |
 | `lib/l10n/` | `app_de.arb` (template, German first) and `app_en.arb`; same keys (checked by a test) |
@@ -48,6 +49,7 @@ Add `-v mara-gradle:/root/.gradle` and `flutter build apk --debug` for an Androi
 
 - **Decimal arithmetic** for every quantity, dimension and amount (`package:decimal`), never `double`. Rules that also run on the server get vectors in `mara-rules/` first.
 - **The local database is always encrypted.** `AppDatabase.openEncrypted` refuses to run without SQLCipher. Never open the file another way.
+- **The database key is never stored unwrapped.** Only `KeyVault` keeps it (PIN-wrapped; biometric copy only if chosen). API calls with a token go through `SessionController.authorized`, which renews tokens one at a time and wipes on `DEVICE_REVOKED`.
 - **No customer or report content in logs or crash reports.**
 - **Texts in both ARB files**, German first.
 - **Tap targets of at least 48 dp** (M-NF-05).

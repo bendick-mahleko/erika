@@ -1,5 +1,6 @@
 package de.erika.mara
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// local_auth (biometric unlock, ADR 0037) needs a FragmentActivity.
+class MainActivity : FlutterFragmentActivity()

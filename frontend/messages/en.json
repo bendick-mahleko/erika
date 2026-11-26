@@ -243,7 +243,8 @@
     "WORK_ORDER_NOT_FOUND": "The work order wasn't found.",
     "STAFF_LEVEL_NOT_FOUND": "The staff level wasn't found.",
     "CHECKLIST_TEMPLATE_NOT_FOUND": "The checklist wasn't found.",
-    "CHECKLIST_KEYS_DUPLICATE": "Two items have the same key. Please give each item its own."
+    "CHECKLIST_KEYS_DUPLICATE": "Two items have the same key. Please give each item its own.",
+    "DEVICE_NOT_FOUND": "This device does not exist (any more)."
   },
   "Inbox": {
     "title": "Inbox",
@@ -796,7 +797,8 @@
     "account": "Account",
     "intake": "Email intake",
     "staff": "Staff",
-    "checklists": "Checklists"
+    "checklists": "Checklists",
+    "devices": "Devices"
   },
   "Team": {
     "title": "Team and tax advisor",
@@ -1191,5 +1193,30 @@
     "save": "Save",
     "cancel": "Cancel",
     "saved": "Saved."
+  },
+  "Devices": {
+    "title": "Devices in the MARA app",
+    "intro": "See which phones your team is signed in on in the MARA app. Sign out a lost or stolen phone here: it is locked out at once and deletes all data on the device the next time it reaches the server.",
+    "ownerOnly": "Only owners see the devices and can sign them out.",
+    "none": "Nobody is signed in to the MARA app yet.",
+    "leftWorkspace": "no longer in the team",
+    "platforms": {
+      "ANDROID": "Android",
+      "IOS": "iPhone"
+    },
+    "appVersion": "app {version}",
+    "signedInAt": "signed in {when}",
+    "lastSeen": "last active {when}",
+    "reasons": {
+      "OWNER": "Signed out {when} (in ERIKA)",
+      "TOKEN_REUSE": "Locked {when}: the sign-in was used on another device",
+      "SIGNED_OUT": "Signed out in the app {when}"
+    },
+    "revoke": "Sign out",
+    "deviceOf": "{name} of {person}",
+    "confirm": "Sign out {name} now? The data on the device is deleted, including data not yet sent.",
+    "revokeNow": "Yes, sign out",
+    "cancel": "Cancel",
+    "revoked": "{name} of {person} is signed out."
   }
 }

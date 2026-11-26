@@ -18,6 +18,18 @@ class MaraFeatureOffIT : ApiIntegrationTest() {
             assertEquals(404, r.status, "$it: $r")
             assertEquals("FEATURE_DISABLED", r.code)
         }
+        assertEquals(404, c.get("/api/v1/devices").status)
+        val login =
+            client().post(
+                "/api/v1/mobile/auth/device-login",
+                mapOf(
+                    "email" to "x@example.test",
+                    "password" to "x",
+                    "device" to mapOf("name" to "Pixel", "platform" to "ANDROID", "appVersion" to "0.2.0"),
+                ),
+            )
+        assertEquals(404, login.status, "$login")
+        assertEquals("FEATURE_DISABLED", login.code)
         assertFalse(
             c
                 .get("/api/v1/auth/session")

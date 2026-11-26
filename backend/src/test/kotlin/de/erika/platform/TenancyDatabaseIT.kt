@@ -233,6 +233,19 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             order,
             user.userId,
         )
+        // MARA Stage 3: a phone and one of its tokens.
+        val device = java.util.UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO mobile_device (id, workspace_id, user_id, name, platform) VALUES (?, ?, ?, 'Telefon', 'IOS')",
+            device,
+            user.workspaceId,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO mobile_token (token_hash, workspace_id, device_id, kind, expires_at) VALUES (sha256(gen_random_uuid()::text::bytea), ?, ?, 'ACCESS', now())",
+            user.workspaceId,
+            device,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

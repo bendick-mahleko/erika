@@ -272,6 +272,7 @@ export type WorkOrderStatus = components["schemas"]["WorkOrderStatus"];
 export type Site = components["schemas"]["Site"];
 export type StaffLevel = components["schemas"]["StaffLevel"];
 export type StaffMember = components["schemas"]["StaffMember"];
+export type Device = components["schemas"]["Device"];
 export type ChecklistTemplate = components["schemas"]["ChecklistTemplate"];
 
 export async function fetchWorkOrders(status?: WorkOrderStatus): Promise<WorkOrder[]> {
@@ -298,6 +299,11 @@ export async function fetchWorkOrder(workOrderId: string): Promise<{ workOrder: 
 
 export async function fetchStaff(): Promise<StaffMember[]> {
   return (await authed((init) => api.GET("/staff", init)))?.items ?? [];
+}
+
+/** Phones signed in to the MARA app (owner only). */
+export async function fetchDevices(): Promise<Device[]> {
+  return (await authed((init) => api.GET("/devices", init)))?.items ?? [];
 }
 
 export async function fetchStaffLevels(includeArchived = false): Promise<StaffLevel[]> {

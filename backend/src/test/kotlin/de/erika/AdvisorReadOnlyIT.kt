@@ -142,8 +142,17 @@ class AdvisorReadOnlyIT : ApiIntegrationTest() {
                     "assigneeIds" to emptyList<String>(),
                 ),
             )
+        // MARA Stage 3: a phone of the owner.
+        val device = UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO mobile_device (id, workspace_id, user_id, name, platform) VALUES (?, ?, ?, 'Telefon', 'ANDROID')",
+            device,
+            ownerUser.workspaceId,
+            ownerUser.userId,
+        )
         fixtures =
             mapOf(
+                "deviceId" to device.toString(),
                 "siteId" to site,
                 "staffLevelId" to staffLevel,
                 "checklistTemplateId" to template,

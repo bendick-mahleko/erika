@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { apiCall, expectAccessible, mailToken, signedInAccount } from "./support";
+import { apiCall, expectAccessible, mailToken, signedInAccount, totp } from "./support";
 
 /**
  * MARA Stage 2 in the browser, against the full stack (exit criteria): the owner creates a
@@ -114,6 +114,46 @@ test.describe("MARA work orders (full stack)", () => {
     await page.reload();
     await expect(columnOf("Erika Test").getByRole("link", { name: "Badsanierung" })).toBeVisible();
     await expect(columnOf("Ben Azubi").getByRole("link", { name: "Badsanierung" })).toHaveCount(0);
+  });
+
+  test("a technician's phone shows up for the owner and is locked out when revoked", async ({ page, browser }) => {
+    await signedInAccount(page, "e2e-mara-devices");
+    const tech = await technician(page, browser, "Dora Monteurin");
+
+    // The phone: 2FA set-up and sign-in through the app API (no cookies, no CSRF; ADR 0037).
+    const phone = tech.page.request;
+    const credentials = { email: tech.email, password };
+    const enrolment = await phone.post("/api/v1/mobile/auth/totp-enrolment", { data: credentials });
+    expect(enrolment.status()).toBe(200);
+    const secret = ((await enrolment.json()) as { secret: string }).secret;
+    const login = await phone.post("/api/v1/mobile/auth/device-login", {
+      data: {
+        ...credentials,
+        code: totp(secret),
+        device: { name: "Galaxy XCover 7", platform: "ANDROID", appVersion: "0.2.0" },
+      },
+    });
+    expect(login.status(), await login.text()).toBe(200);
+    const accessToken = ((await login.json()) as { tokens: { accessToken: string } }).tokens.accessToken;
+    const deviceStatus = () =>
+      phone.get("/api/v1/mobile/devices/me/status", { headers: { Authorization: `Bearer ${accessToken}` } });
+    expect((await deviceStatus()).status()).toBe(200);
+
+    // The owner sees the phone and signs it out.
+    await page.goto("/settings/devices");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Geräte in der MARA-App");
+    const person = page.getByRole("region", { name: /Dora Monteurin/ });
+    await expect(person.getByTestId("device-list")).toContainText("Galaxy XCover 7");
+    await expectAccessible(page);
+    await person.getByRole("button", { name: /Abmelden/ }).click();
+    await page.getByRole("button", { name: "Ja, abmelden" }).click();
+    await expect(page.getByRole("status")).toHaveText("Galaxy XCover 7 von Dora Monteurin ist abgemeldet.");
+    await expect(person.getByTestId("device-revoked")).toContainText("Abgemeldet");
+
+    // The phone is refused at once and told to delete its data.
+    const refused = await deviceStatus();
+    expect(refused.status()).toBe(401);
+    expect(((await refused.json()) as { code: string }).code).toBe("DEVICE_REVOKED");
   });
 
   test("staff levels, staff settings and checklist templates", async ({ page, browser }) => {
