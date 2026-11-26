@@ -510,8 +510,9 @@ components:
         op: { $ref: "#/components/schemas/MutationOp" }
         values:
           type: object
-          additionalProperties: true
-          description: The changed fields (all fields for CREATE).
+          # Any JSON values, null included (the app clears a field by sending null); typed as a
+          # plain object so the generated model doesn't refuse null values.
+          description: The changed fields (all fields for CREATE); null clears a field.
         baseVersions:
           type: object
           additionalProperties: { type: integer, format: int64 }

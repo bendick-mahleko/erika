@@ -92,6 +92,16 @@ groups:
           summary: "Documents could not be read and validated"
           runbook: docs/ops/intake.md#failed-jobs-erikajobsfailed
 
+  - name: erika-mara
+    rules:
+      # MARA Stage 7: a phone sent a signature over content the server doesn't hold (refused).
+      - alert: ErikaMaraSignatureHashMismatch
+        expr: increase(erika_mara_signature_hash_mismatch_total[1h]) > 0
+        labels: { severity: ticket }
+        annotations:
+          summary: "A report signature was refused: its hash doesn't match the server's report"
+          runbook: docs/ops/mara.md#signature-refused-erikamarasignaturehashmismatch
+
   - name: erika-archive
     rules:
       - alert: ErikaArchiveIntegrityFailure

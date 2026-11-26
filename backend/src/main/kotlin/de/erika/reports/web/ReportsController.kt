@@ -1,5 +1,6 @@
 package de.erika.reports.web
 
+import de.erika.archive.Archive
 import de.erika.contract.api.ReportsApi
 import de.erika.contract.model.AufmassDeduction
 import de.erika.contract.model.AufmassKind
@@ -10,23 +11,33 @@ import de.erika.contract.model.ReportAufmassPosition
 import de.erika.contract.model.ReportChecklistItem
 import de.erika.contract.model.ReportMaterialLine
 import de.erika.contract.model.ReportPhoto
+import de.erika.contract.model.ReportSignatureInfo
 import de.erika.contract.model.ReportState
 import de.erika.contract.model.ReportSummary
 import de.erika.contract.model.ReportTimeEntry
+import de.erika.contract.model.ReportVersion
 import de.erika.contract.model.TimeEntryKind
 import de.erika.contract.model.WorkOrderReport
 import de.erika.creator.ArticleDirectory
 import de.erika.identity.WorkspaceContacts
 import de.erika.platform.runtime.RuntimeInstance
+import de.erika.platform.security.ErikaPrincipal
 import de.erika.platform.web.ErikaException
 import de.erika.reports.ReportMedia
 import de.erika.reports.ReportsRepository
 import de.erika.workorders.WorkOrderDirectory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.annotation.Profile
+import org.springframework.core.io.ByteArrayResource
+import org.springframework.core.io.Resource
+import org.springframework.http.CacheControl
+import org.springframework.http.ContentDisposition
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
@@ -41,7 +52,18 @@ internal class ReportsController(
     private val people: WorkspaceContacts,
     private val articles: ArticleDirectory,
     private val media: ObjectProvider<ReportMedia>,
+    private val archive: Archive,
 ) : ReportsApi {
+    /** The archived PDF of a signed version (hash-checked by the archive), as a download. */
+    override fun getReportPdf(reportId: UUID): ResponseEntity<Resource> {
+        val signature = repo.signatureOf(reportId) ?: throw notFound()
+        val sha = signature.pdfSha256 ?: throw notFound()
+        val content = archive.open(ErikaPrincipal.current().workspaceId, sha) ?: throw notFound()
+        return pdf(content.bytes, "Arbeitsbericht-${signature.verificationCode}.pdf")
+    }
+
+    private fun notFound() = ErikaException("REPORT_PDF_NOT_FOUND", HttpStatus.NOT_FOUND, "Not found.")
+
     override fun getWorkOrderReport(workOrderId: UUID): ResponseEntity<WorkOrderReport> {
         val order =
             workOrders.find(workOrderId) ?: throw ErikaException("WORK_ORDER_NOT_FOUND", HttpStatus.NOT_FOUND, "Not found.")
@@ -65,6 +87,7 @@ internal class ReportsController(
                     aufmass = emptyList(),
                     checklist = checklist,
                     photos = emptyList(),
+                    versions = emptyList(),
                 ),
             )
         }
@@ -85,6 +108,20 @@ internal class ReportsController(
                         workDescription = report.workDescription,
                         completedAt = report.completedAt,
                         completedByName = report.completedBy?.let { names[it] },
+                        signature =
+                            repo.signatureOf(report.id)?.let { s ->
+                                ReportSignatureInfo(
+                                    kind = ReportSignatureInfo.Kind.forValue(s.kind),
+                                    signerName = s.signerName,
+                                    signedAt = s.signedAt,
+                                    comment = s.comment,
+                                    notSignedReason = s.notSignedReason,
+                                    contentHash = s.contentHash,
+                                    verificationCode = s.verificationCode,
+                                    pdfAvailable = s.pdfSha256 != null,
+                                    emailed = repo.deliveryCount(report.id) > 0,
+                                )
+                            },
                     ),
                 timeEntries =
                     times.map {
@@ -159,7 +196,30 @@ internal class ReportsController(
                             height = it.height,
                         )
                     },
+                versions =
+                    repo.versionsOf(order.id).map { v ->
+                        ReportVersion(
+                            id = v.id,
+                            version = v.version,
+                            state = ReportState.forValue(v.state.name),
+                            signedAt = repo.signatureOf(v.id)?.signedAt,
+                        )
+                    },
             ),
         )
     }
+}
+
+/** A PDF as a download: attachment, nosniff, sandboxed (the `download` rules, ADR 0025). */
+internal fun pdf(
+    bytes: ByteArray,
+    fileName: String,
+): ResponseEntity<Resource> {
+    val headers = HttpHeaders()
+    headers.contentType = MediaType.APPLICATION_PDF
+    headers.contentDisposition = ContentDisposition.attachment().filename(fileName, StandardCharsets.UTF_8).build()
+    headers.set("X-Content-Type-Options", "nosniff")
+    headers.set("Content-Security-Policy", "default-src 'none'; sandbox")
+    headers.cacheControl = CacheControl.noStore().cachePrivate().headerValue
+    return ResponseEntity.ok().headers(headers).body(ByteArrayResource(bytes))
 }

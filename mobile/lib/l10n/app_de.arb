@@ -369,5 +369,64 @@
       }
     }
   },
-  "rejectedPhotoTooLarge": "Das Foto ist zu groß."
+  "rejectedPhotoTooLarge": "Das Foto ist zu groß.",
+  "getSignature": "Unterschrift einholen",
+  "signPreviewTitle": "Vorschau für den Kunden",
+  "letCustomerSign": "Kunde unterschreibt",
+  "sendWithoutSignature": "Ohne Unterschrift senden",
+  "versionLabel": "Version {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
+  "signatureTitle": "Unterschrift",
+  "signatureHint": "Mit dem Finger im Feld unterschreiben. Mit der Unterschrift bestätigt der Kunde den Bericht, wie er in der Vorschau zu sehen war.",
+  "clearSignature": "Neu unterschreiben",
+  "signerName": "Name in Druckbuchstaben",
+  "signatureComment": "Anmerkung des Kunden (optional)",
+  "notSignedReason": "Grund (z. B. Kunde nicht anwesend)",
+  "customerEmail": "E-Mail des Kunden für das PDF (optional)",
+  "customerEmailHint": "Das PDF wird verschickt, sobald das Telefon wieder Verbindung hat.",
+  "confirmSignature": "Bestätigen und abschließen",
+  "signatureIncomplete": "Bitte unterschreiben lassen und den Namen eintragen.",
+  "reasonRequired": "Bitte einen Grund angeben.",
+  "signedTitle": "Unterschrieben",
+  "sentWithoutSignature": "Ohne Unterschrift abgeschlossen",
+  "pdfWillBeEmailed": "Der Bericht ist gesichert. Das PDF geht per E-Mail an den Kunden, sobald das Telefon Verbindung hat.",
+  "pdfNotEmailed": "Der Bericht ist gesichert. Ohne E-Mail-Adresse: Der Kunde kann das PDF über den QR-Code abrufen.",
+  "qrHint": "Der Kunde scannt den Code, um den Bericht zu prüfen und später abzurufen.",
+  "verificationCodeLabel": "Prüfcode {code}",
+  "@verificationCodeLabel": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "sharePdf": "PDF teilen",
+  "done": "Fertig",
+  "newReportVersion": "Korrektur anlegen (neue Version)",
+  "reportSigned": "Version {version} unterschrieben von {name}. Der Bericht ändert sich nicht mehr.",
+  "@reportSigned": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reportSentUnsigned": "Version {version} ohne Unterschrift abgeschlossen. Der Bericht ändert sich nicht mehr.",
+  "@reportSentUnsigned": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
+  "rejectedHashMismatch": "Die Unterschrift wurde nicht angenommen: Der Bericht hatte sich inzwischen geändert. Bitte synchronisieren und erneut unterschreiben lassen."
 }

@@ -78,6 +78,7 @@ String inboxText(AppLocalizations t, InboxEntry e) {
       'TIMER_RUNNING' => t.rejectedTimerRunning,
       'CHECKLIST_INCOMPLETE' => t.rejectedChecklistIncomplete,
       'PHOTO_TOO_LARGE' => t.rejectedPhotoTooLarge,
+      'HASH_MISMATCH' => t.rejectedHashMismatch,
       _ => t.rejectedOther(e.code ?? ''),
     };
   }

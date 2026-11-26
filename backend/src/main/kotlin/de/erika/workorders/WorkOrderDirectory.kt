@@ -31,6 +31,7 @@ data class WorkOrderRef(
 class WorkOrderDirectory internal constructor(
     private val orders: WorkOrderRepository,
     private val templates: ChecklistTemplateRepository,
+    private val service: WorkOrders,
 ) {
     private val clock: Clock = Clock.systemUTC()
 
@@ -73,6 +74,14 @@ class WorkOrderDirectory internal constructor(
                 )
             }.map { it.id }
             .toSet()
+
+    /** A report version of the work order was signed (MARA Stage 7): status SIGNED. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun markSigned(
+        workspaceId: UUID,
+        actorId: UUID?,
+        workOrderId: UUID,
+    ) = service.markSigned(workspaceId, actorId, workOrderId)
 
     /** The items of a checklist template (archived templates too: old work orders keep theirs). */
     @Transactional(propagation = Propagation.MANDATORY)

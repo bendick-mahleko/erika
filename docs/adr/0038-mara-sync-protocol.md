@@ -96,6 +96,10 @@ Technicians work offline. Changes must reach the server, and office changes must
 - **Protocol version stays 1.** The changes are additive: older apps never send `DELETE` and store unknown entities without showing them.
 - **Tests:** the shared vectors in Kotlin and Dart; `ReportsSyncIT`, covering a whole report, derived IDs from two phones, delete versus edit in both orders, scope and reassignment, author rules and locks. The fault simulations now include report records with deletes: `SyncFaultIT` on the server, and on the phone a property test that also replays old pull pages.
 
+## Implementation (MARA Stage 7)
+- **`report_signature`** is a create-only entity whose ID is derived from the report. The server checks the content hash against its own canonical report before it accepts it (ADR 0040).
+- **Null values in mutations.** `Mutation.values` is a plain JSON object in `api/mobile.yaml` (no `additionalProperties`). Generated as `Map<String, Any>`, Jackson's Kotlin strict null checks refused every push that cleared a field with `null`, which the app does (for example a running timer's end, an empty caption). It was found in Stage 7; `SyncIT` covers it now.
+
 ## Consequences
 - The protocol is ours to maintain, including the signed-report rules, without a vendor dependency.
 - The per-workspace counter serialises writers within one workspace. That is fine for firms with 2–15 people; the load test in Stage 11 checks it.

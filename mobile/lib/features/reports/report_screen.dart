@@ -8,6 +8,7 @@ import '../../l10n/gen/app_localizations.dart';
 import 'aufmass_editor_screen.dart';
 import 'material_picker.dart';
 import 'photos.dart';
+import 'signing.dart';
 import 'report_providers.dart';
 import 'time_entry_dialog.dart';
 
@@ -57,20 +58,48 @@ class ReportScreen extends ConsumerWidget {
     final editable = !view.locked && !view.completed;
     return Scaffold(
       appBar: AppBar(title: Text(t.reportTitle(view.workOrder.title))),
-      bottomNavigationBar: view.locked
+      bottomNavigationBar: view.workOrder.status == 'INVOICED'
           ? null
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: view.completed
+                child: view.signed
+                    // A signed version never changes; a correction is the next version (M-BR-01).
                     ? OutlinedButton.icon(
-                        key: const Key('reopen-report'),
+                        key: const Key('new-version'),
                         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                        icon: const Icon(Icons.lock_open),
-                        label: Text(t.reopenReport),
-                        onPressed: () => ref.read(reportWriterProvider).changeReport(workOrderId, {
-                          'state': 'OPEN',
-                        }),
+                        icon: const Icon(Icons.edit_note),
+                        label: Text(t.newReportVersion),
+                        // Only once the server has the signature (a correction follows a signed version).
+                        onPressed: view.signature == null || view.signature!.version == 0
+                            ? null
+                            : () => ref.read(reportWriterProvider).newVersion(view),
+                      )
+                    : view.completed
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FilledButton.icon(
+                            key: const Key('to-preview'),
+                            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                            icon: const Icon(Icons.draw),
+                            label: Text(t.getSignature),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => SignPreviewScreen(workOrderId: workOrderId),
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            key: const Key('reopen-report'),
+                            onPressed: () => ref.read(reportWriterProvider).changeReport(
+                              workOrderId,
+                              {'state': 'OPEN'},
+                            ),
+                            child: Text(t.reopenReport),
+                          ),
+                        ],
                       )
                     : FilledButton.icon(
                         key: const Key('complete-report'),
@@ -84,7 +113,20 @@ class ReportScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          if (view.completed)
+          if (view.signed)
+            Card(
+              key: const Key('report-signed'),
+              child: ListTile(
+                leading: const Icon(Icons.verified),
+                title: Text(
+                  view.signature?.text('kind') == 'NOT_SIGNED'
+                      ? t.reportSentUnsigned(view.version)
+                      : t.reportSigned(view.version, view.signature?.text('signerName') ?? ''),
+                ),
+                subtitle: view.signature?.version == 0 ? Text(t.notYetSent) : null,
+              ),
+            )
+          else if (view.completed)
             Card(
               key: const Key('report-completed'),
               child: ListTile(leading: const Icon(Icons.task_alt), title: Text(t.reportCompleted)),

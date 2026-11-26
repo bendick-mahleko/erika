@@ -52,7 +52,26 @@ class FakeSyncServer implements SyncTransport {
       'workNotes': FieldPolicy.deviceWins,
     },
     'customer': {'name': _lww, 'phone': _lww},
-    'report': {'workOrderId': FieldPolicy.serverWins, 'workDescription': _lww, 'state': _lww},
+    'report': {
+      'workOrderId': FieldPolicy.serverWins,
+      'version': FieldPolicy.serverWins,
+      'workDescription': _lww,
+      'state': _lww,
+    },
+    'report_signature': {
+      'reportId': FieldPolicy.serverWins,
+      'kind': FieldPolicy.serverWins,
+      'contentHash': FieldPolicy.serverWins,
+      'signerName': FieldPolicy.serverWins,
+      'signedAt': FieldPolicy.serverWins,
+      'comment': FieldPolicy.serverWins,
+      'notSignedReason': FieldPolicy.serverWins,
+      'strokes': FieldPolicy.serverWins,
+      'signaturePng': FieldPolicy.serverWins,
+      'verificationCode': FieldPolicy.serverWins,
+      'downloadKey': FieldPolicy.serverWins,
+      'customerEmail': FieldPolicy.serverWins,
+    },
     'time_entry': {
       'reportId': _lww,
       'technicianId': _lww,
@@ -94,6 +113,10 @@ class FakeSyncServer implements SyncTransport {
 
   /// Child records the phone may delete.
   static const deletable = {'time_entry', 'material_line', 'aufmass_position', 'photo'};
+
+  /// The hash the server computes for a report from its own data (Stage 7); a signature with
+  /// another hash is refused, as on the real server. Null: not checked.
+  String? Function(String reportId)? reportHash;
 
   /// Live (not deleted) data of a record.
   Map<String, dynamic>? data(String entity, String id) {
@@ -176,6 +199,23 @@ class FakeSyncServer implements SyncTransport {
     final r = _records[key];
     switch (m.op) {
       case 'CREATE':
+        if (r == null && m.entity == 'report_signature') {
+          final reportId = m.values['reportId'] as String;
+          final expected = reportHash?.call(reportId);
+          if (expected != null && expected != m.values['contentHash']) {
+            return MutationResultDto(
+              mutationId: m.mutationId,
+              status: 'REJECTED',
+              code: 'HASH_MISMATCH',
+            );
+          }
+          // The version is locked: SIGNED or NOT_SIGNED (the key is never sent back).
+          _write(_records['report/$reportId']!, {'state': m.values['kind']});
+          final created = _ServerRecord(m.entity, {});
+          _records[key] = created;
+          _write(created, {...m.values}..remove('downloadKey'));
+          return MutationResultDto(mutationId: m.mutationId, status: 'APPLIED', record: _dto(key));
+        }
         if (r == null) {
           final created = _ServerRecord(m.entity, {});
           _records[key] = created;

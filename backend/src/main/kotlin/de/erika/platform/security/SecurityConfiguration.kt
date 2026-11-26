@@ -64,6 +64,9 @@ class SecurityConfiguration {
                     .permitAll()
                     .requestMatchers("/api/v1/auth/**", "/error")
                     .permitAll()
+                    // Public checks without a session (MARA report verification): hash and status only.
+                    .requestMatchers(HttpMethod.GET, "/api/v1/public/**")
+                    .permitAll()
                     // Postfix → API (api/internal.yaml): checked against the shared secret in the controller.
                     // Not routed by the reverse proxy; reachable only on the internal network.
                     .requestMatchers(HttpMethod.POST, "/internal/intake/**")

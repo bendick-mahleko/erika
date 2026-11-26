@@ -56,6 +56,9 @@ See [intake.md](intake.md).
 ### ErikaArchiveIntegrityFailure
 See [archive-integrity.md](archive-integrity.md).
 
+### ErikaMaraSignatureHashMismatch
+See [mara.md](mara.md#signature-refused-erikamarasignaturehashmismatch).
+
 ### ErikaAuditChainBroken, ErikaAuditChainCheckFailed
 See [audit-chain.md](audit-chain.md).
 

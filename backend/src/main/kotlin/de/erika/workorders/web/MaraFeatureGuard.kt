@@ -47,6 +47,9 @@ internal class MaraFeatureGuard(
                 // MARA Stage 6: photos and their uploads.
                 "/api/v1/photos",
                 "/api/v1/mobile/uploads",
+                // MARA Stage 7: report PDFs and the public verification.
+                "/api/v1/reports",
+                "/api/v1/public/report-verifications",
             ).flatMap { listOf(it, "$it/**") }
     }
 }

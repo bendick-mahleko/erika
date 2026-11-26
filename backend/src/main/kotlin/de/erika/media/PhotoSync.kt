@@ -1,5 +1,8 @@
 package de.erika.media
 
+import de.erika.archive.Archive
+import de.erika.platform.storage.ObjectStorage
+import de.erika.platform.storage.StorageProperties
 import de.erika.reports.ReportDirectory
 import de.erika.reports.ReportMedia
 import de.erika.reports.ReportPhotoInfo
@@ -12,6 +15,7 @@ import de.erika.workorders.WorkOrdersChanged
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -212,6 +216,10 @@ internal class PhotosFeed(
 @Component
 internal class PhotoReportMedia(
     private val photos: PhotoRepository,
+    private val storage: ObjectStorage,
+    private val props: StorageProperties,
+    private val archive: Archive,
+    private val events: ApplicationEventPublisher,
 ) : ReportMedia {
     override fun answeredItems(reportId: UUID): Set<String> =
         photos
@@ -233,6 +241,39 @@ internal class PhotoReportMedia(
                 authorId = it.authorId,
                 width = it.width,
                 height = it.height,
+                sha256 = it.sha256,
             )
         }
+
+    override fun copyPhotos(
+        from: UUID,
+        to: UUID,
+        workspaceId: UUID,
+        actorId: UUID,
+    ) {
+        for (photo in photos.ofReport(from)) {
+            val id = UUID.randomUUID()
+            photos.insertCopy(photo, id, to)
+            events.publishEvent(PhotosChanged(workspaceId, actorId, id, "created"))
+        }
+    }
+
+    override fun image(
+        photoId: UUID,
+        thumbnail: Boolean,
+    ): ByteArray? {
+        val photo = photos.find(photoId)?.takeIf { it.state == PhotoState.STORED } ?: return null
+        return storage.get(props.mediaBucket, if (thumbnail) PhotoKeys.thumbnail(photo) else PhotoKeys.stored(photo))
+    }
+
+    override fun archive(
+        reportId: UUID,
+        workspaceId: UUID,
+        retainUntil: LocalDate,
+    ) {
+        for (photo in photos.ofReport(reportId).filter { it.state == PhotoState.STORED }) {
+            val bytes = storage.get(props.mediaBucket, PhotoKeys.stored(photo)) ?: continue
+            archive.store(workspaceId, bytes, "image/jpeg", null, LocalDate.now(), retainUntil = retainUntil)
+        }
+    }
 }

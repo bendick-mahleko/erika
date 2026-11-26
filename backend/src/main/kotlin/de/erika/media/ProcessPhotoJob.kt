@@ -72,6 +72,11 @@ internal class ProcessPhotoJob(
         storage.delete(props.uploadsBucket, PhotoKeys.upload(photo))
         photos.setState(photo.id, PhotoState.STORED, width = image.width, height = image.height)
         events.publishEvent(PhotosChanged(photo.workspaceId, null, photo.id, "stored"))
+        // Copies in corrections (Stage 7) share this file.
+        for (copy in photos.copiesOf(photo.id)) {
+            photos.setState(copy, PhotoState.STORED, width = image.width, height = image.height)
+            events.publishEvent(PhotosChanged(photo.workspaceId, null, copy, "stored"))
+        }
     }
 
     private fun reject(
@@ -79,8 +84,10 @@ internal class ProcessPhotoJob(
         reason: String,
     ) {
         storage.delete(props.uploadsBucket, PhotoKeys.upload(photo))
-        photos.setState(photo.id, PhotoState.REJECTED, rejectReason = reason)
-        events.publishEvent(PhotosChanged(photo.workspaceId, null, photo.id, "rejected"))
+        for (id in listOf(photo.id) + photos.copiesOf(photo.id)) {
+            photos.setState(id, PhotoState.REJECTED, rejectReason = reason)
+            events.publishEvent(PhotosChanged(photo.workspaceId, null, id, "rejected"))
+        }
     }
 
     companion object {

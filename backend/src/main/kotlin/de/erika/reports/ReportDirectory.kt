@@ -74,6 +74,7 @@ data class ReportPhotoInfo(
     val authorId: UUID,
     val width: Int?,
     val height: Int?,
+    val sha256: String,
 )
 
 /**
@@ -86,4 +87,25 @@ interface ReportMedia {
 
     /** The report's photos (not deleted), oldest first. */
     fun photos(reportId: UUID): List<ReportPhotoInfo>
+
+    /** Copies the photos of [from] into the correction [to] (they share the files, Stage 7). */
+    fun copyPhotos(
+        from: UUID,
+        to: UUID,
+        workspaceId: UUID,
+        actorId: UUID,
+    )
+
+    /** A STORED photo's image (the thumbnail when [thumbnail]), or null. */
+    fun image(
+        photoId: UUID,
+        thumbnail: Boolean,
+    ): ByteArray?
+
+    /** Stores the STORED photos of [reportId] write-once in the archive until [retainUntil] (ADR 0040). */
+    fun archive(
+        reportId: UUID,
+        workspaceId: UUID,
+        retainUntil: java.time.LocalDate,
+    )
 }

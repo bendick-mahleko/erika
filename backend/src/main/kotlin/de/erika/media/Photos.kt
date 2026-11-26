@@ -32,7 +32,12 @@ data class Photo(
     val width: Int?,
     val height: Int?,
     val deleted: Boolean,
-)
+    /** A photo copied into a correction (Stage 7) uses the files of this photo. */
+    val filePhotoId: UUID? = null,
+) {
+    /** Whose files these are: the original's for a copy. */
+    val fileId: UUID get() = filePhotoId ?: id
+}
 
 /** A photo was created, changed, uploaded, stored, rejected, deleted or restored; only which one is audited. */
 data class PhotosChanged(
@@ -56,9 +61,9 @@ internal object PhotoKeys {
 
     fun upload(p: Photo) = "photos/${p.workspaceId}/${p.id}/upload.jpg"
 
-    fun stored(p: Photo) = "photos/${p.workspaceId}/${p.id}/photo.jpg"
+    fun stored(p: Photo) = "photos/${p.workspaceId}/${p.fileId}/photo.jpg"
 
-    fun thumbnail(p: Photo) = "photos/${p.workspaceId}/${p.id}/thumb.jpg"
+    fun thumbnail(p: Photo) = "photos/${p.workspaceId}/${p.fileId}/thumb.jpg"
 }
 
 private const val WS = "workspace_id = current_workspace_id()"
@@ -137,6 +142,48 @@ internal class PhotoRepository(
             .update()
     }
 
+    /** A copy of [p] for the correction [reportId], sharing its files and state. */
+    fun insertCopy(
+        p: Photo,
+        id: UUID,
+        reportId: UUID,
+    ) {
+        jdbc
+            .sql(
+                """
+                INSERT INTO photo (id, workspace_id, report_id, author_id, caption, category, checklist_item_key, taken_at,
+                                   size_bytes, sha256, state, reject_reason, upload_offset, width, height, file_photo_id)
+                VALUES (:id, :ws, :report, :author, :caption, :category, :key, :taken, :size, :sha, :state, :reason, :offset,
+                        :w, :h, :file)
+                """.trimIndent(),
+            ).param("id", id)
+            .param("ws", p.workspaceId)
+            .param("report", reportId)
+            .param("author", p.authorId)
+            .param("caption", p.caption)
+            .param("category", p.category)
+            .param("key", p.checklistItemKey)
+            .param("taken", p.takenAt)
+            .param("size", p.sizeBytes)
+            .param("sha", p.sha256)
+            .param("state", p.state.name)
+            .param("reason", p.rejectReason)
+            .param("offset", p.uploadOffset)
+            .param("w", p.width)
+            .param("h", p.height)
+            .param("file", p.fileId)
+            .update()
+    }
+
+    /** Copies of [fileId] in corrections. */
+    fun copiesOf(fileId: UUID): List<UUID> =
+        jdbc
+            .sql("SELECT id FROM photo WHERE file_photo_id = :f AND $WS")
+            .param("f", fileId)
+            .query(UUID::class.java)
+            .list()
+            .filterNotNull()
+
     fun updateDetails(p: Photo) {
         jdbc
             .sql(
@@ -212,5 +259,6 @@ internal class PhotoRepository(
         width = rs.getObject("width") as Int?,
         height = rs.getObject("height") as Int?,
         deleted = rs.getObject("deleted_at") != null,
+        filePhotoId = rs.getObject("file_photo_id", UUID::class.java),
     )
 }

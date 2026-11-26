@@ -55,10 +55,11 @@ internal class ReportsRepository(
         jdbc
             .sql(
                 """
-                INSERT INTO report (id, workspace_id, work_order_id, version, state, work_description, created_by)
-                VALUES (:id, :ws, :wo, :version, :state, :description, :createdBy)
+                INSERT INTO report (id, workspace_id, work_order_id, version, state, work_description, created_by, based_on)
+                VALUES (:id, :ws, :wo, :version, :state, :description, :createdBy, :basedOn)
                 """.trimIndent(),
             ).param("id", r.id)
+            .param("basedOn", r.basedOn)
             .param("ws", workspaceId)
             .param("wo", r.workOrderId)
             .param("version", r.version)
@@ -83,6 +84,155 @@ internal class ReportsRepository(
             .param("completedBy", r.completedBy)
             .update()
     }
+
+    /** Signed or sent unsigned: the last change of a report row (the trigger refuses any later one). */
+    fun setFinalState(
+        id: UUID,
+        state: ReportState,
+        actorId: UUID,
+    ) {
+        jdbc
+            .sql(
+                """
+                UPDATE report SET state = :state, completed_at = coalesce(completed_at, now()),
+                       completed_by = coalesce(completed_by, :actor), updated_at = now()
+                 WHERE id = :id AND $WS
+                """.trimIndent(),
+            ).param("state", state.name)
+            .param("actor", actorId)
+            .param("id", id)
+            .update()
+    }
+
+    // ---- signatures and deliveries (Stage 7)
+
+    fun signatures(ids: Collection<UUID>): List<ReportSignature> =
+        if (ids.isEmpty()) {
+            emptyList()
+        } else {
+            jdbc
+                .sql("SELECT * FROM report_signature WHERE id IN (:ids) AND $WS")
+                .param("ids", ids)
+                .query(::signature)
+                .list()
+        }
+
+    fun signatureOf(reportId: UUID): ReportSignature? =
+        jdbc
+            .sql("SELECT * FROM report_signature WHERE report_id = :r AND $WS")
+            .param("r", reportId)
+            .query(::signature)
+            .optional()
+            .orElse(null)
+
+    /** Whether a verification code is taken anywhere (codes are unique overall). */
+    fun codeTaken(code: String): Boolean =
+        jdbc
+            .sql("SELECT count(*) FROM report_verification(:code)")
+            .param("code", code)
+            .query(Int::class.java)
+            .single() > 0
+
+    fun insertSignature(
+        workspaceId: UUID,
+        s: ReportSignature,
+    ) {
+        jdbc
+            .sql(
+                """
+                INSERT INTO report_signature (id, workspace_id, report_id, kind, content_hash, signer_name, signed_at, comment,
+                                              not_signed_reason, strokes, signature_png, verification_code, download_key_hash,
+                                              customer_email, created_by, device_id)
+                VALUES (:id, :ws, :report, :kind, :hash, :signer, :signedAt, :comment, :reason, CAST(:strokes AS jsonb), :png,
+                        :code, :keyHash, :email, :createdBy, :device)
+                """.trimIndent(),
+            ).param("id", s.id)
+            .param("ws", workspaceId)
+            .param("report", s.reportId)
+            .param("kind", s.kind)
+            .param("hash", s.contentHash)
+            .param("signer", s.signerName)
+            .param("signedAt", s.signedAt)
+            .param("comment", s.comment)
+            .param("reason", s.notSignedReason)
+            .param("strokes", s.strokes)
+            .param("png", s.signaturePng)
+            .param("code", s.verificationCode)
+            .param("keyHash", s.downloadKeyHash)
+            .param("email", s.customerEmail)
+            .param("createdBy", s.createdBy)
+            .param("device", s.deviceId)
+            .update()
+    }
+
+    fun setPdf(
+        signatureId: UUID,
+        sha256: String,
+    ) {
+        jdbc
+            .sql("UPDATE report_signature SET pdf_sha256 = :sha, pdf_archived_at = now() WHERE id = :id AND $WS")
+            .param("sha", sha256)
+            .param("id", signatureId)
+            .update()
+    }
+
+    fun deliveryCount(reportId: UUID): Int =
+        jdbc
+            .sql("SELECT count(*) FROM report_delivery WHERE report_id = :r AND $WS")
+            .param("r", reportId)
+            .query(Int::class.java)
+            .single()
+
+    fun insertDelivery(
+        workspaceId: UUID,
+        reportId: UUID,
+        recipient: String,
+        emlSha256: String,
+        providerId: String?,
+    ) {
+        jdbc
+            .sql(
+                """
+                INSERT INTO report_delivery (id, workspace_id, report_id, recipient, eml_sha256, provider_id)
+                VALUES (gen_random_uuid(), :ws, :report, :recipient, :eml, :provider)
+                """.trimIndent(),
+            ).param("ws", workspaceId)
+            .param("report", reportId)
+            .param("recipient", recipient)
+            .param("eml", emlSha256)
+            .param("provider", providerId)
+            .update()
+    }
+
+    /** All versions of a work order's report, oldest first. */
+    fun versionsOf(workOrderId: UUID): List<Report> =
+        jdbc
+            .sql("SELECT * FROM report WHERE work_order_id = :wo AND $WS ORDER BY version")
+            .param("wo", workOrderId)
+            .query(::report)
+            .list()
+
+    private fun signature(
+        rs: ResultSet,
+        @Suppress("UNUSED_PARAMETER") row: Int,
+    ) = ReportSignature(
+        id = rs.getObject("id", UUID::class.java),
+        reportId = rs.getObject("report_id", UUID::class.java),
+        kind = rs.getString("kind"),
+        contentHash = rs.getString("content_hash"),
+        signerName = rs.getString("signer_name"),
+        signedAt = rs.getObject("signed_at", OffsetDateTime::class.java),
+        comment = rs.getString("comment"),
+        notSignedReason = rs.getString("not_signed_reason"),
+        strokes = rs.getString("strokes"),
+        signaturePng = rs.getBytes("signature_png"),
+        verificationCode = rs.getString("verification_code"),
+        downloadKeyHash = rs.getBytes("download_key_hash"),
+        customerEmail = rs.getString("customer_email"),
+        createdBy = rs.getObject("created_by", UUID::class.java),
+        deviceId = rs.getObject("device_id", UUID::class.java),
+        pdfSha256 = rs.getString("pdf_sha256"),
+    )
 
     fun allIds(table: String): List<UUID> =
         jdbc
@@ -354,6 +504,7 @@ internal class ReportsRepository(
         completedBy = rs.getObject("completed_by", UUID::class.java),
         createdBy = rs.getObject("created_by", UUID::class.java),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+        basedOn = rs.getObject("based_on", UUID::class.java),
     )
 
     private fun time(
@@ -427,7 +578,7 @@ internal class ReportsRepository(
     )
 
     companion object {
-        val TABLES = setOf("report", "time_entry", "material_line", "aufmass_position", "checklist_answer")
+        val TABLES = setOf("report", "time_entry", "material_line", "aufmass_position", "checklist_answer", "report_signature")
 
         /** A deduction as stored and synced: decimals as plain strings, missing values left out. */
         fun deductionJson(d: AufmassDeduction): Map<String, String> =

@@ -1,0 +1,234 @@
+{
+  "rule": "report.canonical",
+  "version": 1,
+  "description": "The canonical form of a report and its SHA-256 (M-MO-09, M-BR-01, ADR 0038): what the customer sees in the preview and signs. The phone and the server build the same input from their data; both must produce exactly this text. Rules: null values and text that is empty after trimming spaces, tabs and line breaks at both ends are left out; text is otherwise kept as it is; the fields quantity, length, width, height, count and result are decimals written without trailing zeros (\"2.000\" becomes \"2\"); start, end and signedAt are instants written in UTC to the second (\"2027-05-10T07:30:00Z\", fractions cut off); lists of objects with an id (or a key) are sorted by it, other lists keep their order; object keys are sorted; JSON without spaces, only \", \\\\ and control characters escaped (\\\\n, \\\\r, \\\\t, \\\\b, \\\\f, else \\\\u00xx in lower case), everything else as UTF-8. The hash is SHA-256 of the UTF-8 bytes, in lower-case hex. Prices are never part of it.",
+  "cases": [
+    {
+      "name": "a whole report: children sorted by id, times in UTC to the second, decimals without trailing zeros, empty values left out",
+      "input": {
+        "format": 1,
+        "reportId": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154",
+        "version": 1,
+        "workOrder": {
+          "id": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d",
+          "title": "Heizung warten "
+        },
+        "customer": {
+          "name": "Familie Brandt"
+        },
+        "workDescription": "Dichtung getauscht,\nAnlage entlüftet.  ",
+        "times": [
+          {
+            "id": "0193a700-0000-7000-8000-000000000002",
+            "technician": "Anna Geselle",
+            "kind": "WORK",
+            "start": "2027-05-10T09:30:00.123+02:00",
+            "end": "2027-05-10T08:15:59.999Z",
+            "note": null
+          },
+          {
+            "id": "0193a700-0000-7000-8000-000000000001",
+            "technician": "Anna Geselle",
+            "kind": "TRAVEL",
+            "start": "2027-05-10T07:00:00Z",
+            "end": "2027-05-10T07:25:00Z",
+            "note": ""
+          }
+        ],
+        "materials": [
+          {
+            "id": "0193a701-0000-7000-8000-000000000001",
+            "description": "Dichtung 1/2\"",
+            "quantity": "2.000",
+            "unit": "C62"
+          }
+        ],
+        "aufmass": [
+          {
+            "id": "0193a702-0000-7000-8000-000000000001",
+            "label": "Wand Bad",
+            "kind": "AREA",
+            "length": "5.40",
+            "width": "2.75",
+            "height": null,
+            "count": null,
+            "expression": null,
+            "deductions": [
+              {
+                "label": "Fenster",
+                "length": "1.20",
+                "width": "1.35"
+              },
+              {
+                "length": "0.885",
+                "width": "2.01",
+                "count": "2"
+              }
+            ],
+            "result": "9.672",
+            "unit": "MTK"
+          }
+        ],
+        "checklist": [
+          {
+            "key": "wasser_ab",
+            "label": "Wasser abgestellt",
+            "value": "YES"
+          },
+          {
+            "key": "druck",
+            "label": "Druck (bar)",
+            "value": "1,8"
+          },
+          {
+            "key": "kommentar",
+            "label": "Kommentar",
+            "value": null
+          }
+        ],
+        "photos": [
+          {
+            "id": "0193a703-0000-7000-8000-000000000001",
+            "category": "BEFORE",
+            "caption": "Typenschild",
+            "checklistItemKey": "foto",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected": {
+        "canonical": "{\"aufmass\":[{\"deductions\":[{\"label\":\"Fenster\",\"length\":\"1.2\",\"width\":\"1.35\"},{\"count\":\"2\",\"length\":\"0.885\",\"width\":\"2.01\"}],\"id\":\"0193a702-0000-7000-8000-000000000001\",\"kind\":\"AREA\",\"label\":\"Wand Bad\",\"length\":\"5.4\",\"result\":\"9.672\",\"unit\":\"MTK\",\"width\":\"2.75\"}],\"checklist\":[{\"key\":\"druck\",\"label\":\"Druck (bar)\",\"value\":\"1,8\"},{\"key\":\"kommentar\",\"label\":\"Kommentar\"},{\"key\":\"wasser_ab\",\"label\":\"Wasser abgestellt\",\"value\":\"YES\"}],\"customer\":{\"name\":\"Familie Brandt\"},\"format\":1,\"materials\":[{\"description\":\"Dichtung 1/2\\\"\",\"id\":\"0193a701-0000-7000-8000-000000000001\",\"quantity\":\"2\",\"unit\":\"C62\"}],\"photos\":[{\"caption\":\"Typenschild\",\"category\":\"BEFORE\",\"checklistItemKey\":\"foto\",\"id\":\"0193a703-0000-7000-8000-000000000001\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}],\"reportId\":\"e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154\",\"times\":[{\"end\":\"2027-05-10T07:25:00Z\",\"id\":\"0193a700-0000-7000-8000-000000000001\",\"kind\":\"TRAVEL\",\"start\":\"2027-05-10T07:00:00Z\",\"technician\":\"Anna Geselle\"},{\"end\":\"2027-05-10T08:15:59Z\",\"id\":\"0193a700-0000-7000-8000-000000000002\",\"kind\":\"WORK\",\"start\":\"2027-05-10T07:30:00Z\",\"technician\":\"Anna Geselle\"}],\"version\":1,\"workDescription\":\"Dichtung getauscht,\\nAnlage entlüftet.\",\"workOrder\":{\"id\":\"0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d\",\"title\":\"Heizung warten\"}}",
+        "sha256": "180946935bc2b9b38ef373f98f5dbc3f7c5861d1152cfb019c65388d5803af40"
+      }
+    },
+    {
+      "name": "a report with nothing recorded yet",
+      "input": {
+        "format": 1,
+        "reportId": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154",
+        "version": 1,
+        "workOrder": {
+          "id": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d",
+          "title": "Bad"
+        },
+        "customer": {
+          "name": "Wohnbau Petersen GmbH"
+        },
+        "times": [],
+        "materials": [],
+        "aufmass": [],
+        "checklist": [],
+        "photos": []
+      },
+      "expected": {
+        "canonical": "{\"aufmass\":[],\"checklist\":[],\"customer\":{\"name\":\"Wohnbau Petersen GmbH\"},\"format\":1,\"materials\":[],\"photos\":[],\"reportId\":\"e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154\",\"times\":[],\"version\":1,\"workOrder\":{\"id\":\"0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d\",\"title\":\"Bad\"}}",
+        "sha256": "993a5e58aafda5c4077f0a42fd879799c854ac35a138bb8dd92361b712e61d44"
+      }
+    },
+    {
+      "name": "quotes, backslashes, tabs, umlauts and other control characters in text",
+      "input": {
+        "format": 1,
+        "reportId": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154",
+        "version": 2,
+        "workOrder": {
+          "id": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d",
+          "title": "Küche \"Süd\" \\ Nord"
+        },
+        "customer": {
+          "name": "Bäckerei Wolf\tGmbH"
+        },
+        "workDescription": "Zeile 1\r\nZeile 2\u0007",
+        "times": [],
+        "materials": [],
+        "aufmass": [],
+        "checklist": [],
+        "photos": []
+      },
+      "expected": {
+        "canonical": "{\"aufmass\":[],\"checklist\":[],\"customer\":{\"name\":\"Bäckerei Wolf\\tGmbH\"},\"format\":1,\"materials\":[],\"photos\":[],\"reportId\":\"e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154\",\"times\":[],\"version\":2,\"workDescription\":\"Zeile 1\\r\\nZeile 2\\u0007\",\"workOrder\":{\"id\":\"0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d\",\"title\":\"Küche \\\"Süd\\\" \\\\ Nord\"}}",
+        "sha256": "bf7c0e197d364b4ded3d5c7715522a774f0d4ba29896000bf9a87bcc03a92048"
+      }
+    },
+    {
+      "name": "zero and whole numbers",
+      "input": {
+        "format": 1,
+        "reportId": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154",
+        "version": 1,
+        "workOrder": {
+          "id": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d",
+          "title": "X"
+        },
+        "customer": {
+          "name": "Y"
+        },
+        "times": [],
+        "materials": [
+          {
+            "id": "m2",
+            "description": "Pauschale",
+            "quantity": "1.0",
+            "unit": "LS"
+          },
+          {
+            "id": "m1",
+            "description": "Rohr",
+            "quantity": "10",
+            "unit": "MTR"
+          }
+        ],
+        "aufmass": [
+          {
+            "id": "a1",
+            "label": "Leer",
+            "kind": "AREA",
+            "length": "0.000",
+            "width": "3",
+            "deductions": [],
+            "result": "0.000",
+            "unit": "MTK"
+          }
+        ],
+        "checklist": [],
+        "photos": []
+      },
+      "expected": {
+        "canonical": "{\"aufmass\":[{\"deductions\":[],\"id\":\"a1\",\"kind\":\"AREA\",\"label\":\"Leer\",\"length\":\"0\",\"result\":\"0\",\"unit\":\"MTK\",\"width\":\"3\"}],\"checklist\":[],\"customer\":{\"name\":\"Y\"},\"format\":1,\"materials\":[{\"description\":\"Rohr\",\"id\":\"m1\",\"quantity\":\"10\",\"unit\":\"MTR\"},{\"description\":\"Pauschale\",\"id\":\"m2\",\"quantity\":\"1\",\"unit\":\"LS\"}],\"photos\":[],\"reportId\":\"e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154\",\"times\":[],\"version\":1,\"workOrder\":{\"id\":\"0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d\",\"title\":\"X\"}}",
+        "sha256": "dc7f65bbdb4a6c5e2dcf5f1e42997215fe528d38c48982b00a680b72817acbde"
+      }
+    },
+    {
+      "name": "a running timer has no end",
+      "input": {
+        "format": 1,
+        "reportId": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154",
+        "version": 1,
+        "workOrder": {
+          "id": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d",
+          "title": "X"
+        },
+        "customer": {
+          "name": "Y"
+        },
+        "times": [
+          {
+            "id": "t1",
+            "technician": "Ben",
+            "kind": "WORK",
+            "start": "2027-05-10T07:00:00.5Z",
+            "end": null
+          }
+        ],
+        "materials": [],
+        "aufmass": [],
+        "checklist": [],
+        "photos": []
+      },
+      "expected": {
+        "canonical": "{\"aufmass\":[],\"checklist\":[],\"customer\":{\"name\":\"Y\"},\"format\":1,\"materials\":[],\"photos\":[],\"reportId\":\"e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154\",\"times\":[{\"id\":\"t1\",\"kind\":\"WORK\",\"start\":\"2027-05-10T07:00:00Z\",\"technician\":\"Ben\"}],\"version\":1,\"workOrder\":{\"id\":\"0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d\",\"title\":\"X\"}}",
+        "sha256": "09f40c8c5364a99838d3129d6d4f903bdf3286db5edea03295379acd81855740"
+      }
+    }
+  ]
+}

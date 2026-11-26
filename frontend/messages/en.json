@@ -1173,7 +1173,9 @@
       "OPEN": "In progress",
       "COMPLETED": "Completed",
       "PENDING_FILE": "Uploading from the phone …",
-      "UPLOADED": "Being checked …"
+      "UPLOADED": "Being checked …",
+      "SIGNED": "Signed",
+      "NOT_SIGNED": "Without signature"
     },
     "completedBy": "Completed by {person} on {at}.",
     "times": "Times",
@@ -1215,7 +1217,25 @@
       "OTHER": "Other"
     },
     "rejectedVirus": "Refused: virus found",
-    "rejectedNotImage": "Refused: not a photo"
+    "rejectedNotImage": "Refused: not a photo",
+    "signedBy": "Version {version} signed by {person} on {at}.",
+    "sentUnsigned": "Version {version} finished without signature on {at}. Reason: {reason}",
+    "customerComment": "Customer's comment: {comment}",
+    "verificationCode": "Verification code {code}",
+    "emailed": "emailed to the customer",
+    "downloadPdf": "Download the report as PDF",
+    "pdfPending": "The PDF is made once all photos have arrived.",
+    "versions": "Versions:"
+  },
+  "Verify": {
+    "title": "Check a job report",
+    "unknown": "There is no job report with this verification code. Please compare the code on the report.",
+    "signed": "Genuine: job report of {firm}, version {version}, signed on {date}.",
+    "notSigned": "Genuine: job report of {firm}, version {version}, finished without signature on {date}.",
+    "superseded": "A newer, corrected version of this report exists.",
+    "hashIntro": "The report's content is secured by this SHA-256 value. It is printed at the bottom of every page and must match:",
+    "download": "Download the report as PDF",
+    "pdfPending": "The PDF is being made. Please try again later."
   },
   "Staff": {
     "title": "Staff and hourly rates",

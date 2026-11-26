@@ -148,7 +148,10 @@ internal class SyncEngine(
         seen: Map<String, Long>,
     ): MutationResult {
         val entity = feed.entities[m.entity] ?: throw SyncRejection("UNKNOWN_ENTITY")
-        val values: Map<String, Any?> = m.propertyValues
+
+        // A JSON object of any values, null included (the app clears a field with null).
+        @Suppress("UNCHECKED_CAST")
+        val values = m.propertyValues as? Map<String, Any?> ?: throw SyncRejection("INVALID_VALUES")
         values.keys.firstOrNull { it !in entity.fields }?.let { throw SyncRejection("FIELD_NOT_ALLOWED") }
         val sent = m.baseVersions.orEmpty()
         val base = (sent.keys + seen.keys).associateWith { maxOf(sent[it] ?: 0, seen[it] ?: 0) }

@@ -40,6 +40,9 @@ final answerRecordsProvider = StreamProvider<List<LocalRecord>>(
 );
 final articleRecordsProvider = StreamProvider<List<LocalRecord>>((ref) => _watch(ref, 'article'));
 final photoRecordsProvider = StreamProvider<List<LocalRecord>>((ref) => _watch(ref, 'photo'));
+final signatureRecordsProvider = StreamProvider<List<LocalRecord>>(
+  (ref) => _watch(ref, 'report_signature'),
+);
 final staffRecordsProvider = StreamProvider<List<LocalRecord>>(
   (ref) => _watch(ref, 'staff_member'),
 );
@@ -98,6 +101,7 @@ class ReportView {
     required this.checklist,
     required this.staffNames,
     required this.photos,
+    this.signature,
   });
 
   final WorkOrderView workOrder;
@@ -114,9 +118,19 @@ class ReportView {
   /// Photos (not deleted here), oldest first (M-MO-05).
   final List<LocalRecord> photos;
 
-  bool get completed => report?.text('state') == 'COMPLETED';
+  /// The customer's signature (or the reason it is missing) for this version (Stage 7).
+  final LocalRecord? signature;
+
+  int get version => (report?.data['version'] as num?)?.toInt() ?? 1;
+  bool get completed => report?.text('state') == 'COMPLETED' || signed;
+
+  /// Signed or sent unsigned: this version never changes again (M-MO-10).
+  bool get signed =>
+      signature != null || const {'SIGNED', 'NOT_SIGNED'}.contains(report?.text('state'));
   String? get workDescription => report?.text('workDescription');
-  bool get locked => workOrder.locked;
+
+  /// Nothing can be recorded: signed, or the work order is invoiced.
+  bool get locked => signed || workOrder.status == 'INVOICED';
 
   List<LocalRecord> get runningTimers => times.where((t) => t.text('endedAt') == null).toList();
 
@@ -142,10 +156,13 @@ final reportViewProvider = Provider.family<ReportView?, String>((ref, workOrderI
       .where((o) => o.id == workOrderId)
       .firstOrNull;
   if (order == null) return null;
-  final reportId = reportIdFor(workOrderId);
-  final report = (ref.watch(reportRecordsProvider).value ?? const <LocalRecord>[])
-      .where((r) => r.id == reportId)
-      .firstOrNull;
+  // The latest version (corrections, M-BR-01); version 1's ID before anything was recorded.
+  final versions = [
+    for (final r in ref.watch(reportRecordsProvider).value ?? const <LocalRecord>[])
+      if (r.text('workOrderId') == workOrderId) r,
+  ]..sort((a, b) => ((b.data['version'] as num?) ?? 1).compareTo((a.data['version'] as num?) ?? 1));
+  final report = versions.firstOrNull;
+  final reportId = report?.id ?? reportIdFor(workOrderId);
   final answers = {
     for (final a in _children(ref.watch(answerRecordsProvider), reportId)) a.text('itemKey'): a,
   };
@@ -188,6 +205,9 @@ final reportViewProvider = Provider.family<ReportView?, String>((ref, workOrderI
         s.id: s.text('displayName') ?? '',
     },
     photos: photos,
+    signature: (ref.watch(signatureRecordsProvider).value ?? const <LocalRecord>[])
+        .where((r) => r.text('reportId') == reportId)
+        .firstOrNull,
   );
 });
 
@@ -318,6 +338,61 @@ class ReportWriter {
     }, id: id);
     _changed();
     return id;
+  }
+
+  /// The signature (or the reason it is missing) for the report version shown in [raw] (Stage 7).
+  /// The report is completed first if it isn't yet; both changes wait in the outbox in order.
+  Future<void> sign(
+    ReportView view, {
+    required String contentHash,
+    required String kind,
+    required String verificationCode,
+    required String downloadKey,
+    String? signerName,
+    String? comment,
+    String? notSignedReason,
+    List<List<List<int>>>? strokes,
+    String? signaturePngBase64,
+    String? customerEmail,
+  }) async {
+    final store = await _store();
+    if (store == null) return;
+    if (view.report?.text('state') != 'COMPLETED') {
+      await store.change('report', view.reportId, {'state': 'COMPLETED'});
+    }
+    await store.put(
+      'report_signature',
+      derivedId(view.reportId, 'signature'),
+      createValues: {
+        'reportId': view.reportId,
+        'kind': kind,
+        'contentHash': contentHash,
+        'signerName': signerName,
+        'signedAt': ref.read(clockProvider)().toUtc().toIso8601String(),
+        'comment': comment,
+        'notSignedReason': notSignedReason,
+        'strokes': strokes,
+        'signaturePng': signaturePngBase64,
+        'verificationCode': verificationCode,
+        'downloadKey': downloadKey,
+        'customerEmail': customerEmail,
+      },
+    );
+    _changed();
+  }
+
+  /// A correction (M-BR-01): the next version, which the server fills with a copy of the
+  /// signed one; its records arrive with the next sync.
+  Future<void> newVersion(ReportView view) async {
+    final store = await _store();
+    if (store == null) return;
+    final next = view.version + 1;
+    await store.put(
+      'report',
+      reportIdFor(view.workOrder.id, version: next),
+      createValues: {'workOrderId': view.workOrder.id, 'version': next},
+    );
+    await ref.read(syncCoordinatorProvider.notifier).syncNow();
   }
 
   /// Answers a checklist item (the answer's ID is derived from report and item key).

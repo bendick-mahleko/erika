@@ -130,6 +130,8 @@ class Archive(
      * Stores [content] unless the workspace already has it; returns the stored object.
      * [documentDate] is the issue date when known; [receivedOn] the day of receipt.
      * A repeated store with a later date extends the retention, never shortens it.
+     * [retainUntil] replaces the 8-year rule for originals with their own period (MARA photos:
+     * 5 years after the job, ADR 0040).
      */
     @Transactional(propagation = Propagation.MANDATORY)
     fun store(
@@ -139,14 +141,15 @@ class Archive(
         documentDate: LocalDate?,
         receivedOn: LocalDate,
         actorId: UUID? = null,
+        retainUntil: LocalDate? = null,
     ): StoredObject {
         val sha256 = sha256Hex(content)
-        val retention = RetentionPolicy.retentionUntil(documentDate, receivedOn)
+        val retention = retainUntil ?: RetentionPolicy.retentionUntil(documentDate, receivedOn)
         find(workspaceId, sha256)?.let { existing -> return extendIfLater(existing, retention) }
 
         val key = "ws/$workspaceId/$sha256"
-        val retainUntil = if (props.objectLock == ObjectLock.COMPLIANCE) endOfDayUtc(retention) else null
-        val version = storage.putOriginal(key, content, mediaType, retainUntil)
+        val lockUntil = if (props.objectLock == ObjectLock.COMPLIANCE) endOfDayUtc(retention) else null
+        val version = storage.putOriginal(key, content, mediaType, lockUntil)
         val inserted =
             jdbc
                 .sql(

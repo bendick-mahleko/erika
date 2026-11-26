@@ -15,6 +15,7 @@ import 'package:mara/data/session/session.dart';
 import 'package:mara/data/media/media_providers.dart';
 import 'package:mara/data/media/photo_uploader.dart';
 import 'package:mara/data/sync/sync_providers.dart';
+import 'package:mara/features/reports/signing.dart';
 
 import 'fake_sync_server.dart';
 import 'fake_tus_server.dart';
@@ -23,6 +24,13 @@ import 'fake_tus_server.dart';
 final testJpeg = Uint8List.fromList(
   base64Decode(
     '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAwAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5qgs89q0ILDPatO0s844rbs7DOOK7Mvwn1qxjQx3L1MKDTM4+WtGDSc/w1uCFICF2b39B2+tTw208p6lR6LxXp1cLgaEvZNOc+qj09Xt+b8j6DCY6T1vYzI9JRQC+1R6nircen26kAsp+gz/KtWLTYoseaQpPbqavQW6n/VwE8dW45+lctWNCD5ZUoRfZ3k/ujZ/efSYTGt9TIjsLcYwrPn0Xp+dX4NPhP/LKT/vkf41rpayKFLmOIew6/nVuC2GQQ8z5/u5GP5VzVPYxnaUIrysl9ybcvw/A+kwuMfc880+zzjitowGCJdgG9uBx096s6XZ5xxWilp5t23Bwvyjj0/8Ar5p4DFToYFOl8c2op9u7+78Wj+bKGLvLUzLHTRjJAAHUmr0ULu22AbU6bscn/CtM2peQQp9xfvY7mrqW2391CPm6Mw7ew96iVeNGLpUnyxjo2t5P+WP6/olr9HhcXfVmVDZRQHaV3P8A3QK0IrWQruYiKP2/x65rRhshBtREDSeh6CrkVmFb94DJLx8vp/hXHKu6ScF7qW6Tsl5NrWT/ALq+5M+kwuLv1My2sl4EMWT6sOKvRW54Bctk5xEOn41pranAEnJ/55px+dXIrYqApwn+yg+b8/8A9VcU8Qqd0tEvkvSyaX/gTb8uh9LhcXexwel2oWMuRwoycVesbTyoDJtyQOPrV+ytStm5A7Y/PitFLPKwxgDk7j6/560UMU4UKTjvGF16yfKvxVz+bMNi7szLa08iAFQN7cLx+tXre08hVRF/eMMjjoPWtOO1BmZm+5EMf4/jmrdvasq7yP3sh44zispV1TaUHZR0T7JaNrzk9I/LsfR4XF3M2Cz2/uoR83RmHb2+tXbe0C/LFtVRwZD/AErShsto8tMBAMuw/lVyK1BCsykIPuJ3J9a4J4jlt0tppsl1Sfbu95PRH0uFxfmZsFoFX5B5cecb8cn6Vet7TYowvlqenGWP+H+ea04rJgecGTr7IKtw2v8AECRnqxHzN9P8/lXLPEOD7W+Vu/XS2l0mv70m9D6XC4vzP//Z',
+  ),
+);
+
+/// A 1x1 PNG as the signature image.
+final testPng = Uint8List.fromList(
+  base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   ),
 );
 
@@ -143,6 +151,9 @@ class TestDevice {
   late final tusServer = FakeTusServer(syncServer);
   final photoFiles = MemoryPhotoFiles();
 
+  /// PDFs the user shared from the phone.
+  final sharedPdfs = <String>[];
+
   /// What the camera "takes" next (null: the user cancels).
   Uint8List? nextPhoto = testJpeg;
   var onWifi = true;
@@ -157,6 +168,9 @@ class TestDevice {
     syncTransportProvider.overrideWithValue(syncServer),
     tusTransportProvider.overrideWithValue(tusServer),
     photoFilesProvider.overrideWithValue(photoFiles),
+    // dart:ui images can't be drawn in widget tests: a fixed PNG stands for the signature.
+    signaturePngProvider.overrideWithValue((strokes, size) async => testPng),
+    pdfShareProvider.overrideWithValue((pdf, name) async => sharedPdfs.add(name)),
     photoCaptureProvider.overrideWithValue(() async => nextPhoto),
     onWifiProvider.overrideWithValue(() async => onWifi),
     syncIntervalProvider.overrideWithValue(null),

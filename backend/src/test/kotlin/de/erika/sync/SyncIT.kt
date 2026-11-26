@@ -129,6 +129,33 @@ class SyncIT : ApiIntegrationTest() {
     }
 
     @Test
+    fun `values set to null reach the server (the app clears fields with null)`() {
+        val f = firm("sync-null")
+        val customer = customer(f.owner, "Familie Null")
+        val order = workOrder(f.owner, customer, "Leeren", listOf(f.tech.userId))
+        f.device.pullAll()
+        f.device.change("work_order", order, mapOf("workNotes" to "erst etwas"))
+        f.device.push()
+        f.device.change("work_order", order, mapOf("workNotes" to null))
+        val r = f.device.push()
+        assertEquals(
+            "APPLIED",
+            r.tree
+                .path("results")[0]
+                .path("status")
+                .asString(),
+            "$r",
+        )
+        assertTrue(
+            f.owner
+                .get("/api/v1/work-orders/$order")
+                .tree
+                .path("workNotes")
+                .let { it.isMissingNode || it.isNull },
+        )
+    }
+
+    @Test
     fun `a work order assigned to someone else leaves the phone`() {
         val f = firm("sync-umplanung")
         val (_, other) = phones.signIn(phones.technician(f.owner, "anderer"))

@@ -6,7 +6,19 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /** OPEN while the technicians record; COMPLETED once mandatory checklist items are answered and no timer runs. */
-enum class ReportState { OPEN, COMPLETED }
+enum class ReportState {
+    OPEN,
+    COMPLETED,
+
+    /** Signed by the customer; never changes again (M-MO-10). */
+    SIGNED,
+
+    /** Sent without a signature, with a reason (M-BR-03); never changes again either. */
+    NOT_SIGNED,
+    ;
+
+    val locked: Boolean get() = this == SIGNED || this == NOT_SIGNED
+}
 
 /** A job report (version 1 in Stage 5; signed versions follow in Stage 7). */
 data class Report(
@@ -19,7 +31,51 @@ data class Report(
     val completedBy: UUID?,
     val createdBy: UUID,
     val createdAt: OffsetDateTime?,
+    /** The version this correction is based on (M-BR-01). */
+    val basedOn: UUID? = null,
 )
+
+/** The customer's signature, or the reason it is missing (M-MO-10, M-BR-03). */
+data class ReportSignature(
+    val id: UUID,
+    val reportId: UUID,
+    val kind: String,
+    val contentHash: String,
+    val signerName: String?,
+    val signedAt: OffsetDateTime,
+    val comment: String?,
+    val notSignedReason: String?,
+    val strokes: String?,
+    val signaturePng: ByteArray?,
+    val verificationCode: String,
+    val downloadKeyHash: ByteArray,
+    val customerEmail: String?,
+    val createdBy: UUID,
+    val deviceId: UUID?,
+    val pdfSha256: String? = null,
+)
+
+/** The archived master PDF of a signed report (audit only; no sync change). */
+data class ReportPdfArchived(
+    override val workspaceId: UUID,
+    val reportId: UUID,
+    val sha256: String,
+) : AuditableEvent {
+    override val actorId: UUID? = null
+    override val action = "reports.report.pdf_archived"
+    override val details get() = mapOf("id" to reportId.toString(), "sha256" to sha256)
+}
+
+/** The report PDF was emailed to the customer (M-MO-11); the message is archived. */
+data class ReportSent(
+    override val workspaceId: UUID,
+    val reportId: UUID,
+    val emlSha256: String,
+) : AuditableEvent {
+    override val actorId: UUID? = null
+    override val action = "reports.report.sent"
+    override val details get() = mapOf("id" to reportId.toString(), "eml" to emlSha256)
+}
 
 /** Raw times as recorded (M-MO-03, M-BR-04); [endedAt] is null while the timer runs. */
 data class TimeEntry(

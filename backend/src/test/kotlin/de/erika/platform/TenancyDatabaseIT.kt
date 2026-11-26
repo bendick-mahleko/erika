@@ -304,6 +304,21 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             report,
             user.userId,
         )
+        // MARA Stage 7: a signature and an email of the report.
+        TestDatabase.update(
+            "INSERT INTO report_signature (id, workspace_id, report_id, kind, content_hash, signed_at, not_signed_reason, " +
+                "verification_code, download_key_hash, created_by) " +
+                "VALUES (gen_random_uuid(), ?, ?, 'NOT_SIGNED', repeat('d', 64), now(), 'abwesend', 'ABCDEFGHIJ', sha256('k'::bytea), ?)",
+            user.workspaceId,
+            report,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO report_delivery (id, workspace_id, report_id, recipient, eml_sha256) " +
+                "VALUES (gen_random_uuid(), ?, ?, 'a@example.test', repeat('e', 64))",
+            user.workspaceId,
+            report,
+        )
         // MARA Stage 6: a photo of the report.
         TestDatabase.update(
             "INSERT INTO photo (id, workspace_id, report_id, author_id, taken_at, size_bytes, sha256) VALUES (gen_random_uuid(), ?, ?, ?, now(), 10, repeat('c', 64))",

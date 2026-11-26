@@ -10,6 +10,7 @@ import de.erika.sync.SyncViewer
 import de.erika.workorders.ChecklistItemKind
 import de.erika.workorders.WorkOrderDirectory
 import de.erika.workorders.WorkOrderRef
+import de.erika.workorders.WorkOrderStatus
 import de.erika.workorders.WorkOrdersChanged
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEventPublisher
@@ -78,6 +79,7 @@ private fun BigDecimal?.wire(): String? = this?.toPlainString()
 internal class ReportGuard(
     private val repo: ReportsRepository,
     private val workOrders: WorkOrderDirectory,
+    private val media: ObjectProvider<ReportMedia>,
 ) {
     /** The report and its work order, if [viewer] may change it. */
     fun writable(
@@ -85,7 +87,10 @@ internal class ReportGuard(
         viewer: SyncViewer,
     ): Pair<Report, WorkOrderRef> {
         val report = repo.reports(listOf(reportId)).firstOrNull() ?: throw SyncRejection("REPORT_NOT_FOUND")
-        return report to workOrder(report.workOrderId, viewer)
+        val order = workOrder(report.workOrderId, viewer)
+        // A signed (or sent unsigned) version never changes; the database trigger refuses it too (M-MO-10).
+        if (report.state.locked) throw SyncRejection("REPORT_LOCKED")
+        return report to order
     }
 
     fun workOrder(
@@ -94,9 +99,35 @@ internal class ReportGuard(
     ): WorkOrderRef {
         val order = workOrders.find(workOrderId) ?: throw SyncRejection("WORK_ORDER_NOT_FOUND")
         if (order.id !in workOrders.visibleTo(listOf(order.id), viewer)) throw SyncRejection("NOT_IN_SCOPE")
-        // Stage 7 adds the database trigger; until then the work order's lock protects the report.
-        if (order.status.locked) throw SyncRejection("REPORT_LOCKED")
+        // An invoiced work order's reports don't change any more (corrections by credit note, Stage 8).
+        if (order.status == WorkOrderStatus.INVOICED) throw SyncRejection("REPORT_LOCKED")
         return order
+    }
+
+    /** Mandatory checklist items answered (photo items: a photo exists, Stage 6), no timer running (M-MO-07). */
+    fun checkCompletable(
+        report: Report,
+        order: WorkOrderRef,
+    ) {
+        if (repo.timeEntriesOf(report.id).any { it.endedAt == null }) throw SyncRejection("TIMER_RUNNING")
+        val items = order.checklistTemplateId?.let { workOrders.checklistItems(it) }.orEmpty()
+        val answered =
+            repo
+                .answersOf(report.id)
+                .filter { !it.value.isNullOrBlank() }
+                .map { it.itemKey }
+                .toSet()
+        val photographed =
+            media
+                .orderedStream()
+                .toList()
+                .flatMap { it.answeredItems(report.id) }
+                .toSet()
+        val missing =
+            items.filter { item ->
+                item.required && item.key !in (if (item.kind == ChecklistItemKind.PHOTO) photographed else answered)
+            }
+        if (missing.isNotEmpty()) throw SyncRejection("CHECKLIST_INCOMPLETE")
     }
 
     fun author(
@@ -139,6 +170,7 @@ internal class ReportSyncEntity(
     override val fields =
         mapOf(
             "workOrderId" to FieldPolicy.SERVER_WINS,
+            "version" to FieldPolicy.SERVER_WINS,
             "workDescription" to FieldPolicy.LAST_WRITER_WINS,
             "state" to FieldPolicy.LAST_WRITER_WINS,
         )
@@ -154,6 +186,7 @@ internal class ReportSyncEntity(
                     "state" to r.state.name,
                     "workDescription" to r.workDescription,
                     "createdBy" to r.createdBy.toString(),
+                    "basedOn" to r.basedOn?.toString(),
                     "completedAt" to r.completedAt.wire(),
                     "completedBy" to r.completedBy?.toString(),
                 )
@@ -175,7 +208,7 @@ internal class ReportSyncEntity(
     override fun mayWrite(
         field: String,
         viewer: SyncViewer,
-    ) = field != "workOrderId"
+    ) = field != "workOrderId" && field != "version"
 
     override fun create(
         id: UUID,
@@ -183,12 +216,25 @@ internal class ReportSyncEntity(
         viewer: SyncViewer,
     ) {
         val order = guard.workOrder(values.uuid("workOrderId") ?: throw SyncRejection("WORK_ORDER_REQUIRED"), viewer)
-        if (id != DerivedIds.report(order.id)) throw SyncRejection("INVALID_REPORT_ID")
+        val version = (values["version"] as? Number)?.toInt() ?: 1
+        if (version < 1 || id != DerivedIds.report(order.id, version)) throw SyncRejection("INVALID_REPORT_ID")
+        // A correction (M-BR-01) follows a signed or unsigned-sent version and starts as its copy.
+        val previous =
+            if (version == 1) {
+                null
+            } else {
+                val prev =
+                    repo.reports(listOf(DerivedIds.report(order.id, version - 1))).firstOrNull()
+                        ?: throw SyncRejection("PREVIOUS_VERSION_MISSING")
+                if (!prev.state.locked) throw SyncRejection("PREVIOUS_VERSION_NOT_SIGNED")
+                prev
+            }
         val report =
             Report(
                 id = id,
                 workOrderId = order.id,
-                version = 1,
+                version = version,
+                basedOn = previous?.id,
                 state = ReportState.OPEN,
                 workDescription = values.text("workDescription", MAX_DESCRIPTION),
                 completedAt = null,
@@ -197,8 +243,44 @@ internal class ReportSyncEntity(
                 createdAt = null,
             )
         repo.insertReport(viewer.workspaceId, report)
-        events.publishEvent(ReportsChanged(viewer.workspaceId, viewer.userId, NAME, id, "created"))
+        events.publishEvent(ReportsChanged(viewer.workspaceId, viewer.userId, NAME, id, if (previous == null) "created" else "corrected"))
+        previous?.let { copyRecords(it, report, viewer) }
         values["state"]?.let { update(id, mapOf("state" to it), viewer) }
+    }
+
+    /** The correction starts with everything of the version it corrects; the records get new IDs. */
+    private fun copyRecords(
+        from: Report,
+        to: Report,
+        viewer: SyncViewer,
+    ) {
+        val ws = viewer.workspaceId
+
+        fun created(
+            kind: String,
+            id: UUID,
+        ) = events.publishEvent(ReportsChanged(ws, viewer.userId, kind, id, "created"))
+        repo.timeEntriesOf(from.id).forEach {
+            val copy = it.copy(id = UUID.randomUUID(), reportId = to.id)
+            repo.saveTime(ws, copy, new = true)
+            created(TimeEntrySyncEntity.NAME, copy.id)
+        }
+        repo.materialsOf(from.id).forEach {
+            val copy = it.copy(id = UUID.randomUUID(), reportId = to.id)
+            repo.saveMaterial(ws, copy, new = true)
+            created(MaterialLineSyncEntity.NAME, copy.id)
+        }
+        repo.aufmassOf(from.id).forEach {
+            val copy = it.copy(id = UUID.randomUUID(), reportId = to.id)
+            repo.saveAufmass(ws, copy, new = true)
+            created(AufmassPositionSyncEntity.NAME, copy.id)
+        }
+        repo.answersOf(from.id).forEach {
+            val copy = it.copy(id = DerivedIds.checklistAnswer(to.id, it.itemKey), reportId = to.id)
+            repo.saveAnswer(ws, copy, new = true)
+            created(ChecklistAnswerSyncEntity.NAME, copy.id)
+        }
+        media.orderedStream().forEach { it.copyPhotos(from.id, to.id, ws, viewer.userId) }
     }
 
     override fun update(
@@ -211,10 +293,12 @@ internal class ReportSyncEntity(
         if ("workDescription" in values) next = next.copy(workDescription = values.text("workDescription", MAX_DESCRIPTION))
         var change = "changed"
         if ("state" in values) {
+            // SIGNED and NOT_SIGNED come only with a signature record (report_signature).
             val state =
-                (values["state"] as? String)?.let { s -> ReportState.entries.firstOrNull { it.name == s } } ?: throw invalid("state")
+                (values["state"] as? String)?.let { s -> listOf(ReportState.OPEN, ReportState.COMPLETED).firstOrNull { it.name == s } }
+                    ?: throw invalid("state")
             if (state == ReportState.COMPLETED && current.state != ReportState.COMPLETED) {
-                checkCompletable(current, order)
+                guard.checkCompletable(current, order)
                 next = next.copy(state = state, completedAt = OffsetDateTime.now(), completedBy = viewer.userId)
                 change = "completed"
             } else if (state == ReportState.OPEN && current.state != ReportState.OPEN) {
@@ -225,32 +309,6 @@ internal class ReportSyncEntity(
         if (next == current) return
         repo.updateReport(next)
         events.publishEvent(ReportsChanged(viewer.workspaceId, viewer.userId, NAME, id, change))
-    }
-
-    /** Mandatory checklist items answered (photo items: a photo exists, Stage 6), no timer running (M-MO-07). */
-    private fun checkCompletable(
-        report: Report,
-        order: WorkOrderRef,
-    ) {
-        if (repo.timeEntriesOf(report.id).any { it.endedAt == null }) throw SyncRejection("TIMER_RUNNING")
-        val items = order.checklistTemplateId?.let { workOrders.checklistItems(it) }.orEmpty()
-        val answered =
-            repo
-                .answersOf(report.id)
-                .filter { !it.value.isNullOrBlank() }
-                .map { it.itemKey }
-                .toSet()
-        val photographed =
-            media
-                .orderedStream()
-                .toList()
-                .flatMap { it.answeredItems(report.id) }
-                .toSet()
-        val missing =
-            items.filter { item ->
-                item.required && item.key !in (if (item.kind == ChecklistItemKind.PHOTO) photographed else answered)
-            }
-        if (missing.isNotEmpty()) throw SyncRejection("CHECKLIST_INCOMPLETE")
     }
 
     companion object {
@@ -820,6 +878,7 @@ internal class ReportsFeed(
                 "material_line" to MaterialLineSyncEntity.NAME,
                 "aufmass_position" to AufmassPositionSyncEntity.NAME,
                 "checklist_answer" to ChecklistAnswerSyncEntity.NAME,
+                "report_signature" to ReportSignatureSyncEntity.NAME,
             )
     }
 }

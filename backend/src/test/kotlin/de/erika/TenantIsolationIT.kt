@@ -42,7 +42,7 @@ class TenantIsolationIT : ApiIntegrationTest() {
     }
 
     /** Operations reachable without a session: health and the sign-in flow only. */
-    private val publicAllowed = Regex("^/(health|auth/.*)$")
+    private val publicAllowed = Regex("^/(health|auth/.*|public/report-verifications/.*)$")
 
     @BeforeAll
     fun tenants() {
@@ -181,6 +181,7 @@ class TenantIsolationIT : ApiIntegrationTest() {
             mapOf(
                 "deviceId" to deviceB.toString(),
                 "photoId" to photoB.toString(),
+                "reportId" to reportB.toString(),
                 "siteId" to siteB,
                 "staffLevelId" to staffLevelB,
                 "checklistTemplateId" to templateB,

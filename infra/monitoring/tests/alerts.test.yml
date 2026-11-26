@@ -159,6 +159,23 @@ tests:
               summary: "Intake queue older than 5 minutes (intake.process-mail)"
               runbook: docs/ops/intake.md#intake-queue-older-than-5-minutes-erikaintakequeuestuck
 
+  - name: a refused report signature opens a ticket
+    interval: 1m
+    input_series:
+      - series: 'erika_mara_signature_hash_mismatch_total{instance="api:8081", job="erika-api"}'
+        values: "0 0 0 1 1 1"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ErikaMaraSignatureHashMismatch
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ErikaMaraSignatureHashMismatch
+        exp_alerts:
+          - exp_labels: { severity: ticket, instance: "api:8081", job: erika-api }
+            exp_annotations:
+              summary: "A report signature was refused: its hash doesn't match the server's report"
+              runbook: docs/ops/mara.md#signature-refused-erikamarasignaturehashmismatch
+
   - name: the watchdog always fires
     interval: 1m
     alert_rule_test:

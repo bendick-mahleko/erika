@@ -299,6 +299,22 @@ export async function fetchWorkOrderReport(workOrderId: string): Promise<WorkOrd
   return authed((init) => api.GET("/work-orders/{workOrderId}/report", { ...init, params: { path: { workOrderId } } }));
 }
 
+export type ReportVerification = components["schemas"]["ReportVerification"];
+
+/** The public check of a signed report by its code (no session); null if unknown. */
+export async function fetchReportVerification(code: string): Promise<ReportVerification | null> {
+  try {
+    const { data } = await api.GET("/public/report-verifications/{code}", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+      params: { path: { code } },
+    });
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchWorkOrder(workOrderId: string): Promise<{ workOrder: WorkOrder; etag: string } | null> {
   try {
     const { data, response } = await api.GET("/work-orders/{workOrderId}", {

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.11.0
+  version: 0.12.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -53,6 +53,8 @@ tags:
     description: Job reports recorded in the MARA app (MARA Stage 5), read-only in the office
   - name: photos
     description: Photos of job reports from the MARA app (MARA Stage 6), read-only in the office
+  - name: report-verification
+    description: Public check of a signed job report by its code (MARA Stage 7); hash and status only
   - name: devices
     description: Phones signed in to the MARA app; the owner can revoke them (ADR 0037)
   - name: invitations
@@ -1824,6 +1826,65 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/WorkOrderReport" }
         default: { $ref: "#/components/responses/Problem" }
+  /reports/{reportId}/pdf:
+    get:
+      tags: [reports]
+      operationId: getReportPdf
+      summary: The archived PDF of a signed (or unsigned-sent) report version, as a download
+      description: |
+        Rendered by the worker from the server's data after the signature and stored write-once
+        (ADR 0040); hash-checked on every download. 404 while it isn't archived yet.
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+      responses:
+        "200":
+          description: The PDF, with attachment disposition.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
+  /public/report-verifications/{code}:
+    get:
+      tags: [report-verification]
+      operationId: getReportVerification
+      summary: Whether a report with this verification code was signed, and its hash (no content)
+      description: |
+        The code is printed on the report PDF and in its QR code (M-MO-11). Without a session;
+        never shows the report's content, only the firm, the status, the version, when it was
+        signed and the SHA-256 of the canonical report. 404 for unknown codes.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/VerificationCode"
+      responses:
+        "200":
+          description: The verification.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportVerification" }
+        default: { $ref: "#/components/responses/Problem" }
+  /public/report-verifications/{code}/pdf:
+    get:
+      tags: [report-verification]
+      operationId: getVerifiedReportPdf
+      summary: The report PDF for the customer, with the key from the QR code
+      description: |
+        The QR code on the report the customer got on site carries a download key; with it,
+        the customer fetches the PDF later (M-MO-11). 404 for a wrong key or before the PDF is
+        archived.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/VerificationCode"
+        - name: key
+          in: query
+          required: true
+          schema: { type: string, minLength: 22, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" }
+      responses:
+        "200":
+          description: The PDF, with attachment disposition.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Problem" }
   /photos/{photoId}/thumbnail:
     get:
       tags: [photos]
@@ -2290,6 +2351,16 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    VerificationCode:
+      name: code
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[A-Z2-7]{10}$" }
     CustomerId:
       name: customerId
       in: path
@@ -3254,8 +3325,11 @@ components:
           items: { $ref: "#/components/schemas/WorkOrder" }
     ReportState:
       type: string
-      enum: [OPEN, COMPLETED]
-      description: COMPLETED once the technician finished the report (mandatory checklist items answered, no timer running).
+      enum: [OPEN, COMPLETED, SIGNED, NOT_SIGNED]
+      description: |
+        COMPLETED once the technician finished the report (mandatory checklist items answered, no
+        timer running); SIGNED by the customer, or NOT_SIGNED (sent without a signature, with a
+        reason). Signed and unsigned-sent versions never change; corrections are a new version.
     ReportSummary:
       type: object
       required: [id, version, state]
@@ -3266,6 +3340,40 @@ components:
         workDescription: { type: string }
         completedAt: { type: string, format: date-time }
         completedByName: { type: string }
+        signature: { $ref: "#/components/schemas/ReportSignatureInfo" }
+    ReportSignatureInfo:
+      type: object
+      required: [kind, signedAt, contentHash, verificationCode, pdfAvailable, emailed]
+      properties:
+        kind: { type: string, enum: [SIGNED, NOT_SIGNED] }
+        signerName: { type: string }
+        signedAt: { type: string, format: date-time }
+        comment: { type: string }
+        notSignedReason: { type: string }
+        contentHash: { type: string, description: "SHA-256 of the canonical report the customer saw" }
+        verificationCode: { type: string }
+        pdfAvailable: { type: boolean, description: "The archived PDF exists (GET /reports/{id}/pdf)" }
+        emailed: { type: boolean, description: "The PDF was emailed to the customer" }
+    ReportVersion:
+      type: object
+      required: [id, version, state]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, format: int32 }
+        state: { $ref: "#/components/schemas/ReportState" }
+        signedAt: { type: string, format: date-time }
+    ReportVerification:
+      type: object
+      required: [code, firmName, kind, reportVersion, signedAt, contentHash, superseded, pdfArchived]
+      properties:
+        code: { type: string }
+        firmName: { type: string }
+        kind: { type: string, enum: [SIGNED, NOT_SIGNED] }
+        reportVersion: { type: integer, format: int32 }
+        signedAt: { type: string, format: date-time }
+        contentHash: { type: string }
+        superseded: { type: boolean, description: "A later version (a correction) exists" }
+        pdfArchived: { type: boolean }
     TimeEntryKind:
       type: string
       enum: [WORK, TRAVEL]
@@ -3329,7 +3437,7 @@ components:
         value: { type: string, description: "YES or NO for YES_NO items, text otherwise; missing when unanswered" }
     WorkOrderReport:
       type: object
-      required: [workOrderId, timeEntries, materials, aufmass, checklist, photos]
+      required: [workOrderId, timeEntries, materials, aufmass, checklist, photos, versions]
       properties:
         workOrderId: { type: string, format: uuid }
         report: { $ref: "#/components/schemas/ReportSummary" }
@@ -3348,6 +3456,10 @@ components:
         photos:
           type: array
           items: { $ref: "#/components/schemas/ReportPhoto" }
+        versions:
+          type: array
+          description: All versions of the report, oldest first (corrections, M-BR-01).
+          items: { $ref: "#/components/schemas/ReportVersion" }
     PhotoState:
       type: string
       enum: [PENDING_FILE, UPLOADED, STORED, REJECTED]

@@ -59,13 +59,14 @@ dependencies {
     implementation(libs.kosit.validator)
     implementation("org.glassfish.jaxb:jaxb-runtime")
     implementation(libs.verapdf.validation.model)
+    // MARA report PDFs (Stage 7); the same version as invoice-core's.
+    implementation("org.apache.pdfbox:pdfbox:3.0.8")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.security:spring-security-test")
     // Builds test PDFs (a ZUGFeRD hybrid that is not PDF/A); same version as invoice-core.
-    testImplementation("org.apache.pdfbox:pdfbox:3.0.8")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("org.springframework.modulith:spring-modulith-docs")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")

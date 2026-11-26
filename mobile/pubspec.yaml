@@ -29,6 +29,9 @@ dependencies:
   url_launcher: ^6.3.3
   image_picker: ^1.2.4
   connectivity_plus: ^7.3.2
+  pdf: ^3.13.1
+  printing: ^5.15.1
+  barcode: ^2.2.9
 
 dev_dependencies:
   flutter_test:

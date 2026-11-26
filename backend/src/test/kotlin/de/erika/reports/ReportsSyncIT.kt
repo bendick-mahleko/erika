@@ -511,7 +511,7 @@ class ReportsSyncIT : ApiIntegrationTest() {
         f.device.pullAll()
         f.device.create("report", report, mapOf("workOrderId" to order))
         f.device.pushResults()
-        TestDatabase.update("UPDATE work_order SET status = 'SIGNED' WHERE id = ?::uuid", order)
+        TestDatabase.update("UPDATE work_order SET status = 'INVOICED' WHERE id = ?::uuid", order)
         f.device.change("report", report, mapOf("workDescription" to "zu spät"))
         f.device.create("time_entry", id(), mapOf("reportId" to report, "startedAt" to now(5)))
         assertEquals(listOf("REPORT_LOCKED", "REPORT_LOCKED"), f.device.pushResults().map { it.path("code").asString() })

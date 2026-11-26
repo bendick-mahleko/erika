@@ -1173,7 +1173,9 @@
       "OPEN": "In Arbeit",
       "COMPLETED": "Abgeschlossen",
       "PENDING_FILE": "Wird vom Telefon hochgeladen …",
-      "UPLOADED": "Wird geprüft …"
+      "UPLOADED": "Wird geprüft …",
+      "SIGNED": "Unterschrieben",
+      "NOT_SIGNED": "Ohne Unterschrift"
     },
     "completedBy": "Abgeschlossen von {person} am {at}.",
     "times": "Zeiten",
@@ -1215,7 +1217,25 @@
       "OTHER": "Sonstiges"
     },
     "rejectedVirus": "Abgelehnt: Virus gefunden",
-    "rejectedNotImage": "Abgelehnt: kein Foto"
+    "rejectedNotImage": "Abgelehnt: kein Foto",
+    "signedBy": "Version {version} unterschrieben von {person} am {at}.",
+    "sentUnsigned": "Version {version} ohne Unterschrift abgeschlossen am {at}. Grund: {reason}",
+    "customerComment": "Anmerkung des Kunden: {comment}",
+    "verificationCode": "Prüfcode {code}",
+    "emailed": "per E-Mail an den Kunden gesendet",
+    "downloadPdf": "Bericht als PDF herunterladen",
+    "pdfPending": "Das PDF wird erstellt, sobald alle Fotos übertragen sind.",
+    "versions": "Versionen:"
+  },
+  "Verify": {
+    "title": "Arbeitsbericht prüfen",
+    "unknown": "Zu diesem Prüfcode gibt es keinen Arbeitsbericht. Bitte den Code auf dem Bericht vergleichen.",
+    "signed": "Echt: Arbeitsbericht von {firm}, Version {version}, unterschrieben am {date}.",
+    "notSigned": "Echt: Arbeitsbericht von {firm}, Version {version}, ohne Unterschrift abgeschlossen am {date}.",
+    "superseded": "Zu diesem Bericht gibt es eine neuere, korrigierte Version.",
+    "hashIntro": "Der Inhalt des Berichts ist durch diesen SHA-256-Wert gesichert. Er steht unten auf jeder Seite des Berichts und muss übereinstimmen:",
+    "download": "Bericht als PDF herunterladen",
+    "pdfPending": "Das PDF wird gerade erstellt. Bitte später noch einmal versuchen."
   },
   "Staff": {
     "title": "Mitarbeitende und Stundensätze",

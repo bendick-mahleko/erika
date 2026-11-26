@@ -47,6 +47,47 @@ export async function ReportSection({ report }: { report: WorkOrderReport }) {
         )}
       </div>
       {!summary && <p className="text-slate-700">{t("none")}</p>}
+      {summary?.signature && (
+        <div className="rounded bg-slate-50 p-3 text-sm" data-testid="report-signature">
+          <p className="font-medium">
+            {summary.signature.kind === "SIGNED"
+              ? t("signedBy", {
+                  person: summary.signature.signerName ?? "?",
+                  at: format.dateTime(new Date(summary.signature.signedAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                  version: summary.version,
+                })
+              : t("sentUnsigned", {
+                  reason: summary.signature.notSignedReason ?? "",
+                  at: format.dateTime(new Date(summary.signature.signedAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                  version: summary.version,
+                })}
+          </p>
+          {summary.signature.comment && <p>{t("customerComment", { comment: summary.signature.comment })}</p>}
+          <p className="text-slate-600">
+            {t("verificationCode", { code: summary.signature.verificationCode })}
+            {summary.signature.emailed && ` · ${t("emailed")}`}
+          </p>
+          <p className="font-mono text-xs break-all text-slate-600">SHA-256 {summary.signature.contentHash}</p>
+          {summary.signature.pdfAvailable ? (
+            <a className="text-brand-700 underline" href={`/api/v1/reports/${summary.id}/pdf`} data-testid="report-pdf">
+              {t("downloadPdf")}
+            </a>
+          ) : (
+            <p className="text-slate-600">{t("pdfPending")}</p>
+          )}
+        </div>
+      )}
+      {report.versions.length > 1 && (
+        <p className="text-sm text-slate-700" data-testid="report-versions">
+          {t("versions")} {report.versions.map((v) => `${v.version}: ${t(`states.${v.state}`)}`).join(" · ")}
+        </p>
+      )}
       {summary?.completedAt && (
         <p className="text-sm text-slate-700">
           {t("completedBy", {

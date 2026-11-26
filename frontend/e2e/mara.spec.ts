@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { canonical, canonicalHash } from "./canonical";
 import { apiCall, expectAccessible, mailToken, signedInAccount, totp } from "./support";
 
 /**
@@ -482,6 +484,192 @@ test.describe("MARA work orders (full stack)", () => {
     const thumbnail = await page.request.get(`/api/v1/photos/${photo}/thumbnail`);
     expect(thumbnail.headers()["content-type"]).toBe("image/jpeg");
     await expectAccessible(page);
+  });
+
+  test("the shared canonical vectors hold for the test's own implementation", () => {
+    const file = JSON.parse(readFileSync("../mara-rules/vectors/report/canonical.json", "utf8")) as {
+      cases: { name: string; input: never; expected: { canonical: string; sha256: string } }[];
+    };
+    for (const c of file.cases) {
+      expect(canonical(c.input), c.name).toBe(c.expected.canonical);
+      expect(canonicalHash(c.input), c.name).toBe(c.expected.sha256);
+    }
+  });
+
+  test("a report signed on the phone is archived, shown in the office and checkable by its code", async ({
+    page,
+    browser,
+  }) => {
+    await signedInAccount(page, "e2e-mara-sign");
+    const tech = await technician(page, browser, "Hanna Heizung");
+    const techId = (await apiCall(page, "GET", "/api/v1/staff")).body.items.find(
+      (s: { displayName: string }) => s.displayName === "Hanna Heizung",
+    ).userId as string;
+    const customer = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/customers",
+        { name: `Familie Frost ${unique()}`, countryCode: "DE", vatTreatment: "DOMESTIC" },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+    const order = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/work-orders",
+        { customerId: customer, title: "Heizkörper tauschen", assigneeIds: [techId] },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+
+    const phone = tech.page.request;
+    const credentials = { email: tech.email, password };
+    const secret = (
+      (await (await phone.post("/api/v1/mobile/auth/totp-enrolment", { data: credentials })).json()) as {
+        secret: string;
+      }
+    ).secret;
+    const login = await phone.post("/api/v1/mobile/auth/device-login", {
+      data: {
+        ...credentials,
+        code: totp(secret),
+        device: { name: "Pixel 8", platform: "ANDROID", appVersion: "0.6.0" },
+      },
+    });
+    const auth = {
+      Authorization: `Bearer ${((await login.json()) as { tokens: { accessToken: string } }).tokens.accessToken}`,
+    };
+    type Rec = { entity: string; id: string; data: Record<string, unknown> };
+    const pullAll = async () => {
+      const records = new Map<string, Rec>();
+      let cursor = "";
+      for (;;) {
+        const r = (await (
+          await phone.get(`/api/v1/mobile/sync/pull?protocolVersion=1&cursor=${cursor}`, { headers: auth })
+        ).json()) as { records: Rec[]; nextCursor: string; hasMore: boolean };
+        r.records.forEach((rec) => records.set(`${rec.entity}/${rec.id}`, rec));
+        cursor = r.nextCursor;
+        if (!r.hasMore) return [...records.values()];
+      }
+    };
+    const push = async (mutations: unknown[]) =>
+      (
+        (await (
+          await phone.post("/api/v1/mobile/sync/push", { headers: auth, data: { protocolVersion: 1, mutations } })
+        ).json()) as {
+          results: { status: string; code?: string }[];
+        }
+      ).results;
+    const create = (entity: string, entityId: string, values: Record<string, unknown>) => ({
+      mutationId: crypto.randomUUID(),
+      entity,
+      entityId,
+      op: "CREATE",
+      values,
+    });
+
+    // On site: the report, then the signature over the canonical report the phone built.
+    const report = derivedId(order, "report/1");
+    const start = new Date(Date.now() - 3600_000);
+    start.setSeconds(0, 0);
+    expect(
+      (
+        await push([
+          create("report", report, { workOrderId: order, workDescription: "Heizkörper getauscht, entlüftet." }),
+          create("time_entry", crypto.randomUUID(), {
+            reportId: report,
+            technicianId: techId,
+            kind: "WORK",
+            startedAt: start.toISOString(),
+            endedAt: new Date(start.getTime() + 50 * 60_000).toISOString(),
+          }),
+          create("material_line", crypto.randomUUID(), {
+            reportId: report,
+            description: "Heizkörper 600x1000",
+            quantity: "1",
+            unitCode: "C62",
+          }),
+        ])
+      ).map((r) => r.status),
+    ).toEqual(["APPLIED", "APPLIED", "APPLIED"]);
+    const records = await pullAll();
+    const one = (entity: string, id: string) => records.find((r) => r.entity === entity && r.id === id)!.data;
+    const mine = (entity: string) => records.filter((r) => r.entity === entity && r.data.reportId === report);
+    const names = new Map(records.filter((r) => r.entity === "staff_member").map((r) => [r.id, r.data.displayName]));
+    const wo = one("work_order", order);
+    const raw = {
+      format: 1,
+      reportId: report,
+      version: 1,
+      workOrder: { id: order, title: wo.title },
+      customer: { name: one("customer", customer).name },
+      workDescription: one("report", report).workDescription,
+      times: mine("time_entry").map((t) => ({
+        id: t.id,
+        technician: names.get(t.data.technicianId as string),
+        kind: t.data.kind,
+        start: t.data.startedAt,
+        end: t.data.endedAt,
+        note: t.data.note,
+      })),
+      materials: mine("material_line").map((m) => ({
+        id: m.id,
+        description: m.data.description,
+        quantity: m.data.quantity,
+        unit: m.data.unitCode,
+      })),
+      aufmass: [],
+      checklist: [],
+      photos: [],
+    } as never;
+    const code = Array.from(
+      { length: 10 },
+      () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"[Math.floor(Math.random() * 32)],
+    ).join("");
+    const key = `k${crypto.randomUUID().replaceAll("-", "")}x`;
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    const signed = await push([
+      create("report_signature", derivedId(report, "signature"), {
+        reportId: report,
+        kind: "SIGNED",
+        contentHash: canonicalHash(raw),
+        signerName: "Frieda Frost",
+        signedAt: new Date().toISOString(),
+        signaturePng: png,
+        verificationCode: code,
+        downloadKey: key,
+      }),
+    ]);
+    expect(signed.map((r) => r.code ?? r.status)).toEqual(["APPLIED"]);
+
+    // The office: signed, locked, the archived PDF once the worker made it.
+    await expect(async () => {
+      await page.goto(`/work-orders/${order}`);
+      await expect(page.getByTestId("report-pdf")).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+    await expect(page.getByTestId("report-state")).toHaveText("Unterschrieben");
+    await expect(page.getByTestId("report-signature")).toContainText("Frieda Frost");
+    await expect(page.getByTestId("report-signature")).toContainText(code);
+    const pdf = await page.request.get(`/api/v1/reports/${report}/pdf`);
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    await expectAccessible(page);
+
+    // The customer checks it by the QR code: no sign-in, no content, the PDF with the key.
+    const customerPage = await (await browser.newContext()).newPage();
+    await customerPage.goto(`/verify/${code}?k=${key}`);
+    await expect(customerPage.getByTestId("verify-status")).toContainText("unterschrieben am");
+    await expect(customerPage.getByTestId("verify-hash")).toHaveText(canonicalHash(raw));
+    await expect(customerPage.getByText("Heizkörper getauscht")).toHaveCount(0);
+    const download = await customerPage.request.get(
+      (await customerPage.getByTestId("verify-download").getAttribute("href"))!,
+    );
+    expect(download.status()).toBe(200);
+    await expectAccessible(customerPage);
+    await customerPage.goto("/verify/AAAAAAAAAA");
+    await expect(customerPage.getByTestId("verify-unknown")).toBeVisible();
   });
 
   test("staff levels, staff settings and checklist templates", async ({ page, browser }) => {

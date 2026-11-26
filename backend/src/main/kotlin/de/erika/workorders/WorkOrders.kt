@@ -212,6 +212,22 @@ internal class WorkOrders(
         return orders.find(id) ?: throw WorkOrderErrors.notFound("WORK_ORDER")
     }
 
+    /**
+     * SIGNED, set by MARA when a report version is signed (Stage 7); users can't set it. An
+     * invoiced work order stays invoiced.
+     */
+    fun markSigned(
+        workspaceId: UUID,
+        actorId: UUID?,
+        id: UUID,
+    ) {
+        val current = orders.find(id) ?: throw WorkOrderErrors.notFound("WORK_ORDER")
+        if (current.status == WorkOrderStatus.SIGNED || current.status == WorkOrderStatus.INVOICED) return
+        if (!orders.update(workspaceId, current.copy(status = WorkOrderStatus.SIGNED), current.version)) throw Etags.conflict()
+        events.publishEvent(WorkOrdersChanged(workspaceId, actorId, "work_order", id, created = false))
+        events.publishEvent(WorkOrderStatusChanged(workspaceId, actorId, id, current.status, WorkOrderStatus.SIGNED))
+    }
+
     /** Work notes from the app (M-MO-01). */
     fun setWorkNotes(
         workspaceId: UUID,

@@ -4,6 +4,8 @@ The technician app of MARA, ERIKA's job-report add-on. Plan: [docs/mara/BUILD_PL
 
 **State (MARA Stage 5):** a whole job report on site, offline: times by timer or entered afterwards (several technicians), materials from the article list or free text (recent items in three taps), Aufmaß with deductions and formulas, checklists with mandatory items, a work description (typed or dictated with the keyboard). Completing the report needs the mandatory items and no running timer. There is a high-contrast mode in the menu.
 
+Stage 7: the customer reviews the canonical report in a preview and signs on the phone (or the report is sent unsigned with a reason). The version is then locked, and the customer PDF is rendered on the phone with the hash, the verification code and a QR code to check it and fetch it later. The PDF can be shared; the email goes out with the next sync. Corrections are a new version.
+
 Stage 6: photos with caption and category (before, after, defect), also for checklist photo items. They are compressed on capture, kept only in the app's folder (not in the gallery, not in cloud backups) and uploaded with tus after each sync, resuming after interruptions; "Wi-Fi first" is in the menu.
 
 From Stage 4: the work orders sync with ERIKA in both directions (ADR 0038): today's and upcoming work orders, status and work notes, route and call, new work orders and customers on site, a conflict inbox. All of it works offline.
