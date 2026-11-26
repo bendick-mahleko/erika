@@ -1159,7 +1159,50 @@
       "plannedTo": "End",
       "assigneeIds": "Assigned",
       "customerId": "Customer",
-      "siteId": "Site"
+      "siteId": "Site",
+      "workDescription": "Work description",
+      "state": "Report status",
+      "value": "Answer"
+    }
+  },
+  "Reports": {
+    "locale": "en",
+    "title": "Report from the MARA app",
+    "none": "No report recorded yet.",
+    "states": {
+      "OPEN": "In progress",
+      "COMPLETED": "Completed"
+    },
+    "completedBy": "Completed by {person} on {at}.",
+    "times": "Times",
+    "who": "Who",
+    "kind": "Kind",
+    "date": "Date",
+    "fromTo": "From – to",
+    "duration": "Duration",
+    "kinds": {
+      "WORK": "Work",
+      "TRAVEL": "Travel"
+    },
+    "running": "running",
+    "materials": "Materials",
+    "aufmass": "Measurements",
+    "minus": "minus",
+    "checklist": "Checklist",
+    "required": "Mandatory item",
+    "yes": "Yes",
+    "no": "No",
+    "open": "open",
+    "workDescription": "Work description",
+    "units": {
+      "C62": "pcs",
+      "MTR": "m",
+      "MTK": "m²",
+      "MTQ": "m³",
+      "KGM": "kg",
+      "LTR": "l",
+      "HUR": "h",
+      "LS": "lump sum"
     }
   },
   "Staff": {

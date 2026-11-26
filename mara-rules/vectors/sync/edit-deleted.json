@@ -1,0 +1,11 @@
+{
+  "rule": "sync.edit-deleted",
+  "version": 1,
+  "description": "What the server does with an UPDATE of a record that was deleted (ADR 0038): a delete loses against a concurrent edit, so the record comes back. maxBaseVersion is the highest field version the phone sent, deletedVersion the sequence number of the delete. RESTORE when the delete is newer than anything the phone saw; otherwise REJECT (NOT_FOUND).",
+  "cases": [
+    {"name": "deleted after the phone last saw the record: the edit wins and restores it", "input": {"maxBaseVersion": 8, "deletedVersion": 15}, "expected": {"result": "RESTORE"}},
+    {"name": "deleted before the phone saw that state: refused", "input": {"maxBaseVersion": 15, "deletedVersion": 12}, "expected": {"result": "REJECT"}},
+    {"name": "deleted in the very change the phone saw: refused", "input": {"maxBaseVersion": 12, "deletedVersion": 12}, "expected": {"result": "REJECT"}},
+    {"name": "a record the phone made and never saw confirmed (base 0)", "input": {"maxBaseVersion": 0, "deletedVersion": 4}, "expected": {"result": "RESTORE"}}
+  ]
+}

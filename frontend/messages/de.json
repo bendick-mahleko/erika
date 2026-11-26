@@ -1159,7 +1159,50 @@
       "plannedTo": "Ende",
       "assigneeIds": "Zugewiesen",
       "customerId": "Kunde",
-      "siteId": "Einsatzort"
+      "siteId": "Einsatzort",
+      "workDescription": "Arbeitsbeschreibung",
+      "state": "Berichtsstatus",
+      "value": "Antwort"
+    }
+  },
+  "Reports": {
+    "locale": "de",
+    "title": "Bericht aus der MARA-App",
+    "none": "Noch kein Bericht aufgenommen.",
+    "states": {
+      "OPEN": "In Arbeit",
+      "COMPLETED": "Abgeschlossen"
+    },
+    "completedBy": "Abgeschlossen von {person} am {at}.",
+    "times": "Zeiten",
+    "who": "Wer",
+    "kind": "Art",
+    "date": "Datum",
+    "fromTo": "Von – bis",
+    "duration": "Dauer",
+    "kinds": {
+      "WORK": "Arbeit",
+      "TRAVEL": "Fahrt"
+    },
+    "running": "läuft",
+    "materials": "Material",
+    "aufmass": "Aufmaß",
+    "minus": "abzüglich",
+    "checklist": "Checkliste",
+    "required": "Pflichtpunkt",
+    "yes": "Ja",
+    "no": "Nein",
+    "open": "offen",
+    "workDescription": "Arbeitsbeschreibung",
+    "units": {
+      "C62": "Stück",
+      "MTR": "m",
+      "MTK": "m²",
+      "MTQ": "m³",
+      "KGM": "kg",
+      "LTR": "l",
+      "HUR": "Std.",
+      "LS": "pauschal"
     }
   },
   "Staff": {

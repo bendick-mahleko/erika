@@ -1,6 +1,9 @@
 package de.erika.workorders
 
 import de.erika.creator.CustomerDirectory
+import de.erika.identity.InvitationAccepted
+import de.erika.identity.MemberRemoved
+import de.erika.identity.MemberRoleChanged
 import de.erika.identity.WorkspaceContacts
 import de.erika.platform.mail.Mail
 import de.erika.platform.mail.MailProperties
@@ -109,14 +112,12 @@ internal class WorkOrderSyncEntity(
         viewer: SyncViewer,
     ): Map<String, Any?>? {
         val end = (data["plannedTo"] ?: data["plannedFrom"]) as String?
-        val finished = data["status"] in FINISHED
-        if (finished && end != null && Instant.parse(end).isBefore(clock.instant().minus(WINDOW))) return null
-        if (viewer.isOffice) return data
-        val mine = viewer.userId.toString()
 
         @Suppress("UNCHECKED_CAST")
-        val assignees = data["assigneeIds"] as List<String>
-        return data.takeIf { mine in assignees || data["createdBy"] == mine }
+        val assignees = (data["assigneeIds"] as List<String>).map(UUID::fromString)
+        val createdBy = (data["createdBy"] as String?)?.let(UUID::fromString)
+        val visible = PhoneScope.visible(data["status"] as String, end?.let(Instant::parse), assignees, createdBy, viewer, clock.instant())
+        return data.takeIf { visible }
     }
 
     /** Technicians change status and work notes of existing work orders; planning is the office's. */
@@ -233,8 +234,6 @@ internal class WorkOrderSyncEntity(
 
     companion object {
         const val NAME = "work_order"
-        private val FINISHED = setOf("DONE", "CANCELLED", "SIGNED", "INVOICED")
-        private val WINDOW = java.time.Duration.ofDays(30)
     }
 }
 
@@ -330,6 +329,36 @@ internal class StaffLevelSyncEntity(
     ): Map<String, Any?> = if (viewer.canSeePrices) data else data + ("hourlyRate" to null)
 }
 
+/**
+ * The people of the workspace who can be assigned (owners, members, technicians), so the phone
+ * can show whose time an entry is (MARA Stage 5). Read-only; names and roles only.
+ */
+@Component
+internal class StaffMemberSyncEntity(
+    private val people: WorkspaceContacts,
+) : SyncEntity {
+    override val name = NAME
+    override val fields = emptyMap<String, FieldPolicy>()
+
+    override fun allIds(): List<UUID> = people.workforce().map { it.userId }
+
+    override fun load(ids: Collection<UUID>): Map<UUID, Map<String, Any?>> {
+        val wanted = ids.toSet()
+        return people.workforce().filter { it.userId in wanted }.associate {
+            it.userId to linkedMapOf("displayName" to it.displayName, "role" to it.role.name)
+        }
+    }
+
+    override fun view(
+        data: Map<String, Any?>,
+        viewer: SyncViewer,
+    ) = data
+
+    companion object {
+        const val NAME = "staff_member"
+    }
+}
+
 /** Prices on the phone: always for the office, for technicians only when the owner allowed it. */
 @Component
 internal class StaffPriceVisibility(
@@ -366,4 +395,14 @@ internal class WorkOrdersFeed(
             }
         }
     }
+
+    // People joining, changing role or leaving reach the phones' staff list.
+    @EventListener
+    fun on(event: InvitationAccepted) = feed.changed(StaffMemberSyncEntity.NAME, event.actorId)
+
+    @EventListener
+    fun on(event: MemberRoleChanged) = feed.changed(StaffMemberSyncEntity.NAME, event.memberUserId)
+
+    @EventListener
+    fun on(event: MemberRemoved) = feed.changed(StaffMemberSyncEntity.NAME, event.memberUserId)
 }

@@ -228,5 +228,110 @@
         "type": "String"
       }
     }
-  }
+  },
+  "openReport": "Bericht",
+  "reportTitle": "Bericht: {title}",
+  "@reportTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "completeReport": "Bericht abschließen",
+  "reopenReport": "Bericht wieder öffnen",
+  "reportCompleted": "Der Bericht ist abgeschlossen. Zum Ändern wieder öffnen.",
+  "reportCompletedSaved": "Bericht abgeschlossen und Auftrag erledigt.",
+  "cannotCompleteTitle": "Noch nicht fertig",
+  "timerStillRunning": "Ein Timer läuft noch.",
+  "checklistItemMissing": "Pflichtpunkt offen: {item}",
+  "@checklistItemMissing": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "okButton": "OK",
+  "timesSection": "Zeiten",
+  "workTime": "Arbeit",
+  "travelTime": "Fahrt",
+  "timerRunning": "läuft",
+  "startWorkTimer": "Arbeit starten",
+  "startTravelTimer": "Fahrt starten",
+  "stopTimer": "Timer stoppen",
+  "addTimeManually": "Zeit nachtragen",
+  "editTime": "Zeit ändern",
+  "endBeforeStart": "Das Ende liegt vor dem Beginn.",
+  "technicianLabel": "Wer",
+  "unknownPerson": "Unbekannt",
+  "fromLabel": "Von",
+  "toLabel": "Bis",
+  "noteLabel": "Notiz",
+  "deleteButton": "Löschen",
+  "materialsSection": "Material",
+  "addMaterial": "Material hinzufügen",
+  "editMaterial": "Material ändern",
+  "searchArticles": "Artikel suchen",
+  "recentMaterials": "Zuletzt verwendet",
+  "articleList": "Artikel",
+  "freeTextMaterial": "Freier Text",
+  "freeTextMaterialNamed": "„{text}“ als freien Text",
+  "@freeTextMaterialNamed": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "quantityLabel": "Menge",
+  "unitLabel": "Einheit",
+  "addButton": "Hinzufügen",
+  "invalidQuantity": "Bitte eine Menge größer als 0 eingeben.",
+  "materialIncomplete": "Bitte Bezeichnung und eine Menge größer als 0 angeben.",
+  "unitPiece": "Stück",
+  "unitHour": "Std.",
+  "unitLumpSum": "pauschal",
+  "aufmassSection": "Aufmaß",
+  "addAufmass": "Position hinzufügen",
+  "editAufmass": "Position ändern",
+  "aufmassLabel": "Bezeichnung",
+  "aufmassLabelMissing": "Bitte eine Bezeichnung eingeben.",
+  "aufmassKind": "Art",
+  "kindLength": "Länge",
+  "kindArea": "Fläche",
+  "kindVolume": "Volumen",
+  "kindPiece": "Stück",
+  "kindFormula": "Formel",
+  "lengthLabel": "Länge",
+  "widthLabel": "Breite",
+  "heightLabel": "Höhe",
+  "countLabel": "Anzahl",
+  "formulaLabel": "Formel",
+  "formulaHint": "z. B. 2*(4,25+3,10)*2,5",
+  "deductionsLabel": "Abzüge",
+  "deductionLabel": "Abzug (z. B. Fenster)",
+  "addDeduction": "Abzug hinzufügen",
+  "resultLabel": "Ergebnis",
+  "aufmassMissingDimension": "Es fehlen Maße.",
+  "aufmassNegative": "Maße dürfen nicht negativ sein.",
+  "aufmassNegativeResult": "Die Abzüge sind größer als die Position.",
+  "aufmassDivisionByZero": "Die Formel teilt durch null.",
+  "aufmassInvalidNumber": "Eine Zahl ist ungültig.",
+  "aufmassInvalidFormula": "Die Formel ist ungültig.",
+  "checklistSection": "Checkliste",
+  "yes": "Ja",
+  "no": "Nein",
+  "photoItemLater": "Fotos folgen in einer späteren Version der App.",
+  "workDescriptionSection": "Arbeitsbeschreibung",
+  "dictationHint": "Tippen oder mit dem Mikrofon der Tastatur diktieren.",
+  "highContrast": "Hoher Kontrast",
+  "conflictDeleteKept": "Ein Eintrag, den Sie gelöscht haben, wurde inzwischen auf einem anderen Gerät geändert. Er bleibt erhalten.",
+  "conflictDeleteUndone": "Ein Eintrag, der gelöscht worden war, ist durch Ihre Änderung wieder da.",
+  "rejectedReportLocked": "Der Bericht ist unterschrieben oder abgerechnet und ändert sich nicht mehr.",
+  "rejectedNotAuthor": "Diesen Eintrag kann nur ändern, wer ihn erfasst hat.",
+  "rejectedTimerRunning": "Der Bericht wurde nicht abgeschlossen: Ein Timer läuft noch.",
+  "rejectedChecklistIncomplete": "Der Bericht wurde nicht abgeschlossen: Pflichtpunkte der Checkliste sind offen.",
+  "fieldWorkDescription": "Arbeitsbeschreibung",
+  "fieldAnswer": "Antwort"
 }

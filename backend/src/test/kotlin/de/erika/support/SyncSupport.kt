@@ -43,6 +43,12 @@ class TestSyncDevice(
     private val json = JsonMapper.builder().build()
     val records = linkedMapOf<Pair<String, String>, LocalRecord>()
     val outbox = mutableListOf<PendingMutation>()
+
+    /**
+     * Records removed here, with a version: a late, older answer (a replayed pull) must not bring
+     * them back. A removal's version is its page's cursor; a confirmed delete's the record's last.
+     */
+    val tombstones = mutableMapOf<Pair<String, String>, Long>()
     var cursor = ""
     val results = mutableListOf<JsonNode>()
 
@@ -63,10 +69,18 @@ class TestSyncDevice(
                 .path("records")
                 .values()
                 .forEach { store(it) }
+            val pageCursor =
+                r.tree
+                    .path("nextCursor")
+                    .asString()
+                    .toLongOrNull() ?: 0
             r.tree.path("removals").values().forEach {
                 val key = it.path("entity").asString() to it.path("id").asString()
                 // A record with a pending change stays until its push result arrives (ADR 0038).
-                if (outbox.none { m -> m.entity == key.first && m.entityId == key.second }) records.remove(key)
+                if (outbox.none { m -> m.entity == key.first && m.entityId == key.second }) {
+                    records.remove(key)
+                    tombstones.merge(key, pageCursor, ::maxOf)
+                }
                 removals += key
             }
             cursor = r.tree.path("nextCursor").asString()
@@ -104,13 +118,29 @@ class TestSyncDevice(
                 it
         }
 
+    /** Queues a delete with the versions of every field this phone saw (ADR 0038). */
+    fun delete(
+        entity: String,
+        id: Any,
+    ): PendingMutation {
+        val local = checkNotNull(record(entity, id)) { "no local $entity $id" }
+        val m = PendingMutation(UUID.randomUUID().toString(), entity, id.toString(), "DELETE", emptyMap(), local.fieldVersions)
+        outbox += m
+        return m
+    }
+
     /** Sends the outbox; removes the entries that got a result. Returns the raw response. */
     fun push(): Response {
         val r = phone.post("/api/v1/mobile/sync/push", mapOf("protocolVersion" to 1, "mutations" to outbox.map { it.toJson() }))
         check(r.status == 200) { "push: $r" }
         r.tree.path("results").values().forEach { result ->
             results.add(result)
+            val sent = outbox.firstOrNull { it.mutationId == result.path("mutationId").asString() }
             outbox.removeIf { it.mutationId == result.path("mutationId").asString() }
+            if (sent?.op == "DELETE" && result.path("status").asString() == "APPLIED") {
+                val key = sent.entity to sent.entityId
+                records.remove(key)?.let { tombstones.merge(key, it.version, ::maxOf) }
+            }
             if (!result.path("record").isMissingNode && !result.path("record").isNull) store(result.path("record"))
         }
         return r
@@ -122,6 +152,8 @@ class TestSyncDevice(
         val versions = node.path("fieldVersions").properties().associate { (k, v) -> k to v.asLong() }
         val rec = LocalRecord(node.path("entity").asString(), node.path("id").asString(), node.path("version").asLong(), versions, data)
         val key = rec.entity to rec.id
+        if ((tombstones[key] ?: -1) >= rec.version) return
+        tombstones.remove(key)
         // Pull results can arrive after newer push results: keep the newest.
         val existing = records[key]
         if (existing == null || existing.version <= rec.version) records[key] = rec

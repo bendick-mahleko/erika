@@ -266,6 +266,44 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             user.userId,
             device,
         )
+        // MARA Stage 5: a report and its child records.
+        val report = java.util.UUID.randomUUID()
+        TestDatabase.update(
+            "INSERT INTO report (id, workspace_id, work_order_id, created_by) VALUES (?, ?, ?, ?)",
+            report,
+            user.workspaceId,
+            order,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO time_entry (id, workspace_id, report_id, author_id, technician_id, kind, started_at) " +
+                "VALUES (gen_random_uuid(), ?, ?, ?, ?, 'WORK', now())",
+            user.workspaceId,
+            report,
+            user.userId,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO material_line (id, workspace_id, report_id, author_id, description, quantity, unit_code) " +
+                "VALUES (gen_random_uuid(), ?, ?, ?, 'Dichtung', 2, 'C62')",
+            user.workspaceId,
+            report,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO aufmass_position (id, workspace_id, report_id, author_id, label, kind, length, width, result, " +
+                "rule_version, unit_code) " +
+                "VALUES (gen_random_uuid(), ?, ?, ?, 'Boden', 'AREA', 4, 3, 12, 1, 'MTK')",
+            user.workspaceId,
+            report,
+            user.userId,
+        )
+        TestDatabase.update(
+            "INSERT INTO checklist_answer (id, workspace_id, report_id, item_key, value, author_id) VALUES (gen_random_uuid(), ?, ?, 'water', 'YES', ?)",
+            user.workspaceId,
+            report,
+            user.userId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

@@ -17,6 +17,10 @@ class WorkOrderView {
   String get status => record.text('status') ?? 'PLANNED';
   String? get description => record.text('description');
   String? get workNotes => record.text('workNotes');
+  String? get checklistTemplateId => record.text('checklistTemplateId');
+  List<String> get assigneeIds => [
+    for (final a in record.data['assigneeIds'] as List<dynamic>? ?? const []) a as String,
+  ];
   DateTime? get plannedFrom => _time(record.text('plannedFrom'));
   DateTime? get plannedTo => _time(record.text('plannedTo'));
   String get customerName => customer?.text('name') ?? '';

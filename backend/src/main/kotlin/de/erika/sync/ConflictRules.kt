@@ -15,7 +15,44 @@ enum class FieldDecision {
     APPLY_OVER,
 }
 
+/** What happens to a DELETE mutation (vectors in `mara-rules/vectors/sync/delete.json`). */
+enum class DeleteDecision {
+    /** Nobody changed the record since the phone saw it. */
+    DELETE,
+
+    /** Another device changed it meanwhile: a delete loses against a concurrent edit. */
+    KEEP,
+}
+
+/** What happens to an edit of a deleted record (vectors in `mara-rules/vectors/sync/edit-deleted.json`). */
+enum class EditDeletedDecision {
+    /** Deleted after the phone last saw the record: the edit wins and the record comes back. */
+    RESTORE,
+
+    /** The phone already saw the delete: the edit is refused (NOT_FOUND). */
+    REJECT,
+}
+
 object ConflictRules {
+    /**
+     * @param baseVersions the field versions the phone saw
+     * @param serverVersions the field versions on the server now
+     */
+    fun decideDelete(
+        baseVersions: Map<String, Long>,
+        serverVersions: Map<String, Long>,
+    ): DeleteDecision =
+        if (serverVersions.any { (field, version) -> version > (baseVersions[field] ?: 0) }) DeleteDecision.KEEP else DeleteDecision.DELETE
+
+    /**
+     * @param maxBaseVersion the highest field version the phone sent
+     * @param deletedVersion the sequence number of the delete
+     */
+    fun decideEditOfDeleted(
+        maxBaseVersion: Long,
+        deletedVersion: Long,
+    ): EditDeletedDecision = if (deletedVersion > maxBaseVersion) EditDeletedDecision.RESTORE else EditDeletedDecision.REJECT
+
     /**
      * @param baseVersion the field's version as the phone saw it
      * @param serverVersion the field's version on the server now

@@ -62,6 +62,15 @@ interface SyncEntity {
         viewer: SyncViewer,
     ): Map<String, Any?>?
 
+    /**
+     * [view] for many records at once (a pull page). Override when the scope needs a lookup, so a
+     * page costs one query instead of one per record. Deleted records never reach this method.
+     */
+    fun viewAll(
+        data: Map<UUID, Map<String, Any?>>,
+        viewer: SyncViewer,
+    ): Map<UUID, Map<String, Any?>?> = data.mapValues { (_, d) -> view(d, viewer) }
+
     /** Whether [viewer] may write [field] of an existing record. */
     fun mayWrite(
         field: String,
@@ -81,6 +90,29 @@ interface SyncEntity {
         values: Map<String, Any?>,
         viewer: SyncViewer,
     ): Unit = throw SyncRejection("UPDATE_NOT_ALLOWED")
+
+    /**
+     * Deletes a record (soft: [load] keeps returning it with [DELETED] = true, so a concurrent
+     * edit can bring it back). Only called when no field changed since the phone saw it.
+     */
+    fun delete(
+        id: UUID,
+        viewer: SyncViewer,
+    ): Unit = throw SyncRejection("DELETE_NOT_ALLOWED")
+
+    /** Undoes [delete]: an edit made without knowing of the delete wins against it (ADR 0038). */
+    fun restore(
+        id: UUID,
+        viewer: SyncViewer,
+    ): Unit = throw SyncRejection("NOT_FOUND")
+
+    companion object {
+        /**
+         * Field of [load]'s data that marks a deleted record. Deleted records go to the phones as
+         * removals; the field's version tells the engine when the delete happened.
+         */
+        const val DELETED = "_deleted"
+    }
 }
 
 /** Whether a user may see prices; implemented by the module that owns the staff settings. */

@@ -25,6 +25,9 @@ class LocalRecord {
   final bool pending;
 
   String? text(String field) => data[field] as String?;
+
+  /// Deleted here and waiting for the server to confirm: the screens leave it out.
+  bool get deleted => data[SyncStore.deletedField] == true;
 }
 
 /// The phone's side of the sync protocol on the encrypted database (ADR 0038). Every local
@@ -40,6 +43,9 @@ class SyncStore {
   final DateTime Function() _now;
 
   static const cursorKey = 'sync.cursor';
+
+  /// Marks a record whose delete is still in the outbox (never sent to the server as a field).
+  static const deletedField = '_deleted';
   static const lastSyncKey = 'sync.lastSuccess';
 
   /// A record made on the phone (a work order or customer on site, M-MO-02). Returns its ID.
@@ -92,6 +98,46 @@ class SyncStore {
     });
   }
 
+  /// A record whose ID two phones derive alike (a report, a checklist answer, ADR 0038): made
+  /// here with [createValues] if the phone doesn't have it yet, else changed by [changes]
+  /// (nothing when empty). Check and write are one transaction, so two quick taps make one.
+  Future<void> put(
+    String entity,
+    String id, {
+    required Map<String, dynamic> createValues,
+    Map<String, dynamic> changes = const {},
+  }) => db.transaction(() async {
+    if (await _row(entity, id) != null) {
+      if (changes.isNotEmpty) await change(entity, id, changes);
+    } else {
+      await create(entity, {...createValues, ...changes}, id: id);
+    }
+  });
+
+  /// Deletes a record (a time entry, a material line, an Aufmaß position). The delete waits in
+  /// the outbox with the versions of all fields the phone saw: a delete loses against an edit
+  /// made meanwhile on another device, and the record comes back with a note.
+  Future<void> delete(String entity, String id) async {
+    await db.transaction(() async {
+      final row = await _row(entity, id);
+      if (row == null) return;
+      await db
+          .into(db.outbox)
+          .insert(
+            OutboxCompanion.insert(
+              mutationId: _newId(),
+              entity: entity,
+              entityId: id,
+              op: 'DELETE',
+              changes: '{}',
+              baseVersions: Value(row.fieldVersions),
+              createdAt: _now(),
+            ),
+          );
+      await _recompute(entity, id);
+    });
+  }
+
   /// The oldest pending changes, in order.
   Future<List<MutationDto>> pending({int limit = 200}) async {
     final rows =
@@ -122,6 +168,10 @@ class SyncStore {
         )..where((o) => o.mutationId.equals(r.mutationId))).getSingleOrNull();
         if (entry == null) continue;
         await (db.delete(db.outbox)..where((o) => o.mutationId.equals(r.mutationId))).go();
+        if (entry.op == 'DELETE' && r.status == 'APPLIED') {
+          await _forget(entry.entity, entry.entityId, null);
+          continue;
+        }
         final record = r.record;
         if (record != null) await _storeServer(record);
         for (final c in r.conflicts) {
@@ -154,9 +204,7 @@ class SyncStore {
       for (final (entity, id) in page.removals) {
         // A record with pending changes stays until they are pushed (and refused).
         if (await _hasPending(entity, id)) continue;
-        await (db.delete(
-          db.syncRecords,
-        )..where((r) => r.entity.equals(entity) & r.id.equals(id))).go();
+        await _forget(entity, id, int.tryParse(page.nextCursor));
       }
       await db.putSetting(cursorKey, page.nextCursor);
     });
@@ -193,7 +241,39 @@ class SyncStore {
   Future<void> markInboxSeen() =>
       db.update(db.inboxEntries).write(const InboxEntriesCompanion(seen: Value(true)));
 
+  /// Removes a record and leaves a tombstone. Its version is the removal's page cursor, or the
+  /// record's last version for a delete confirmed by the server ([version] null).
+  Future<void> _forget(String entity, String id, int? version) async {
+    final row = await _row(entity, id);
+    if (await _hasPending(entity, id)) {
+      await _recompute(entity, id);
+      return;
+    }
+    await (db.delete(db.syncRecords)..where((r) => r.entity.equals(entity) & r.id.equals(id))).go();
+    final stone = version ?? row?.version ?? 0;
+    final old = await _tombstone(entity, id);
+    if (old == null || old < stone) {
+      await db
+          .into(db.tombstones)
+          .insertOnConflictUpdate(
+            TombstonesCompanion.insert(entity: entity, id: id, version: stone),
+          );
+    }
+  }
+
+  Future<int?> _tombstone(String entity, String id) async => (await (db.select(
+    db.tombstones,
+  )..where((t) => t.entity.equals(entity) & t.id.equals(id))).getSingleOrNull())?.version;
+
   Future<void> _storeServer(SyncRecordDto record) async {
+    final stone = await _tombstone(record.entity, record.id);
+    // Removed after this state was sent (a late, replayed answer): stays removed.
+    if (stone != null && stone >= record.version) return;
+    if (stone != null) {
+      await (db.delete(
+        db.tombstones,
+      )..where((t) => t.entity.equals(record.entity) & t.id.equals(record.id))).go();
+    }
     final existing = await _row(record.entity, record.id);
     // An answer can arrive after a newer one (a replayed pull): keep the newest.
     if (existing != null && existing.serverData != null && existing.version > record.version) {
@@ -233,7 +313,11 @@ class SyncStore {
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(jsonDecode(row.serverData!) as Map);
     for (final o in pending) {
-      data.addAll(Map<String, dynamic>.from(jsonDecode(o.changes) as Map));
+      if (o.op == 'DELETE') {
+        data[deletedField] = true;
+      } else {
+        data.addAll(Map<String, dynamic>.from(jsonDecode(o.changes) as Map));
+      }
     }
     await (db.update(db.syncRecords)..where((r) => r.entity.equals(entity) & r.id.equals(id)))
         .write(SyncRecordsCompanion(data: Value(jsonEncode(data))));

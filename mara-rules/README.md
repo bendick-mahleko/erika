@@ -7,9 +7,13 @@ This folder is the single source for those rules' **test vectors**. It holds no 
 | Rule | Vectors | Kotlin | Dart | Since |
 |---|---|---|---|---|
 | Aufmaß: area (length × width) | [vectors/aufmass/area.json](vectors/aufmass/area.json) | `de.erika.reports.AufmassRules` | `mobile/lib/domain/rules/aufmass.dart` | MARA Stage 1 |
+| Aufmaß: positions (length, area, volume, pieces, count, deductions) | [vectors/aufmass/position.json](vectors/aufmass/position.json) | `de.erika.reports.AufmassRules` | `mobile/lib/domain/rules/aufmass.dart` | MARA Stage 5 |
+| Aufmaß: simple formulas | [vectors/aufmass/formula.json](vectors/aufmass/formula.json) | `de.erika.reports.AufmassRules` | `mobile/lib/domain/rules/aufmass.dart` | MARA Stage 5 |
+| IDs two phones derive alike (report, checklist answer) | [vectors/ids/derived.json](vectors/ids/derived.json) | `de.erika.reports.DerivedIds` | `mobile/lib/domain/derived_id.dart` | MARA Stage 5 |
+| Sync: deletes and edits of deleted records | [vectors/sync/delete.json](vectors/sync/delete.json), [vectors/sync/edit-deleted.json](vectors/sync/edit-deleted.json) | `de.erika.sync.ConflictRules` | `mobile/lib/domain/rules/conflict_rules.dart` | MARA Stage 5 |
 | Sync: field merge (who wins a concurrent change) | [vectors/sync/field-merge.json](vectors/sync/field-merge.json) | `de.erika.sync.ConflictRules` | `mobile/lib/domain/rules/conflict_rules.dart` | MARA Stage 4 |
 
-Planned: the other Aufmaß formulas and deductions (Stage 5), the canonical report JSON and its SHA-256 (Stage 7), and invoice lines with rounding to the billing unit (Stage 8).
+Planned: the canonical report JSON and its SHA-256 (Stage 7), and invoice lines with rounding to the billing unit (Stage 8).
 
 ## Vector format
 

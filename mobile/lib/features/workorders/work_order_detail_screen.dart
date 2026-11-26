@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/sync/sync_providers.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../reports/report_screen.dart';
 import 'work_order_list_screen.dart';
 import 'work_order_providers.dart';
 
@@ -105,6 +106,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                       launcher(Uri(scheme: 'tel', path: order.phone!.replaceAll(' ', ''))),
                 ),
             ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('open-report'),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+            icon: const Icon(Icons.assignment),
+            label: Text(t.openReport),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => ReportScreen(workOrderId: order.id))),
           ),
           if (order.description != null && order.description!.isNotEmpty) ...[
             const SizedBox(height: 16),

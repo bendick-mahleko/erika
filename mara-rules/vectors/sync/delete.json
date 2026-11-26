@@ -1,0 +1,12 @@
+{
+  "rule": "sync.delete",
+  "version": 1,
+  "description": "What the server does with a DELETE mutation (ADR 0038): a delete loses against a concurrent edit. baseVersions are the field versions the phone saw, serverVersions the field versions on the server now. KEEP when any server field is newer than the phone saw it (the record stays, the phone gets it back with a note); otherwise DELETE.",
+  "cases": [
+    {"name": "nobody changed the record since the phone saw it", "input": {"baseVersions": {"title": 7, "quantity": 7}, "serverVersions": {"title": 7, "quantity": 7}}, "expected": {"result": "DELETE"}},
+    {"name": "the phone saw a newer state than the server holds (resend)", "input": {"baseVersions": {"title": 9, "quantity": 9}, "serverVersions": {"title": 7, "quantity": 7}}, "expected": {"result": "DELETE"}},
+    {"name": "another device changed a field meanwhile: the delete loses", "input": {"baseVersions": {"title": 7, "quantity": 7}, "serverVersions": {"title": 7, "quantity": 12}}, "expected": {"result": "KEEP"}},
+    {"name": "a field the phone never saw was set meanwhile: the delete loses", "input": {"baseVersions": {"title": 7}, "serverVersions": {"title": 7, "note": 11}}, "expected": {"result": "KEEP"}},
+    {"name": "a record the phone saw only as just created (all versions equal)", "input": {"baseVersions": {"a": 3, "b": 3}, "serverVersions": {"a": 3, "b": 3}}, "expected": {"result": "DELETE"}}
+  ]
+}

@@ -9,10 +9,12 @@ import {
   fetchStaff,
   fetchSyncConflicts,
   fetchWorkOrder,
+  fetchWorkOrderReport,
 } from "@/lib/api/client";
 import { statusClass } from "@/lib/workorders";
 import { WorkOrdersNav } from "../WorkOrdersNav";
 import { WorkOrderForm } from "../WorkOrderForm";
+import { ReportSection } from "./ReportSection";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("WorkOrders");
@@ -26,14 +28,18 @@ export default async function WorkOrderPage({ params }: { params: Promise<{ work
   if (session.state !== "AUTHENTICATED") redirect("/login");
   if (!session.features?.mara) notFound();
   const { workOrderId } = await params;
-  const [loaded, customers, staff, templates, conflicts] = await Promise.all([
+  const [loaded, customers, staff, templates, orderConflicts, report] = await Promise.all([
     fetchWorkOrder(workOrderId),
     fetchCustomers(true),
     fetchStaff(),
     fetchChecklistTemplates(true),
     fetchSyncConflicts(workOrderId),
+    fetchWorkOrderReport(workOrderId),
   ]);
   if (!loaded) notFound();
+  // Notes on the report itself, e.g. two technicians wrote the work description at the same time.
+  const reportConflicts = report?.report ? await fetchSyncConflicts(report.report.id) : [];
+  const conflicts = [...orderConflicts, ...reportConflicts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const t = await getTranslations("WorkOrders");
   const canEdit = session.role === "OWNER" || session.role === "MEMBER";
   const { workOrder } = loaded;
@@ -105,6 +111,7 @@ export default async function WorkOrderPage({ params }: { params: Promise<{ work
           )}
         </section>
       )}
+      {report && <ReportSection report={report} />}
     </div>
   );
 }

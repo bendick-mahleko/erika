@@ -414,4 +414,21 @@ object TestDatabase {
                 ps.executeUpdate()
             }
         }
+
+    /** The first column of every row, as text (as the schema owner, so RLS doesn't apply). */
+    fun strings(
+        sql: String,
+        vararg args: Any?,
+    ): List<String> =
+        asOwner { c ->
+            c.prepareStatement(sql).use { ps ->
+                args.forEachIndexed { i, a -> ps.setObject(i + 1, a) }
+                ps.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
+            }
+        }
+
+    fun count(
+        sql: String,
+        vararg args: Any?,
+    ): Int = strings(sql, *args).single().toInt()
 }

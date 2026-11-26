@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.9.0
+  version: 0.10.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -49,6 +49,8 @@ tags:
     description: MARA job reports add-on - sites, staff levels, checklist templates and work orders (ADR 0036)
   - name: sync
     description: Notes on concurrent changes from the MARA app (ADR 0038)
+  - name: reports
+    description: Job reports recorded in the MARA app (MARA Stage 5), read-only in the office
   - name: devices
     description: Phones signed in to the MARA app; the owner can revoke them (ADR 0037)
   - name: invitations
@@ -1801,6 +1803,25 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/WorkOrder" }
         default: { $ref: "#/components/responses/Problem" }
+  /work-orders/{workOrderId}/report:
+    get:
+      tags: [reports]
+      operationId: getWorkOrderReport
+      summary: The job report of a work order, as recorded in the MARA app (read-only)
+      description: |
+        Times, materials, Aufmaß, checklist and work description that the technicians recorded
+        on site (M-MO-03 to M-MO-08). Times are the raw times as recorded; rounding happens only
+        on the invoice (M-BR-04). The checklist lists every item of the work order's template,
+        answered or not. Without a report yet, `report` is missing and the lists are empty.
+      parameters:
+        - $ref: "#/components/parameters/WorkOrderId"
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkOrderReport" }
+        default: { $ref: "#/components/responses/Problem" }
   /invoices:
     get:
       tags: [invoices]
@@ -3195,6 +3216,99 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/WorkOrder" }
+    ReportState:
+      type: string
+      enum: [OPEN, COMPLETED]
+      description: COMPLETED once the technician finished the report (mandatory checklist items answered, no timer running).
+    ReportSummary:
+      type: object
+      required: [id, version, state]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, format: int32 }
+        state: { $ref: "#/components/schemas/ReportState" }
+        workDescription: { type: string }
+        completedAt: { type: string, format: date-time }
+        completedByName: { type: string }
+    TimeEntryKind:
+      type: string
+      enum: [WORK, TRAVEL]
+    ReportTimeEntry:
+      type: object
+      required: [id, technicianId, technicianName, kind, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        technicianId: { type: string, format: uuid }
+        technicianName: { type: string }
+        kind: { $ref: "#/components/schemas/TimeEntryKind" }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time, description: "Missing while the timer runs" }
+        note: { type: string }
+    ReportMaterialLine:
+      type: object
+      required: [id, description, quantity, unitCode]
+      properties:
+        id: { type: string, format: uuid }
+        articleId: { type: string, format: uuid }
+        articleNumber: { type: string }
+        description: { type: string }
+        quantity: { type: string, description: "Decimal as a string" }
+        unitCode: { type: string, description: "UN/ECE Rec 20, e.g. C62, MTR, MTK, HUR" }
+    AufmassKind:
+      type: string
+      enum: [LENGTH, AREA, VOLUME, PIECE, FORMULA]
+    AufmassDeduction:
+      type: object
+      properties:
+        label: { type: string }
+        length: { type: string }
+        width: { type: string }
+        height: { type: string }
+        count: { type: string }
+    ReportAufmassPosition:
+      type: object
+      required: [id, label, kind, result, unitCode, deductions]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        kind: { $ref: "#/components/schemas/AufmassKind" }
+        length: { type: string }
+        width: { type: string }
+        height: { type: string }
+        count: { type: string }
+        expression: { type: string }
+        deductions:
+          type: array
+          items: { $ref: "#/components/schemas/AufmassDeduction" }
+        result: { type: string, description: "Calculated by the server with the shared rules (mara-rules/vectors/aufmass/)" }
+        unitCode: { type: string }
+    ReportChecklistItem:
+      type: object
+      required: [key, label, kind, required]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        kind: { $ref: "#/components/schemas/ChecklistItemKind" }
+        required: { type: boolean }
+        value: { type: string, description: "YES or NO for YES_NO items, text otherwise; missing when unanswered" }
+    WorkOrderReport:
+      type: object
+      required: [workOrderId, timeEntries, materials, aufmass, checklist]
+      properties:
+        workOrderId: { type: string, format: uuid }
+        report: { $ref: "#/components/schemas/ReportSummary" }
+        timeEntries:
+          type: array
+          items: { $ref: "#/components/schemas/ReportTimeEntry" }
+        materials:
+          type: array
+          items: { $ref: "#/components/schemas/ReportMaterialLine" }
+        aufmass:
+          type: array
+          items: { $ref: "#/components/schemas/ReportAufmassPosition" }
+        checklist:
+          type: array
+          items: { $ref: "#/components/schemas/ReportChecklistItem" }
     Decimal:
       type: string
       pattern: "^-?[0-9]{1,12}(\\.[0-9]{1,4})?$"

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mara/domain/derived_id.dart';
 import 'package:mara/domain/rules/conflict_rules.dart';
 import 'package:mara/domain/uuid7.dart';
 
@@ -27,6 +28,58 @@ void main() {
       expect(fieldDecisionToWire(decision), (c['expected'] as Map<String, dynamic>)['result']);
     });
   }
+
+  Map<String, dynamic> load(String file) =>
+      jsonDecode(File('../mara-rules/vectors/sync/$file').readAsStringSync())
+          as Map<String, dynamic>;
+  Map<String, int> versions(Object? json) =>
+      (json as Map<String, dynamic>).map((k, v) => MapEntry(k, v as int));
+
+  group('sync.delete', () {
+    final file = load('delete.json');
+    test('the vector file is sync.delete', () => expect(file['rule'], 'sync.delete'));
+    for (final c in (file['cases'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+      test(c['name'] as String, () {
+        final input = c['input'] as Map<String, dynamic>;
+        final d = decideDelete(
+          baseVersions: versions(input['baseVersions']),
+          serverVersions: versions(input['serverVersions']),
+        );
+        expect(d.name.toUpperCase(), (c['expected'] as Map<String, dynamic>)['result']);
+      });
+    }
+  });
+
+  group('sync.edit-deleted', () {
+    final file = load('edit-deleted.json');
+    test('the vector file is sync.edit-deleted', () => expect(file['rule'], 'sync.edit-deleted'));
+    for (final c in (file['cases'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+      test(c['name'] as String, () {
+        final input = c['input'] as Map<String, dynamic>;
+        final d = decideEditOfDeleted(
+          maxBaseVersion: input['maxBaseVersion'] as int,
+          deletedVersion: input['deletedVersion'] as int,
+        );
+        expect(d.name.toUpperCase(), (c['expected'] as Map<String, dynamic>)['result']);
+      });
+    }
+  });
+
+  group('ids.derived', () {
+    final file =
+        jsonDecode(File('../mara-rules/vectors/ids/derived.json').readAsStringSync())
+            as Map<String, dynamic>;
+    test('the vector file is ids.derived', () => expect(file['rule'], 'ids.derived'));
+    for (final c in (file['cases'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+      test(c['name'] as String, () {
+        final input = c['input'] as Map<String, dynamic>;
+        expect(
+          derivedId(input['namespace'] as String, input['name'] as String),
+          (c['expected'] as Map<String, dynamic>)['result'],
+        );
+      });
+    }
+  });
 
   test('UUIDv7: version 7, RFC variant, ordered by time', () {
     final a = uuid7(now: DateTime.utc(2027, 3, 1, 8));

@@ -57,6 +57,11 @@ String _fieldName(AppLocalizations t, String? field) => switch (field) {
   'status' => t.statusLabel,
   'workNotes' => t.workNotesLabel,
   'title' => t.titleLabel,
+  'workDescription' => t.fieldWorkDescription,
+  'value' => t.fieldAnswer,
+  'quantity' => t.quantityLabel,
+  'description' => t.descriptionLabel,
+  'note' => t.noteLabel,
   _ => field ?? '',
 };
 
@@ -67,8 +72,15 @@ String inboxText(AppLocalizations t, InboxEntry e) {
       'WORK_ORDER_LOCKED' => t.rejectedLocked,
       'NOT_IN_SCOPE' => t.rejectedNotInScope,
       'NOT_FOUND' => t.rejectedNotFound,
+      'REPORT_LOCKED' => t.rejectedReportLocked,
+      'NOT_AUTHOR' => t.rejectedNotAuthor,
+      'TIMER_RUNNING' => t.rejectedTimerRunning,
+      'CHECKLIST_INCOMPLETE' => t.rejectedChecklistIncomplete,
       _ => t.rejectedOther(e.code ?? ''),
     };
+  }
+  if (e.field == 'deleted') {
+    return e.winner == 'DEVICE' ? t.conflictDeleteUndone : t.conflictDeleteKept;
   }
   final field = _fieldName(t, e.field);
   return e.winner == 'DEVICE'

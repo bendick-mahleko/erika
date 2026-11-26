@@ -56,7 +56,7 @@ Technicians work offline. Changes must reach the server, and office changes must
   - Finished work orders (done, cancelled, signed, invoiced) that ended more than 30 days ago leave the phones.
   - There is **no upper limit of 60 days**: a work order that moves into such a window over time causes no change, so it would never arrive.
   - A record that leaves the scope arrives as a removal.
-- **No deletable entities yet.** Work orders are cancelled and customers archived. So tombstones occur only as scope removals, and "a delete loses against a concurrent edit" applies once Stage 5's child records (times, materials) can be deleted.
+- **No deletable entities in Stage 4.** Work orders are cancelled and customers archived. Deletes came with Stage 5 (see below).
 - **Rejections** are stored like successes in `applied_mutation`, so a resend gets the same `REJECTED` answer. Every mutation runs in a savepoint (`PROPAGATION_NESTED`).
 - **Notes for the office** go into `sync_conflict` and show on the work order page (`GET /sync-conflicts?entityId=`). There is no customer page view yet.
 - **Push messages.**
@@ -75,6 +75,26 @@ Technicians work offline. Changes must reach the server, and office changes must
   - `SyncNetworkFaultIT` through toxiproxy (cut-off answers, connection resets, latency);
   - the app's sync tests on the real encrypted database (including a kill between push and result) and its property test against an in-memory server.
   - Counts: 20 runs per build and 10,000 nightly (`.github/workflows/sync-faults.yml`, 8 shards) for the back end; 40 per build and 10,000 nightly for the app.
+
+## Implementation (MARA Stage 5: reports and deletes)
+- **Report records.** The `reports` module syncs `report`, `time_entry`, `material_line`, `aufmass_position` and `checklist_answer`.
+  - A report and its records are visible exactly where their work order is (`workorders.WorkOrderDirectory.visibleTo`, the same rule as the work orders).
+  - A changed work order (for example, a reassignment) sends its report again, so it reaches new assignees and leaves old ones.
+  - Each child record has one author, who changes or deletes it (owners and members may too; `NOT_AUTHOR` otherwise). All fields are last writer wins, with a note.
+  - Reports of signed or invoiced work orders are refused (`REPORT_LOCKED`) until Stage 7 adds the database trigger.
+  - A read-only `staff_member` entity gives the phones the names of the people on time entries.
+- **Derived IDs** (`mara-rules/vectors/ids/derived.json`): UUIDv8 from SHA-256(namespace ‖ name).
+  - A report's ID comes from its work order (`report/1`), a checklist answer's from report and item key. So two phones that start the same report offline write to one record.
+  - A `CREATE` of a record that already exists is merged like an update made without seeing the record. Fields only settable on create (`workOrderId`, `reportId`, `itemKey`) are dropped.
+- **Deletes** (op `DELETE`; vectors `sync/delete.json` and `sync/edit-deleted.json`).
+  - Records are deleted softly (`deleted_at`). `SyncEntity.load` marks them with `_deleted`, the feed versions that field, and the phones get a removal.
+  - A delete carries the versions of all fields the phone saw. If any field changed since, the delete loses: the record stays and comes back to the phone with a note (field `deleted`, winner `SERVER`).
+  - An edit of a record deleted after the phone last saw it brings the record back (field `deleted`, winner `DEVICE`).
+  - Deleting what is already gone is `APPLIED`.
+- **Earlier answers of the same push count as seen.** A record created and then changed or deleted in one push (or in a resend after a lost answer) is no conflict with itself.
+- **Tombstones on the phone.** A record removed on the phone (a confirmed delete or a removal) leaves a tombstone with a version, so a late, older answer can't bring it back. A removal's version is its page's cursor; a confirmed delete's version is the record's last.
+- **Protocol version stays 1.** The changes are additive: older apps never send `DELETE` and store unknown entities without showing them.
+- **Tests:** the shared vectors in Kotlin and Dart; `ReportsSyncIT`, covering a whole report, derived IDs from two phones, delete versus edit in both orders, scope and reassignment, author rules and locks. The fault simulations now include report records with deletes: `SyncFaultIT` on the server, and on the phone a property test that also replays old pull pages.
 
 ## Consequences
 - The protocol is ours to maintain, including the signed-report rules, without a vendor dependency.

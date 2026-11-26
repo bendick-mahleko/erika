@@ -47,16 +47,30 @@ class Outbox extends Table {
 
   TextColumn get entityId => text()();
 
-  /// CREATE or UPDATE.
+  /// CREATE, UPDATE or DELETE.
   TextColumn get op => text()();
 
   /// The changed fields as JSON.
   TextColumn get changes => text()();
 
-  /// For UPDATE: the field versions the change was made against.
+  /// For UPDATE: the field versions the change was made against; for DELETE: all of the
+  /// record's field versions.
   TextColumn get baseVersions => text().withDefault(const Constant('{}'))();
 
   DateTimeColumn get createdAt => dateTime()();
+}
+
+/// Records removed on this phone (deleted here, or a removal from the server), with a version:
+/// an older answer arriving late (a replayed pull) must not bring them back (ADR 0038).
+class Tombstones extends Table {
+  TextColumn get entity => text()();
+
+  TextColumn get id => text()();
+
+  IntColumn get version => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {entity, id};
 }
 
 /// The conflict inbox: changes the server decided differently or refused.
@@ -89,7 +103,7 @@ class InboxEntries extends Table {
 /// The app's local database: SQLite through drift, encrypted with SQLCipher
 /// (MARA design M1). The key comes from the key vault (PIN or biometrics, ADR 0037)
 /// and never leaves the device.
-@DriftDatabase(tables: [LocalSettings, SyncRecords, Outbox, InboxEntries])
+@DriftDatabase(tables: [LocalSettings, SyncRecords, Outbox, InboxEntries, Tombstones])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
@@ -117,7 +131,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -128,6 +142,10 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(syncRecords);
         await m.createTable(outbox);
         await m.createTable(inboxEntries);
+      }
+      if (from < 3) {
+        // MARA Stage 5: deletes in the sync protocol.
+        await m.createTable(tombstones);
       }
     },
   );

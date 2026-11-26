@@ -12,6 +12,8 @@ class _ServerRecord {
   Map<String, dynamic> data;
   int version = 0;
   final fieldVersions = <String, int>{};
+  bool deleted = false;
+  int deletedVersion = 0;
 }
 
 /// An in-memory ERIKA server for the app's sync tests: the protocol's rules (ADR 0038), with
@@ -36,6 +38,11 @@ class FakeSyncServer implements SyncTransport {
   /// The next pull fails.
   var failNextPull = false;
 
+  /// No connection at all (flight mode) until set back to false.
+  var offline = false;
+
+  static const _lww = FieldPolicy.lastWriterWins;
+
   static const policies = {
     'work_order': {
       'title': FieldPolicy.serverWins,
@@ -44,13 +51,50 @@ class FakeSyncServer implements SyncTransport {
       'status': FieldPolicy.deviceWins,
       'workNotes': FieldPolicy.deviceWins,
     },
-    'customer': {'name': FieldPolicy.lastWriterWins, 'phone': FieldPolicy.lastWriterWins},
+    'customer': {'name': _lww, 'phone': _lww},
+    'report': {'workOrderId': FieldPolicy.serverWins, 'workDescription': _lww, 'state': _lww},
+    'time_entry': {
+      'reportId': _lww,
+      'technicianId': _lww,
+      'kind': _lww,
+      'startedAt': _lww,
+      'endedAt': _lww,
+      'note': _lww,
+    },
+    'material_line': {
+      'reportId': _lww,
+      'articleId': _lww,
+      'description': _lww,
+      'quantity': _lww,
+      'unitCode': _lww,
+    },
+    'aufmass_position': {
+      'reportId': _lww,
+      'label': _lww,
+      'kind': _lww,
+      'length': _lww,
+      'width': _lww,
+      'height': _lww,
+      'count': _lww,
+      'expression': _lww,
+      'deductions': _lww,
+      'unitCode': _lww,
+    },
+    'checklist_answer': {'reportId': _lww, 'itemKey': _lww, 'value': _lww},
   };
 
-  Map<String, dynamic>? data(String entity, String id) => _records['$entity/$id']?.data;
+  /// Child records the phone may delete.
+  static const deletable = {'time_entry', 'material_line', 'aufmass_position'};
 
-  Iterable<(String, String, Map<String, dynamic>)> get all =>
-      _records.entries.map((e) => (e.value.entity, e.key.split('/')[1], e.value.data));
+  /// Live (not deleted) data of a record.
+  Map<String, dynamic>? data(String entity, String id) {
+    final r = _records['$entity/$id'];
+    return r == null || r.deleted ? null : r.data;
+  }
+
+  Iterable<(String, String, Map<String, dynamic>)> get all => _records.entries
+      .where((e) => !e.value.deleted)
+      .map((e) => (e.value.entity, e.key.split('/')[1], e.value.data));
 
   /// The office changes a record (or creates it).
   void officeWrite(String entity, String id, Map<String, dynamic> values) {
@@ -82,11 +126,24 @@ class FakeSyncServer implements SyncTransport {
 
   @override
   Future<List<MutationResultDto>> push(String accessToken, List<MutationDto> mutations) async {
+    if (offline) throw const ApiProblem(0, 'NETWORK');
     if (failBeforeNextPush) {
       failBeforeNextPush = false;
       throw const ApiProblem(0, 'NETWORK');
     }
-    final results = [for (final m in mutations) _applied[m.mutationId] ??= _apply(m)];
+    // Versions earlier mutations of this push answered count as seen (ADR 0038).
+    final seen = <String, Map<String, int>>{};
+    final results = <MutationResultDto>[];
+    for (final m in mutations) {
+      final key = '${m.entity}/${m.entityId}';
+      final result = _applied[m.mutationId] ??= _apply(m, seen[key] ?? const {});
+      final record = result.record;
+      if (record != null) {
+        final known = seen.putIfAbsent('${record.entity}/${record.id}', () => {});
+        record.fieldVersions.forEach((f, v) => known[f] = max(known[f] ?? 0, v));
+      }
+      results.add(result);
+    }
     if (dropNextAnswer) {
       dropNextAnswer = false;
       throw const ApiProblem(0, 'NETWORK');
@@ -94,7 +151,7 @@ class FakeSyncServer implements SyncTransport {
     return results;
   }
 
-  MutationResultDto _apply(MutationDto m) {
+  MutationResultDto _apply(MutationDto m, Map<String, int> seen) {
     final key = '${m.entity}/${m.entityId}';
     final policy = policies[m.entity];
     if (policy == null) {
@@ -104,25 +161,93 @@ class FakeSyncServer implements SyncTransport {
         code: 'UNKNOWN_ENTITY',
       );
     }
+    final base = {...m.baseVersions};
+    seen.forEach((f, v) => base[f] = max(base[f] ?? 0, v));
     appliedLog.add(m.mutationId);
-    if (m.op == 'CREATE') {
-      if (!_records.containsKey(key)) {
-        final r = _ServerRecord(m.entity, {});
-        _records[key] = r;
-        _write(r, m.values);
-      }
-      return MutationResultDto(mutationId: m.mutationId, status: 'APPLIED', record: _dto(key));
-    }
     final r = _records[key];
-    if (r == null) {
-      return MutationResultDto(mutationId: m.mutationId, status: 'REJECTED', code: 'NOT_FOUND');
+    switch (m.op) {
+      case 'CREATE':
+        if (r == null) {
+          final created = _ServerRecord(m.entity, {});
+          _records[key] = created;
+          _write(created, m.values);
+          return MutationResultDto(mutationId: m.mutationId, status: 'APPLIED', record: _dto(key));
+        }
+        // Derived IDs: merged like an edit made without seeing the record.
+        final editable = {
+          for (final e in m.values.entries)
+            if (!const {'reportId', 'itemKey', 'workOrderId'}.contains(e.key)) e.key: e.value,
+        };
+        return _update(m, key, r, editable, base);
+      case 'DELETE':
+        if (r == null || r.deleted) {
+          return MutationResultDto(mutationId: m.mutationId, status: 'APPLIED');
+        }
+        if (!deletable.contains(m.entity)) {
+          return MutationResultDto(
+            mutationId: m.mutationId,
+            status: 'REJECTED',
+            code: 'DELETE_NOT_ALLOWED',
+          );
+        }
+        if (decideDelete(baseVersions: base, serverVersions: r.fieldVersions) ==
+            DeleteDecision.keep) {
+          return MutationResultDto(
+            mutationId: m.mutationId,
+            status: 'CONFLICT',
+            record: _dto(key),
+            conflicts: const [
+              FieldConflictDto(
+                field: 'deleted',
+                winner: 'SERVER',
+                serverValue: false,
+                deviceValue: true,
+              ),
+            ],
+          );
+        }
+        r.deleted = true;
+        r.deletedVersion = ++_seq;
+        r.version = r.deletedVersion;
+        return MutationResultDto(mutationId: m.mutationId, status: 'APPLIED');
+      default:
+        if (r == null) {
+          return MutationResultDto(mutationId: m.mutationId, status: 'REJECTED', code: 'NOT_FOUND');
+        }
+        return _update(m, key, r, m.values, base);
     }
-    final write = <String, dynamic>{};
+  }
+
+  MutationResultDto _update(
+    MutationDto m,
+    String key,
+    _ServerRecord r,
+    Map<String, dynamic> values,
+    Map<String, int> base,
+  ) {
     final conflicts = <FieldConflictDto>[];
-    for (final e in m.values.entries) {
+    if (r.deleted) {
+      final maxBase = base.values.fold(0, max);
+      if (decideEditOfDeleted(maxBaseVersion: maxBase, deletedVersion: r.deletedVersion) ==
+          EditDeletedDecision.reject) {
+        return MutationResultDto(mutationId: m.mutationId, status: 'REJECTED', code: 'NOT_FOUND');
+      }
+      r.deleted = false;
+      conflicts.add(
+        const FieldConflictDto(
+          field: 'deleted',
+          winner: 'DEVICE',
+          serverValue: true,
+          deviceValue: false,
+        ),
+      );
+    }
+    final policy = policies[m.entity]!;
+    final write = <String, dynamic>{};
+    for (final e in values.entries) {
       final decision = decideField(
         policy: policy[e.key] ?? FieldPolicy.serverWins,
-        baseVersion: m.baseVersions[e.key] ?? 0,
+        baseVersion: base[e.key] ?? 0,
         serverVersion: r.fieldVersions[e.key] ?? 0,
         sameValue: jsonEncode(r.data[e.key]) == jsonEncode(e.value),
       );
@@ -152,7 +277,7 @@ class FakeSyncServer implements SyncTransport {
           );
       }
     }
-    if (write.isNotEmpty) _write(r, write);
+    if (write.isNotEmpty || conflicts.isNotEmpty) _write(r, write);
     return MutationResultDto(
       mutationId: m.mutationId,
       status: conflicts.isEmpty ? 'APPLIED' : 'CONFLICT',
@@ -163,6 +288,7 @@ class FakeSyncServer implements SyncTransport {
 
   @override
   Future<PullPage> pull(String accessToken, String cursor) async {
+    if (offline) throw const ApiProblem(0, 'NETWORK');
     if (failNextPull) {
       failNextPull = false;
       throw const ApiProblem(0, 'NETWORK');
@@ -172,8 +298,14 @@ class FakeSyncServer implements SyncTransport {
       ..sort((a, b) => _records[a]!.version.compareTo(_records[b]!.version));
     final page = changed.take(pageSize).toList();
     return PullPage(
-      records: [for (final k in page) _dto(k)],
-      removals: const [],
+      records: [
+        for (final k in page)
+          if (!_records[k]!.deleted) _dto(k),
+      ],
+      removals: [
+        for (final k in page)
+          if (_records[k]!.deleted) (_records[k]!.entity, k.split('/')[1]),
+      ],
       nextCursor: page.isEmpty ? '$after' : '${_records[page.last]!.version}',
       hasMore: changed.length > pageSize,
     );

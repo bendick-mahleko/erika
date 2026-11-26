@@ -29,3 +29,24 @@ FieldDecision decideField({
   if (sameValue) return FieldDecision.same;
   return policy == FieldPolicy.serverWins ? FieldDecision.keepServer : FieldDecision.applyOver;
 }
+
+/// What the server does with a DELETE (vectors `mara-rules/vectors/sync/delete.json`): a delete
+/// loses against a concurrent edit.
+enum DeleteDecision { delete, keep }
+
+DeleteDecision decideDelete({
+  required Map<String, int> baseVersions,
+  required Map<String, int> serverVersions,
+}) => serverVersions.entries.any((e) => e.value > (baseVersions[e.key] ?? 0))
+    ? DeleteDecision.keep
+    : DeleteDecision.delete;
+
+/// What the server does with an edit of a deleted record
+/// (vectors `mara-rules/vectors/sync/edit-deleted.json`): deleted after the phone's last view,
+/// the edit wins and restores it.
+enum EditDeletedDecision { restore, reject }
+
+EditDeletedDecision decideEditOfDeleted({
+  required int maxBaseVersion,
+  required int deletedVersion,
+}) => deletedVersion > maxBaseVersion ? EditDeletedDecision.restore : EditDeletedDecision.reject;

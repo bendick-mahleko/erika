@@ -33,3 +33,27 @@ class CustomerDirectory internal constructor(
 
     private fun Customer.toRef() = CustomerRef(id, name, customerType, street, postalCode, city, archived)
 }
+
+/** What other modules may know about an article (MARA material lines). Prices stay in `creator`. */
+data class ArticleRef(
+    val id: UUID,
+    val articleNumber: String?,
+    val name: String,
+    val unitCode: String,
+    val archived: Boolean,
+)
+
+/** Published API of the `creator` module: look up articles of the current workspace (MARA Stage 5). */
+@Service
+class ArticleDirectory internal constructor(
+    private val articles: ArticleRepository,
+) {
+    /** The articles among [ids] that exist in this workspace, by ID. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun findAll(ids: Collection<UUID>): Map<UUID, ArticleRef> =
+        if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            articles.findAll(ids.distinct()).associate { it.id to ArticleRef(it.id, it.articleNumber, it.name, it.unitCode, it.archived) }
+        }
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/theme.dart';
 import '../../data/session/session.dart';
 import '../../data/sync/sync_providers.dart';
 import '../../l10n/gen/app_localizations.dart';
@@ -59,10 +60,17 @@ class WorkOrderListScreen extends ConsumerWidget {
                 ).push(MaterialPageRoute<void>(builder: (_) => const StatusScreen()));
               } else if (value == 'lock') {
                 ref.read(sessionProvider.notifier).lock();
+              } else if (value == 'contrast') {
+                ref.read(highContrastProvider.notifier).toggle();
               }
             },
             itemBuilder: (_) => [
               PopupMenuItem(value: 'info', child: Text(t.infoMenu)),
+              CheckedPopupMenuItem(
+                value: 'contrast',
+                checked: ref.read(highContrastProvider),
+                child: Text(t.highContrast),
+              ),
               PopupMenuItem(value: 'lock', child: Text(t.lockNow)),
             ],
           ),

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA mobile API (MARA job reports)
-  version: 0.3.0
+  version: 0.4.0
   summary: Endpoints for the MARA technician app (ADR 0036–0038)
   description: |
     Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
@@ -203,8 +203,24 @@ paths:
         A field the server changed since then is a conflict, decided by the field's rule:
         planning fields of work orders keep the server value (office wins); status and work
         notes take the phone's value (technician wins); customer data takes the later write
-        with a note to the office. Results:
-        - `APPLIED`: `record` is the server's current record;
+        with a note to the office.
+
+        Earlier mutations of the same push count as seen: a record created and then changed
+        or deleted in one push (or in a resend) is no conflict.
+
+        Deletes (MARA Stage 5: time entries, material lines, Aufmaß positions) carry the
+        versions of all fields the phone knows. A delete loses against a concurrent edit: if
+        another device changed the record meanwhile, it stays (`CONFLICT`, field `deleted`,
+        winner `SERVER`, with the record). An edit of a record deleted after the phone last
+        saw it brings it back (`CONFLICT`, field `deleted`, winner `DEVICE`). Deleting a
+        record that is already gone is `APPLIED`.
+
+        A `CREATE` of a record that already exists (e.g. a report or checklist answer whose
+        ID two phones derived alike, `mara-rules/vectors/ids/`) is merged like an update made
+        without seeing the record.
+
+        Results:
+        - `APPLIED`: `record` is the server's current record (none after a delete);
         - `CONFLICT`: some fields were decided against one side; `conflicts` lists them and
           `record` is the server's current record;
         - `REJECTED`: a rule was broken (`code`, e.g. `WORK_ORDER_LOCKED`, `NOT_IN_SCOPE`,
@@ -405,7 +421,7 @@ components:
         token: { type: string, minLength: 1, maxLength: 4096 }
     MutationOp:
       type: string
-      enum: [CREATE, UPDATE]
+      enum: [CREATE, UPDATE, DELETE]
     Mutation:
       type: object
       required: [mutationId, entity, entityId, op, values]
@@ -424,7 +440,9 @@ components:
         baseVersions:
           type: object
           additionalProperties: { type: integer, format: int64 }
-          description: For UPDATE, the version of each changed field as the phone saw it.
+          description: |
+            For UPDATE, the version of each changed field as the phone saw it; for DELETE, the
+            versions of all fields the phone knows.
     PushRequest:
       type: object
       required: [protocolVersion, mutations]

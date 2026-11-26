@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { createHash } from "node:crypto";
 import { apiCall, expectAccessible, mailToken, signedInAccount, totp } from "./support";
 
 /**
@@ -230,7 +231,139 @@ test.describe("MARA work orders (full stack)", () => {
     await page.goto(`/work-orders/${order}`);
     await expect(page.getByTestId("work-order-status")).toHaveText("In Arbeit");
     await expect(page.getByTestId("work-notes")).toHaveText("Brenner gereinigt, Abgaswerte ok");
-    await expect(page.getByRole("heading", { name: "Aus der MARA-App" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Aus der MARA-App", exact: true })).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  /** The ID two phones derive alike (mara-rules/vectors/ids/derived.json). */
+  function derivedId(namespace: string, name: string): string {
+    const ns = Buffer.from(namespace.replaceAll("-", ""), "hex");
+    const bytes = createHash("sha256")
+      .update(Buffer.concat([ns, Buffer.from(name, "utf8")]))
+      .digest()
+      .subarray(0, 16);
+    bytes[6] = 0x80 | (bytes[6]! & 0x0f);
+    bytes[8] = 0x80 | (bytes[8]! & 0x3f);
+    const hex = bytes.toString("hex");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  test("a report recorded on the phone appears on the work order page", async ({ page, browser }) => {
+    await signedInAccount(page, "e2e-mara-report");
+    const tech = await technician(page, browser, "Frieda Fliesenlegerin");
+    const techId = (await apiCall(page, "GET", "/api/v1/staff")).body.items.find(
+      (s: { displayName: string }) => s.displayName === "Frieda Fliesenlegerin",
+    ).userId as string;
+    const customer = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/customers",
+        { name: `Familie Winter ${unique()}`, countryCode: "DE", vatTreatment: "DOMESTIC" },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+    const template = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/checklist-templates",
+        {
+          name: "Fliesen",
+          items: [{ key: "abdichtung", label: "Abdichtung geprüft", kind: "YES_NO", required: true }],
+        },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+    const order = (
+      await apiCall(
+        page,
+        "POST",
+        "/api/v1/work-orders",
+        { customerId: customer, title: "Bad fliesen", assigneeIds: [techId], checklistTemplateId: template },
+        { "Idempotency-Key": unique() },
+      )
+    ).body.id as string;
+
+    const phone = tech.page.request;
+    const credentials = { email: tech.email, password };
+    const secret = (
+      (await (await phone.post("/api/v1/mobile/auth/totp-enrolment", { data: credentials })).json()) as {
+        secret: string;
+      }
+    ).secret;
+    const login = await phone.post("/api/v1/mobile/auth/device-login", {
+      data: {
+        ...credentials,
+        code: totp(secret),
+        device: { name: "Pixel 8", platform: "ANDROID", appVersion: "0.4.0" },
+      },
+    });
+    const auth = {
+      Authorization: `Bearer ${((await login.json()) as { tokens: { accessToken: string } }).tokens.accessToken}`,
+    };
+
+    // On site, offline, then sent in one push (M-MO-03, M-MO-04, M-MO-06 to M-MO-08).
+    const report = derivedId(order, "report/1");
+    const mutation = (entity: string, entityId: string, values: Record<string, unknown>, op = "CREATE") => ({
+      mutationId: crypto.randomUUID(),
+      entity,
+      entityId,
+      op,
+      values,
+    });
+    const started = new Date(Date.now() - 2 * 3600_000);
+    started.setSeconds(0, 0);
+    const pushed = await phone.post("/api/v1/mobile/sync/push", {
+      headers: auth,
+      data: {
+        protocolVersion: 1,
+        mutations: [
+          mutation("report", report, { workOrderId: order }),
+          mutation("time_entry", crypto.randomUUID(), {
+            reportId: report,
+            technicianId: techId,
+            kind: "WORK",
+            startedAt: started.toISOString(),
+            endedAt: new Date(started.getTime() + 95 * 60_000).toISOString(),
+          }),
+          mutation("material_line", crypto.randomUUID(), {
+            reportId: report,
+            description: "Fliesenkleber C2",
+            quantity: "2.5",
+            unitCode: "KGM",
+          }),
+          mutation("aufmass_position", crypto.randomUUID(), {
+            reportId: report,
+            label: "Wand Dusche",
+            kind: "AREA",
+            length: "2.4",
+            width: "2.1",
+            deductions: [{ label: "Fenster", length: "0.6", width: "0.8" }],
+            unitCode: "MTK",
+          }),
+          mutation("checklist_answer", derivedId(report, "checklist/abdichtung"), {
+            reportId: report,
+            itemKey: "abdichtung",
+            value: "YES",
+          }),
+          mutation("report", report, { workDescription: "Wand gefliest, verfugt.", state: "COMPLETED" }, "UPDATE"),
+        ],
+      },
+    });
+    const results = ((await pushed.json()) as { results: { status: string; code?: string }[] }).results;
+    expect(results.map((r) => r.code ?? r.status)).toEqual(Array(6).fill("APPLIED"));
+
+    await page.goto(`/work-orders/${order}`);
+    const section = page.getByTestId("report");
+    await expect(section.getByRole("heading", { name: "Bericht aus der MARA-App" })).toBeVisible();
+    await expect(page.getByTestId("report-state")).toHaveText("Abgeschlossen");
+    await expect(page.getByTestId("report-times")).toContainText("Frieda Fliesenlegerin");
+    await expect(page.getByTestId("report-times")).toContainText("1:35 h");
+    await expect(page.getByTestId("report-materials")).toContainText("2,5 kg");
+    await expect(page.getByTestId("report-aufmass")).toContainText("4,560 m²");
+    await expect(page.getByTestId("report-checklist")).toContainText("Ja");
+    await expect(page.getByTestId("report-description")).toHaveText("Wand gefliest, verfugt.");
     await expectAccessible(page);
   });
 

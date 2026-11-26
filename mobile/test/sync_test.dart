@@ -129,79 +129,247 @@ void main() {
     expect(server.data('customer', 'c1')!['phone'], '0341 123456');
   });
 
-  test('random faults: everything arrives exactly once and phone and server agree', () async {
-    final runs = int.tryParse(Platform.environment['SYNC_FAULT_RUNS'] ?? '') ?? 40;
-    final seed =
-        int.tryParse(Platform.environment['SYNC_FAULT_SEED'] ?? '') ??
-        DateTime.now().microsecondsSinceEpoch;
-    for (var run = 0; run < runs; run++) {
-      final random = Random(seed + run);
-      final made = <String>{};
-      for (var i = 0; i < 5; i++) {
-        server.officeWrite('work_order', 'r$run-$i', {'title': 'Auftrag $i', 'status': 'PLANNED'});
-      }
-      await engine.sync();
-      for (var step = 0; step < 30; step++) {
-        final orders = (await store.watch('work_order').first).map((r) => r.id).toList();
-        switch (random.nextInt(7)) {
-          case 0:
-          case 1:
-            final id = orders[random.nextInt(orders.length)];
-            await store.change(
-              'work_order',
-              id,
-              random.nextBool()
-                  ? {
-                      'status': ['PLANNED', 'IN_PROGRESS', 'DONE'][random.nextInt(3)],
-                    }
-                  : {'workNotes': randomText(random)},
-            );
-          case 2:
-            made.add(
-              await store.create('work_order', {'title': randomText(random), 'status': 'PLANNED'}),
-            );
-          case 3:
-            final id = 'r$run-${random.nextInt(5)}';
-            server.officeWrite(
-              'work_order',
-              id,
-              random.nextBool() ? {'title': randomText(random)} : {'status': 'IN_PROGRESS'},
-            );
-          case 4:
-            server.dropNextAnswer = true;
-            await engine.sync();
-          case 5:
-            server.failBeforeNextPush = random.nextBool();
-            server.failNextPull = !server.failBeforeNextPush;
-            await engine.sync();
-          case 6:
-            await engine.sync();
+  test(
+    'random faults: everything arrives exactly once and phone and server agree',
+    () async {
+      final runs = int.tryParse(Platform.environment['SYNC_FAULT_RUNS'] ?? '') ?? 40;
+      final seed =
+          int.tryParse(Platform.environment['SYNC_FAULT_SEED'] ?? '') ??
+          DateTime.now().microsecondsSinceEpoch;
+      for (var run = 0; run < runs; run++) {
+        final random = Random(seed + run);
+        final made = <String>{};
+        for (var i = 0; i < 5; i++) {
+          server.officeWrite('work_order', 'r$run-$i', {
+            'title': 'Auftrag $i',
+            'status': 'PLANNED',
+          });
+        }
+        await engine.sync();
+        for (var step = 0; step < 30; step++) {
+          final orders = (await store.watch('work_order').first).map((r) => r.id).toList();
+          switch (random.nextInt(7)) {
+            case 0:
+            case 1:
+              final id = orders[random.nextInt(orders.length)];
+              await store.change(
+                'work_order',
+                id,
+                random.nextBool()
+                    ? {
+                        'status': ['PLANNED', 'IN_PROGRESS', 'DONE'][random.nextInt(3)],
+                      }
+                    : {'workNotes': randomText(random)},
+              );
+            case 2:
+              made.add(
+                await store.create('work_order', {
+                  'title': randomText(random),
+                  'status': 'PLANNED',
+                }),
+              );
+            case 3:
+              final id = 'r$run-${random.nextInt(5)}';
+              server.officeWrite(
+                'work_order',
+                id,
+                random.nextBool() ? {'title': randomText(random)} : {'status': 'IN_PROGRESS'},
+              );
+            case 4:
+              server.dropNextAnswer = true;
+              await engine.sync();
+            case 5:
+              server.failBeforeNextPush = random.nextBool();
+              server.failNextPull = !server.failBeforeNextPush;
+              await engine.sync();
+            case 6:
+              await engine.sync();
+          }
+        }
+        server
+          ..dropNextAnswer = false
+          ..failBeforeNextPush = false
+          ..failNextPull = false;
+        expect(await engine.sync(), SyncOutcome.done, reason: 'seed ${seed + run}');
+        expect(await store.pending(), isEmpty, reason: 'seed ${seed + run}');
+        expect(
+          server.appliedLog.toSet().length,
+          server.appliedLog.length,
+          reason: 'no mutation applied twice; seed ${seed + run}',
+        );
+        for (final id in made) {
+          expect(
+            server.data('work_order', id),
+            isNotNull,
+            reason: 'made on the phone, arrived; seed ${seed + run}',
+          );
+        }
+        for (final (entity, id, data) in server.all) {
+          final local = await store.record(entity, id);
+          expect(local?.data, data, reason: '$entity $id agrees; seed ${seed + run}');
         }
       }
-      server
-        ..dropNextAnswer = false
-        ..failBeforeNextPush = false
-        ..failNextPull = false;
-      expect(await engine.sync(), SyncOutcome.done, reason: 'seed ${seed + run}');
-      expect(await store.pending(), isEmpty, reason: 'seed ${seed + run}');
-      expect(
-        server.appliedLog.toSet().length,
-        server.appliedLog.length,
-        reason: 'no mutation applied twice; seed ${seed + run}',
-      );
-      for (final id in made) {
-        expect(
-          server.data('work_order', id),
-          isNotNull,
-          reason: 'made on the phone, arrived; seed ${seed + run}',
-        );
-      }
-      for (final (entity, id, data) in server.all) {
-        final local = await store.record(entity, id);
-        expect(local?.data, data, reason: '$entity $id agrees; seed ${seed + run}');
-      }
-    }
+    },
+    timeout: const Timeout(Duration(hours: 2)),
+  );
+
+  test('a delete hides the record at once and removes it once the server confirms', () async {
+    server.officeWrite('material_line', 'm1', {
+      'reportId': 'r',
+      'description': 'Rohr',
+      'quantity': '3',
+    });
+    await engine.sync();
+    final oldPage = await server.pull('t', '0');
+    await store.delete('material_line', 'm1');
+    expect((await store.record('material_line', 'm1'))!.deleted, isTrue, reason: 'hidden at once');
+    expect(await engine.sync(), SyncOutcome.done);
+    expect(server.data('material_line', 'm1'), isNull);
+    expect(await store.record('material_line', 'm1'), isNull);
+    // A replayed, older answer doesn't bring it back (tombstone).
+    await store.applyPull(oldPage);
+    expect(await store.record('material_line', 'm1'), isNull);
   });
+
+  test('a delete loses against an edit made meanwhile; the inbox says so', () async {
+    server.officeWrite('material_line', 'm1', {
+      'reportId': 'r',
+      'description': 'Rohr',
+      'quantity': '3',
+    });
+    await engine.sync();
+    server.officeWrite('material_line', 'm1', {'quantity': '4'});
+    await store.delete('material_line', 'm1');
+    expect(await engine.sync(), SyncOutcome.done);
+    final local = (await store.record('material_line', 'm1'))!;
+    expect(local.deleted, isFalse);
+    expect(local.data['quantity'], '4');
+    final inbox = await store.watchInbox().first;
+    expect(inbox.single.field, 'deleted');
+    expect(inbox.single.winner, 'SERVER');
+  });
+
+  test('made and deleted before the next sync: nothing stays anywhere', () async {
+    final id = await store.create('time_entry', {
+      'reportId': 'r',
+      'startedAt': '2027-05-10T07:00:00Z',
+    });
+    await store.delete('time_entry', id);
+    expect(await engine.sync(), SyncOutcome.done);
+    expect(server.data('time_entry', id), isNull);
+    expect(await store.record('time_entry', id), isNull);
+    expect(await store.watchInbox().first, isEmpty, reason: 'no conflict with its own create');
+  });
+
+  test('records with derived IDs are made once and changed afterwards', () async {
+    await store.put(
+      'checklist_answer',
+      'a1',
+      createValues: {'reportId': 'r', 'itemKey': 'k'},
+      changes: {'value': 'YES'},
+    );
+    await store.put(
+      'checklist_answer',
+      'a1',
+      createValues: {'reportId': 'r', 'itemKey': 'k'},
+      changes: {'value': 'NO'},
+    );
+    final ops = (await store.pending()).map((m) => m.op).toList();
+    expect(ops, ['CREATE', 'UPDATE']);
+    expect((await store.pending()).last.values, {
+      'value': 'NO',
+    }, reason: 'create-only fields are not changed');
+    expect(await engine.sync(), SyncOutcome.done);
+    expect(server.data('checklist_answer', 'a1')!['value'], 'NO');
+  });
+
+  test(
+    'random faults on report records with deletes: nothing lost, nothing duplicated',
+    () async {
+      final runs = int.tryParse(Platform.environment['SYNC_FAULT_RUNS'] ?? '') ?? 40;
+      final seed =
+          int.tryParse(Platform.environment['SYNC_FAULT_SEED'] ?? '') ??
+          DateTime.now().microsecondsSinceEpoch;
+      for (var run = 0; run < runs; run++) {
+        final random = Random(seed + run);
+        final deleted = <String>{};
+        PullPage? saved;
+        for (var step = 0; step < 30; step++) {
+          final live = [
+            for (final r in await store.watch('material_line').first)
+              if (!r.deleted) r.id,
+          ];
+          switch (random.nextInt(8)) {
+            case 0:
+            case 1:
+              await store.create('material_line', {
+                'reportId': 'r$run',
+                'description': randomText(random),
+                'quantity': '${1 + random.nextInt(9)}',
+                'unitCode': 'C62',
+              });
+            case 2:
+              if (live.isNotEmpty) {
+                await store.change('material_line', live[random.nextInt(live.length)], {
+                  'quantity': '${1 + random.nextInt(99)}',
+                });
+              }
+            case 3:
+              if (live.isNotEmpty) {
+                final id = live[random.nextInt(live.length)];
+                await store.delete('material_line', id);
+                deleted.add(id);
+              }
+            case 4:
+              server.dropNextAnswer = true;
+              await engine.sync();
+            case 5:
+              server.failBeforeNextPush = random.nextBool();
+              server.failNextPull = !server.failBeforeNextPush;
+              await engine.sync();
+            case 6:
+              // A pull answer taken now arrives later, after newer ones (replayed, out of order).
+              if (saved == null || random.nextBool()) {
+                server.failNextPull = false;
+                saved = await server.pull('t', '0');
+              } else {
+                await store.applyPull(saved);
+              }
+            case 7:
+              await engine.sync();
+          }
+        }
+        server
+          ..dropNextAnswer = false
+          ..failBeforeNextPush = false
+          ..failNextPull = false;
+        expect(await engine.sync(), SyncOutcome.done, reason: 'seed ${seed + run}');
+        expect(await store.pending(), isEmpty, reason: 'seed ${seed + run}');
+        expect(
+          server.appliedLog.toSet().length,
+          server.appliedLog.length,
+          reason: 'seed ${seed + run}',
+        );
+        for (final id in deleted) {
+          expect(
+            server.data('material_line', id),
+            isNull,
+            reason: 'deleted $id; seed ${seed + run}',
+          );
+          expect(
+            await store.record('material_line', id),
+            isNull,
+            reason: 'deleted $id; seed ${seed + run}',
+          );
+        }
+        for (final (entity, id, data) in server.all) {
+          final local = await store.record(entity, id);
+          expect(local?.data, data, reason: '$entity $id agrees; seed ${seed + run}');
+        }
+      }
+    },
+    timeout: const Timeout(Duration(hours: 2)),
+  );
 
   test('the outbox is sent in batches of at most 200', () async {
     server.officeWrite('work_order', 'wo', {'title': 'Viel', 'status': 'PLANNED'});

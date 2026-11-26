@@ -1,0 +1,25 @@
+{
+  "rule": "aufmass.position",
+  "version": 1,
+  "description": "One Aufmaß position (M-MO-06). LENGTH = length, AREA = length × width, VOLUME = length × width × height, PIECE = count; each multiplied by count (default 1). Every line (the position and each deduction, which has the position's dimensions) is rounded half away from zero to 3 decimals; the result is the position minus its deductions. FORMULA evaluates expression with the rule aufmass.formula. Errors: MISSING_DIMENSION, NEGATIVE_DIMENSION, NEGATIVE_RESULT, DEDUCTION_NOT_ALLOWED (PIECE and FORMULA), UNKNOWN_KIND.",
+  "cases": [
+    {"name": "a skirting board: length", "input": {"kind": "LENGTH", "length": "12.35"}, "expected": {"result": "12.350"}},
+    {"name": "two pipes of the same length", "input": {"kind": "LENGTH", "length": "3.2", "count": "2"}, "expected": {"result": "6.400"}},
+    {"name": "a floor: length × width", "input": {"kind": "AREA", "length": "4.25", "width": "3.10"}, "expected": {"result": "13.175"}},
+    {"name": "a wall minus a window and two doors", "input": {"kind": "AREA", "length": "5.40", "width": "2.75", "deductions": [{"length": "1.20", "width": "1.35"}, {"length": "0.885", "width": "2.01", "count": "2"}]}, "expected": {"result": "9.672"}},
+    {"name": "each line is rounded before the deduction", "input": {"kind": "AREA", "length": "1.0005", "width": "1", "deductions": [{"length": "0.0004", "width": "1"}]}, "expected": {"result": "1.001"}},
+    {"name": "a trench: length × width × height", "input": {"kind": "VOLUME", "length": "8.5", "width": "0.6", "height": "0.8"}, "expected": {"result": "4.080"}},
+    {"name": "a screed minus a column", "input": {"kind": "VOLUME", "length": "6", "width": "4", "height": "0.05", "deductions": [{"length": "0.4", "width": "0.4", "height": "0.05"}]}, "expected": {"result": "1.192"}},
+    {"name": "pieces", "input": {"kind": "PIECE", "count": "14"}, "expected": {"result": "14.000"}},
+    {"name": "a count of half a unit", "input": {"kind": "LENGTH", "length": "2", "count": "0.5"}, "expected": {"result": "1.000"}},
+    {"name": "a formula position", "input": {"kind": "FORMULA", "expression": "2*(4.25+3.10)*2.5"}, "expected": {"result": "36.750"}},
+    {"name": "the deductions may use up the whole area", "input": {"kind": "AREA", "length": "2", "width": "1", "deductions": [{"length": "1", "width": "2"}]}, "expected": {"result": "0.000"}},
+    {"name": "deductions larger than the area are refused", "input": {"kind": "AREA", "length": "2", "width": "1", "deductions": [{"length": "2", "width": "2"}]}, "expected": {"error": "NEGATIVE_RESULT"}},
+    {"name": "a missing width is refused", "input": {"kind": "AREA", "length": "2"}, "expected": {"error": "MISSING_DIMENSION"}},
+    {"name": "a deduction without its height is refused", "input": {"kind": "VOLUME", "length": "1", "width": "1", "height": "1", "deductions": [{"length": "1", "width": "1"}]}, "expected": {"error": "MISSING_DIMENSION"}},
+    {"name": "a negative dimension is refused", "input": {"kind": "LENGTH", "length": "-3"}, "expected": {"error": "NEGATIVE_DIMENSION"}},
+    {"name": "a negative count is refused", "input": {"kind": "PIECE", "count": "-1"}, "expected": {"error": "NEGATIVE_DIMENSION"}},
+    {"name": "deductions on pieces are refused", "input": {"kind": "PIECE", "count": "3", "deductions": [{"count": "1"}]}, "expected": {"error": "DEDUCTION_NOT_ALLOWED"}},
+    {"name": "an unknown kind is refused", "input": {"kind": "WEIGHT", "length": "1"}, "expected": {"error": "UNKNOWN_KIND"}}
+  ]
+}

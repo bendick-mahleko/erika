@@ -292,6 +292,13 @@ export async function fetchSyncConflicts(entityId: string): Promise<SyncConflict
   );
 }
 
+export type WorkOrderReport = components["schemas"]["WorkOrderReport"];
+
+/** The job report recorded in the MARA app for a work order (MARA Stage 5); null on errors. */
+export async function fetchWorkOrderReport(workOrderId: string): Promise<WorkOrderReport | null> {
+  return authed((init) => api.GET("/work-orders/{workOrderId}/report", { ...init, params: { path: { workOrderId } } }));
+}
+
 export async function fetchWorkOrder(workOrderId: string): Promise<{ workOrder: WorkOrder; etag: string } | null> {
   try {
     const { data, response } = await api.GET("/work-orders/{workOrderId}", {

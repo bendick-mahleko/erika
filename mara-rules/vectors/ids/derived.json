@@ -1,0 +1,12 @@
+{
+  "rule": "ids.derived",
+  "version": 1,
+  "description": "An ID that two phones compute alike without talking to each other (ADR 0038), so two technicians who both start the report of a work order offline, or both answer the same checklist item, write to the same record instead of making two. UUIDv8 (RFC 9562): the first 16 bytes of SHA-256(the 16 bytes of namespace ‖ UTF-8 of name), with the version nibble set to 8 and the variant bits to 10. Written in lower case.",
+  "cases": [
+    {"name": "the report of a work order (version 1)", "input": {"namespace": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d", "name": "report/1"}, "expected": {"result": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154"}},
+    {"name": "version 2 of the same report", "input": {"namespace": "0193a6f4-8a1e-7cc2-9b1d-3c5e7f9a1b2d", "name": "report/2"}, "expected": {"result": "a25a9d5a-c2ad-877d-bcb6-43cf82c56320"}},
+    {"name": "the answer to a checklist item", "input": {"namespace": "5b0e8c1a-61d2-8f43-a7b9-0c4d2e6f8a10", "name": "checklist/water_off"}, "expected": {"result": "6f12e364-86f1-8a0c-b5a7-69d1cb671c78"}},
+    {"name": "a name with umlauts (UTF-8)", "input": {"namespace": "5b0e8c1a-61d2-8f43-a7b9-0c4d2e6f8a10", "name": "checklist/prüfung_dichtheit"}, "expected": {"result": "6e2de288-91a5-8844-b98c-78a01b4024c7"}},
+    {"name": "upper-case input is the same UUID", "input": {"namespace": "0193A6F4-8A1E-7CC2-9B1D-3C5E7F9A1B2D", "name": "report/1"}, "expected": {"result": "e44bdc67-2c88-88dc-a4ea-0e5a8e7a6154"}}
+  ]
+}

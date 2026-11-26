@@ -154,7 +154,7 @@ packages:
     source: hosted
     version: "3.1.2"
   crypto:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: crypto
       sha256: e3626ae6270383c9e3a549f34c9e4cd26c09ae6a9adaab2bf4737a00340efdc4
@@ -686,7 +686,7 @@ packages:
     source: hosted
     version: "1.7.0"
   rational:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: rational
       sha256: cb808fb6f1a839e6fc5f7d8cb3b0a10e1db48b3be102de73938c627f0b636336
