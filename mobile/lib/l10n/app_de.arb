@@ -428,5 +428,6 @@
       }
     }
   },
-  "rejectedHashMismatch": "Die Unterschrift wurde nicht angenommen: Der Bericht hatte sich inzwischen geändert. Bitte synchronisieren und erneut unterschreiben lassen."
+  "rejectedHashMismatch": "Die Unterschrift wurde nicht angenommen: Der Bericht hatte sich inzwischen geändert. Bitte synchronisieren und erneut unterschreiben lassen.",
+  "photoNotSaved": "Das Foto konnte nicht gespeichert werden. Ist der Speicher des Telefons voll? Geben Sie Speicher frei und fotografieren Sie noch einmal."
 }

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app/crash_reporting.dart';
 import 'app/root.dart';
 import 'app/theme.dart';
 import 'l10n/gen/app_localizations.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MaraApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await runWithCrashReporting(() => runApp(const ProviderScope(child: MaraApp())));
 }
 
 class MaraApp extends ConsumerWidget {

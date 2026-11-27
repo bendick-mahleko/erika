@@ -176,6 +176,38 @@ tests:
               summary: "A report signature was refused: its hash doesn't match the server's report"
               runbook: docs/ops/mara.md#signature-refused-erikamarasignaturehashmismatch
 
+  - name: failing MARA sync runs open a ticket, a few among many don't
+    interval: 10m
+    input_series:
+      # 100 good runs and 1 failed run every 10 minutes: about 1 % failed.
+      - series: 'erika_mara_sync_runs_total{instance="api:8081", job="erika-api", outcome="done"}'
+        values: "0+100x170"
+      - series: 'erika_mara_sync_runs_total{instance="api:8081", job="erika-api", outcome="failed"}'
+        values: "0+1x170"
+      # Offline runs don't count, however many there are.
+      - series: 'erika_mara_sync_runs_total{instance="api:8081", job="erika-api", outcome="offline"}'
+        values: "0+500x170"
+    alert_rule_test:
+      - eval_time: 26h
+        alertname: ErikaMaraSyncFailureRate
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              summary: "More than 0.5 % of MARA sync runs failed in the last day"
+              runbook: docs/ops/mara.md#sync-runs-failing-erikamarasyncfailurerate
+
+  - name: MARA sync failures under 0.5 % stay quiet
+    interval: 10m
+    input_series:
+      - series: 'erika_mara_sync_runs_total{instance="api:8081", job="erika-api", outcome="done"}'
+        values: "0+1000x170"
+      - series: 'erika_mara_sync_runs_total{instance="api:8081", job="erika-api", outcome="failed"}'
+        values: "0+1x170"
+    alert_rule_test:
+      - eval_time: 26h
+        alertname: ErikaMaraSyncFailureRate
+        exp_alerts: []
+
   - name: the watchdog always fires
     interval: 1m
     alert_rule_test:

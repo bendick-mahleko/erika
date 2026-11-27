@@ -54,6 +54,7 @@ final photoUploaderProvider = FutureProvider<PhotoUploader?>((ref) async {
     files: ref.watch(photoFilesProvider),
     transport: ref.watch(tusTransportProvider),
     authorized: ref.read(sessionProvider.notifier).authorized,
+    telemetry: await ref.watch(telemetryProvider.future),
   );
 });
 

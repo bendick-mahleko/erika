@@ -8,11 +8,13 @@ import de.erika.contract.mobile.model.MobileRole
 import de.erika.contract.mobile.model.MobileStatus
 import de.erika.contract.mobile.model.ProtocolVersions
 import de.erika.contract.mobile.model.PushToken
+import de.erika.contract.mobile.model.TelemetryReport
 import de.erika.identity.MobileDevices
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
 import de.erika.platform.web.ErikaException
 import de.erika.sync.MobileProperties
+import de.erika.sync.MobileTelemetry
 import de.erika.sync.SyncProtocol
 import de.erika.sync.updateAdvice
 import org.springframework.context.annotation.Configuration
@@ -36,8 +38,34 @@ import java.time.OffsetDateTime
 internal class MobileStatusController(
     private val props: MobileProperties,
     private val devices: MobileDevices,
+    private val telemetry: MobileTelemetry,
     private val clock: Clock = Clock.systemUTC(),
 ) : MobileApi {
+    /** Content-free counters per day (MARA Stage 9 field test). */
+    override fun putTelemetry(telemetryReport: TelemetryReport): ResponseEntity<Unit> {
+        val p = ErikaPrincipal.current()
+        val days =
+            telemetryReport.days.associate { d ->
+                val c = d.counters
+                d.day to
+                    mapOf(
+                        "syncDone" to c.syncDone,
+                        "syncOffline" to c.syncOffline,
+                        "syncFailed" to c.syncFailed,
+                        "pushApplied" to c.pushApplied,
+                        "pushConflict" to c.pushConflict,
+                        "pushRejected" to c.pushRejected,
+                        "uploadDone" to c.uploadDone,
+                        "uploadOffline" to c.uploadOffline,
+                        "uploadChunkRetries" to c.uploadChunkRetries,
+                        "uploadRestarts" to c.uploadRestarts,
+                        "outboxMax" to c.outboxMax,
+                    ).mapNotNull { (k, v) -> v?.let { k to it } }.toMap()
+            }
+        telemetry.save(p.workspaceId, checkNotNull(p.deviceId) { "device request without a device" }, days)
+        return ResponseEntity.noContent().build()
+    }
+
     override fun setPushToken(pushToken: PushToken): ResponseEntity<Unit> {
         devices.setPushToken(checkNotNull(ErikaPrincipal.current().deviceId), pushToken.token.trim())
         return ResponseEntity.noContent().build()

@@ -7,6 +7,7 @@ import '../api/auth_api.dart';
 import '../session/device_platform.dart';
 import '../sync/sync_engine.dart';
 import '../sync/sync_store.dart';
+import '../telemetry/telemetry.dart';
 import 'tus_client.dart';
 
 /// The photo files on the phone (ADR 0040): app-private, never in the gallery.
@@ -16,6 +17,20 @@ abstract interface class PhotoFiles {
 
   /// The photo's bytes, or null when this phone doesn't have it (taken on another phone).
   Future<Uint8List?> read(String photoId);
+
+  /// Removes the file (a photo that couldn't be recorded).
+  Future<void> delete(String photoId);
+}
+
+/// A photo couldn't be stored on the phone, usually because the storage is full (MARA Stage 9
+/// robustness test). Nothing was recorded; the technician can free space and take it again.
+class PhotoNotSaved implements Exception {
+  const PhotoNotSaved(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => 'PhotoNotSaved(${cause.runtimeType})';
 }
 
 /// `<app folder>/photos/<id>.jpg`.
@@ -29,7 +44,14 @@ class DevicePhotoFiles implements PhotoFiles {
 
   @override
   Future<({int size, String sha256})> save(String photoId, Uint8List bytes) async {
-    await (await _file(photoId)).writeAsBytes(bytes, flush: true);
+    final file = await _file(photoId);
+    try {
+      await file.writeAsBytes(bytes, flush: true);
+    } on FileSystemException {
+      // A full disk leaves a partial file behind: never keep half a photo.
+      if (file.existsSync()) file.deleteSync();
+      rethrow;
+    }
     return (size: bytes.length, sha256: sha256.convert(bytes).toString());
   }
 
@@ -38,20 +60,33 @@ class DevicePhotoFiles implements PhotoFiles {
     final f = await _file(photoId);
     return f.existsSync() ? f.readAsBytes() : null;
   }
+
+  @override
+  Future<void> delete(String photoId) async {
+    final f = await _file(photoId);
+    if (f.existsSync()) await f.delete();
+  }
 }
 
 /// In memory (widget tests, where real file I/O doesn't run).
 class MemoryPhotoFiles implements PhotoFiles {
   final files = <String, Uint8List>{};
 
+  /// The phone's storage is full: saving fails as on a device (robustness tests).
+  var full = false;
+
   @override
   Future<({int size, String sha256})> save(String photoId, Uint8List bytes) async {
+    if (full) throw const FileSystemException('No space left on device');
     files[photoId] = bytes;
     return (size: bytes.length, sha256: sha256.convert(bytes).toString());
   }
 
   @override
   Future<Uint8List?> read(String photoId) async => files[photoId];
+
+  @override
+  Future<void> delete(String photoId) async => files.remove(photoId);
 }
 
 /// How an upload run ended.
@@ -68,7 +103,11 @@ class PhotoUploader {
     required this.transport,
     required this.authorized,
     this.chunkSize = 1024 * 1024,
+    this.telemetry,
   });
+
+  /// Content-free counters (MARA Stage 9); null in most tests.
+  final Telemetry? telemetry;
 
   final SyncStore store;
   final PhotoFiles files;
@@ -97,9 +136,13 @@ class PhotoUploader {
         if (bytes == null) continue; // taken on another phone
         await _upload(photo.id, bytes);
       }
+      await telemetry?.count(TelemetryCounter.uploadDone);
       return UploadOutcome.done;
     } on ApiProblem catch (problem) {
-      if (problem.isNetwork) return UploadOutcome.offline;
+      if (problem.isNetwork) {
+        await telemetry?.count(TelemetryCounter.uploadOffline);
+        return UploadOutcome.offline;
+      }
       rethrow;
     } finally {
       progress.clear();
@@ -122,8 +165,10 @@ class PhotoUploader {
           onProgress?.call();
           offset = reached;
         case TusOffsetMismatch():
+          await telemetry?.count(TelemetryCounter.uploadChunkRetries);
           offset = await authorized<int?>((token) => transport.offset(token, id));
         case TusChecksumMismatch():
+          await telemetry?.count(TelemetryCounter.uploadRestarts);
           if (++restarts > 2) return;
           offset = 0;
         case TusGone():

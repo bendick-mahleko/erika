@@ -2,7 +2,7 @@ import type { LegalDocument } from "./types";
 
 export const datenschutz: LegalDocument = {
   title: "Datenschutzhinweise",
-  updated: "2026-11-23",
+  updated: "2026-11-27",
   draft: true,
   body: `
 Diese Hinweise erklären, welche personenbezogenen Daten ERIKA verarbeitet, wofür und welche Rechte Sie haben (Art. 13 DSGVO).
@@ -24,6 +24,7 @@ Für Fragen zum Datenschutz: [datenschutz@erika-app.de]
 - **Unternehmensdaten:** Firmenname, Anschrift, Umsatzsteuer-Identifikationsnummer, Steuernummer.
 - **Sicherheits- und Protokolldaten:** Anmeldungen und Fehlversuche, bekannte Geräte (als Hash), Änderungen in Ihrem Arbeitsbereich (Audit-Protokoll), technische Server-Protokolle mit IP-Adresse und Zeitpunkt. Die Protokolle enthalten keine Rechnungsinhalte.
 - **Feedback:** Nachrichten, die Sie uns über die Feedback-Funktion schicken, mit der Seite, auf der Sie waren.
+- **Technische Daten der MARA-App:** Absturzberichte (Art des Fehlers, Programmstelle, App-Version, Gerätemodell und Betriebssystem, ohne Inhalte, Namen oder Eingaben) und je Gerät und Tag Zähler, wie Synchronisierungen und Foto-Uploads ausgegangen sind (nur Zahlen, ohne Inhalte). Wir nutzen sie, um Fehler zu finden und die Zuverlässigkeit der Synchronisierung zu prüfen.
 
 ## 4. Zwecke und Rechtsgrundlagen
 
@@ -46,7 +47,8 @@ Wir setzen Dienstleister ein, die Daten in unserem Auftrag verarbeiten; sie sind
 
 - Kontodaten: bis zur Schließung des Kontos; danach, soweit gesetzliche Aufbewahrungspflichten bestehen, bis zu deren Ablauf.
 - Server-Protokolle: vollständige IP-Adressen 7 Tage, danach gekürzt; Löschung nach 14 Tagen.
-- Fehlerberichte: 30 Tage.
+- Fehlerberichte (auch Absturzberichte der MARA-App): 30 Tage.
+- Zähler der MARA-App zu Synchronisierung und Uploads: 180 Tage.
 - Datensicherungen: 35 Tage.
 - Audit-Protokoll: für die Dauer der Aufbewahrungsfrist der zugehörigen Unterlagen, weil es deren Unveränderbarkeit belegt.
 - Feedback: bis zum Ende der Beta; danach löschen oder anonymisieren wir es, soweit wir es nicht für eine laufende Rückfrage brauchen.

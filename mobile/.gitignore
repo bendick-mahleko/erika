@@ -47,3 +47,10 @@ app.*.map.json
 # Generated in CI and by `flutter pub get` / `dart run build_runner build` (never edited)
 *.g.dart
 lib/l10n/gen/
+
+# Signing material never goes into the repository (MARA Stage 9 release workflow).
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+key.properties

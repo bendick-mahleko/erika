@@ -102,6 +102,21 @@ groups:
           summary: "A report signature was refused: its hash doesn't match the server's report"
           runbook: docs/ops/mara.md#signature-refused-erikamarasignaturehashmismatch
 
+      # MARA Stage 9: more than 0.5 % of the phones' sync runs failed over a day (field-test target
+      # "sync success >= 99.5 %"; runs without a connection don't count). From the app's counters.
+      - alert: ErikaMaraSyncFailureRate
+        expr: |
+          (
+            sum(increase(erika_mara_sync_runs_total{outcome="failed"}[1d]))
+            /
+            sum(increase(erika_mara_sync_runs_total{outcome=~"done|failed"}[1d]))
+          ) > 0.005
+          and sum(increase(erika_mara_sync_runs_total{outcome=~"done|failed"}[1d])) >= 200
+        labels: { severity: ticket }
+        annotations:
+          summary: "More than 0.5 % of MARA sync runs failed in the last day"
+          runbook: docs/ops/mara.md#sync-runs-failing-erikamarasyncfailurerate
+
   - name: erika-archive
     rules:
       - alert: ErikaArchiveIntegrityFailure

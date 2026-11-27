@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA mobile API (MARA job reports)
-  version: 0.5.0
+  version: 0.6.0
   summary: Endpoints for the MARA technician app (ADR 0036–0038)
   description: |
     Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
@@ -188,6 +188,28 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PushToken" }
             example: { token: "fcm-registration-token-from-the-app" }
+      responses:
+        "204": { description: Saved. }
+        default: { $ref: "#/components/responses/Problem" }
+  /mobile/devices/me/telemetry:
+    put:
+      tags: [mobile]
+      operationId: putTelemetry
+      summary: Content-free counters of this device, per day (MARA Stage 9 field test)
+      description: |
+        How syncs and photo uploads ended on this phone, counted per day (Europe/Berlin): no
+        record IDs, names or texts. The app sends the last days again from time to time; a day
+        replaces what the server has for this device and day, so a resend changes nothing. The
+        server keeps 180 days. Crashes go to GlitchTip, not here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TelemetryReport" }
+            example:
+              days:
+                - day: "2027-05-10"
+                  counters: { syncDone: 41, syncOffline: 6, syncFailed: 0, pushApplied: 88, pushConflict: 1, uploadDone: 12, uploadChunkRetries: 3, outboxMax: 14 }
       responses:
         "204": { description: Saved. }
         default: { $ref: "#/components/responses/Problem" }
@@ -489,6 +511,35 @@ components:
         minAppVersion: { type: string }
         appUpdate: { $ref: "#/components/schemas/AppUpdate" }
         serverTime: { type: string, format: date-time }
+    TelemetryReport:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          maxItems: 31
+          items: { $ref: "#/components/schemas/TelemetryDay" }
+    TelemetryDay:
+      type: object
+      required: [day, counters]
+      properties:
+        day: { type: string, format: date }
+        counters: { $ref: "#/components/schemas/TelemetryCounters" }
+    TelemetryCounters:
+      type: object
+      description: Missing counters are 0.
+      properties:
+        syncDone: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs that ended with everything sent and pulled" }
+        syncOffline: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs stopped by a missing connection (nothing lost)" }
+        syncFailed: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs that failed otherwise (e.g. a server error)" }
+        pushApplied: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Mutations the server applied" }
+        pushConflict: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Mutations decided by a conflict rule" }
+        pushRejected: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Mutations the server refused" }
+        uploadDone: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Photo upload runs that finished" }
+        uploadOffline: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Photo upload runs stopped by a missing connection" }
+        uploadChunkRetries: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Chunks sent again after an offset mismatch" }
+        uploadRestarts: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Photo files sent again from the start (hash refused)" }
+        outboxMax: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "The longest outbox of the day (changes waiting)" }
     PushToken:
       type: object
       required: [token]

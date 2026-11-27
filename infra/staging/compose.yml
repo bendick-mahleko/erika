@@ -36,6 +36,8 @@ x-backend: &backend
     ERIKA_INTAKE_MAIL_SECRET: ${ERIKA_INTAKE_MAIL_SECRET:?}
     # Closed beta as in production (ADR 0030); links from invite.py.
     ERIKA_SIGNUP_MODE: ${ERIKA_SIGNUP_MODE:-INVITE_ONLY}
+    # MARA field test (Stage 9): the add-on on staging only; production keeps it off until Stage 10.
+    ERIKA_FEATURE_MARA: ${ERIKA_FEATURE_MARA:-false}
     ERIKA_INVITE_SECRET: ${ERIKA_INVITE_SECRET:?}
     ERIKA_FEEDBACK_TO: ${ERIKA_FEEDBACK_TO:-}
     ERIKA_MAIL_WEBHOOK_SECRET: ${ERIKA_MAIL_WEBHOOK_SECRET:-}

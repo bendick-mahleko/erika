@@ -6,6 +6,7 @@ import '../../app/config.dart';
 import '../local/database.dart';
 import '../media/media_providers.dart';
 import '../session/session.dart';
+import '../telemetry/telemetry.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 import 'sync_store.dart';
@@ -35,6 +36,16 @@ final syncStoreProvider = FutureProvider<SyncStore?>((ref) async {
   return db == null ? null : SyncStore(db);
 });
 
+/// Content-free counters for the field test (MARA Stage 9), in the encrypted database.
+final telemetryProvider = FutureProvider<Telemetry?>((ref) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return db == null ? null : Telemetry(db, clock: ref.watch(clockProvider));
+});
+
+final telemetryTransportProvider = Provider<TelemetryTransport>(
+  (ref) => TelemetryApi(ref.watch(httpClientProvider), AppConfig.apiBaseUrl),
+);
+
 final syncTransportProvider = Provider<SyncTransport>(
   (ref) => SyncApi(ref.watch(httpClientProvider), AppConfig.apiBaseUrl),
 );
@@ -47,6 +58,7 @@ final syncEngineProvider = FutureProvider<SyncEngine?>((ref) async {
     store: store,
     transport: ref.watch(syncTransportProvider),
     authorized: session.authorized,
+    telemetry: await ref.watch(telemetryProvider.future),
   );
 });
 
@@ -100,8 +112,19 @@ class SyncCoordinator extends Notifier<SyncStatus> {
     // Photo files follow the records, never holding the sync up (ADR 0040).
     if (outcome == SyncOutcome.done) {
       unawaited(ref.read(uploadCoordinatorProvider.notifier).uploadNow());
+      unawaited(_sendTelemetry());
     }
     return outcome;
+  }
+
+  /// At most once an hour, after a successful sync (MARA Stage 9).
+  Future<void> _sendTelemetry() async {
+    final telemetry = await ref.read(telemetryProvider.future);
+    if (telemetry == null || !ref.mounted) return;
+    await telemetry.sendIfDue(
+      ref.read(telemetryTransportProvider),
+      ref.read(sessionProvider.notifier).authorized,
+    );
   }
 
   /// A local change was saved: push it soon, but not after every keystroke.

@@ -350,6 +350,11 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             report,
             draft,
         )
+        // MARA Stage 9: the app's telemetry counters.
+        TestDatabase.update(
+            "INSERT INTO mobile_telemetry_day (workspace_id, device_id, day, counters) VALUES (?, gen_random_uuid(), current_date, '{}')",
+            user.workspaceId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

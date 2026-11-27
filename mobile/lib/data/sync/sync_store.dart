@@ -210,6 +210,10 @@ class SyncStore {
     });
   }
 
+  /// How many changes wait in the outbox.
+  Future<int> pendingCount() async =>
+      (await db.customSelect('SELECT count(*) AS n FROM outbox').getSingle()).read<int>('n');
+
   Future<String> cursor() async => await db.setting(cursorKey) ?? '';
 
   Future<LocalRecord?> record(String entity, String id) async {

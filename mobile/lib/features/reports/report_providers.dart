@@ -6,6 +6,7 @@ import '../../data/session/session.dart';
 import '../../data/sync/sync_providers.dart';
 import '../../data/sync/sync_store.dart';
 import '../../data/media/media_providers.dart';
+import '../../data/media/photo_uploader.dart';
 import '../../domain/derived_id.dart';
 import '../../domain/uuid7.dart';
 import '../workorders/work_order_providers.dart';
@@ -326,16 +327,28 @@ class ReportWriter {
     final reportId = await ensureReport(workOrderId);
     if (store == null || reportId == null) return null;
     final id = uuid7();
-    final saved = await ref.read(photoFilesProvider).save(id, bytes);
-    await store.create('photo', {
-      'reportId': reportId,
-      'caption': caption,
-      'category': category,
-      'checklistItemKey': checklistItemKey,
-      'takenAt': ref.read(clockProvider)().toUtc().toIso8601String(),
-      'sizeBytes': saved.size,
-      'sha256': saved.sha256,
-    }, id: id);
+    final files = ref.read(photoFilesProvider);
+    final ({int size, String sha256}) saved;
+    try {
+      saved = await files.save(id, bytes);
+    } on Exception catch (e) {
+      throw PhotoNotSaved(e);
+    }
+    try {
+      await store.create('photo', {
+        'reportId': reportId,
+        'caption': caption,
+        'category': category,
+        'checklistItemKey': checklistItemKey,
+        'takenAt': ref.read(clockProvider)().toUtc().toIso8601String(),
+        'sizeBytes': saved.size,
+        'sha256': saved.sha256,
+      }, id: id);
+    } on Exception catch (e) {
+      // The database is full too (or failed): no file without its record.
+      await files.delete(id);
+      throw PhotoNotSaved(e);
+    }
     _changed();
     return id;
   }

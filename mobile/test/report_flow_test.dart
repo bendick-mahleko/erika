@@ -274,6 +274,44 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('storage full: the photo is not kept, nothing is recorded, the technician is told', (
+    tester,
+  ) async {
+    await signIn(tester);
+    device.photoFiles.full = true;
+    await tap(tester, find.byKey(const Key('take-photo')));
+    await tap(tester, find.byKey(const Key('photo-hint-ok')));
+    await tap(tester, find.byKey(const Key('save-photo')));
+    expect(find.byKey(const Key('photo-not-saved')), findsOneWidget);
+    expect(find.text('noch nicht gesendet'), findsNothing);
+    expect(device.photoFiles.files, isEmpty);
+    final container = ProviderScope.containerOf(tester.element(find.byType(ReportScreen)));
+    final store = (await container.read(syncStoreProvider.future))!;
+    expect(
+      (await store.pending()).where((m) => m.entity == 'photo'),
+      isEmpty,
+      reason: 'no record without its file',
+    );
+
+    // Space freed: the next photo works.
+    device.photoFiles.full = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tap(tester, find.byKey(const Key('take-photo')));
+    await tap(tester, find.byKey(const Key('save-photo')));
+    expect(find.text('noch nicht gesendet'), findsOneWidget);
+
+    // Content-free counters (MARA Stage 9): sent after the first successful sync, at most hourly.
+    expect(await container.read(syncCoordinatorProvider.notifier).syncNow(), SyncOutcome.done);
+    await tester.pumpAndSettle();
+    expect(device.telemetry.reports, hasLength(1));
+    expect(device.telemetry.reports.single.values.single['syncDone'], greaterThanOrEqualTo(1));
+    final counted = await (await container.read(telemetryProvider.future))!.stored();
+    expect(counted.values.single['pushApplied'], greaterThanOrEqualTo(2));
+    expect(counted.toString(), isNot(contains(wo)), reason: 'numbers only, no IDs');
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('a material used before takes three taps', (tester) async {
     await signIn(tester);
     await tap(tester, find.byKey(const Key('add-material')));

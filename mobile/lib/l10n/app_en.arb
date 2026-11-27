@@ -263,5 +263,6 @@
   "newReportVersion": "Correct it (new version)",
   "reportSigned": "Version {version} signed by {name}. The report no longer changes.",
   "reportSentUnsigned": "Version {version} finished without signature. The report no longer changes.",
-  "rejectedHashMismatch": "The signature was not accepted: the report had changed meanwhile. Please sync and have it signed again."
+  "rejectedHashMismatch": "The signature was not accepted: the report had changed meanwhile. Please sync and have it signed again.",
+  "photoNotSaved": "The photo couldn't be saved. Is the phone's storage full? Free some space and take it again."
 }

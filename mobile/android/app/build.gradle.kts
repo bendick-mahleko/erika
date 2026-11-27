@@ -15,10 +15,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "de.erika.mara"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Android 10+ (M-NF-04).
         minSdk = 29
         targetSdk = flutter.targetSdkVersion
@@ -26,11 +23,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Upload key for Google Play (MARA Stage 9): only on the release workflow, from its secrets
+    // (.github/workflows/mobile-release.yml). Without them, release builds use the debug keys, so
+    // `flutter run --release` and the size check in CI work; such builds can't be uploaded.
+    val uploadKeystore = System.getenv("MARA_UPLOAD_KEYSTORE")
+    signingConfigs {
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storePassword = System.getenv("MARA_UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MARA_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("MARA_UPLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (uploadKeystore != null) "upload" else "debug")
         }
     }
 }

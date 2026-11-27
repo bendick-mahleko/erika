@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:mara/data/telemetry/telemetry.dart';
 import 'package:mara/data/api/auth_api.dart';
 import 'package:mara/data/local/database.dart';
 import 'package:mara/data/session/device_platform.dart';
@@ -140,6 +141,15 @@ class FakeBiometrics implements BiometricAuth {
   }
 }
 
+/// Records the telemetry reports the app sends.
+class FakeTelemetryTransport implements TelemetryTransport {
+  final reports = <Map<String, Map<String, int>>>[];
+
+  @override
+  Future<void> send(String accessToken, Map<String, Map<String, int>> days) async =>
+      reports.add(days);
+}
+
 /// Everything the session needs, with fakes; a few PBKDF2 rounds keep tests fast.
 class TestDevice {
   final server = FakeServer();
@@ -150,6 +160,7 @@ class TestDevice {
   final syncServer = FakeSyncServer();
   late final tusServer = FakeTusServer(syncServer);
   final photoFiles = MemoryPhotoFiles();
+  final telemetry = FakeTelemetryTransport();
 
   /// PDFs the user shared from the phone.
   final sharedPdfs = <String>[];
@@ -167,6 +178,7 @@ class TestDevice {
     clockProvider.overrideWithValue(() => now),
     syncTransportProvider.overrideWithValue(syncServer),
     tusTransportProvider.overrideWithValue(tusServer),
+    telemetryTransportProvider.overrideWithValue(telemetry),
     photoFilesProvider.overrideWithValue(photoFiles),
     // dart:ui images can't be drawn in widget tests: a fixed PNG stands for the signature.
     signaturePngProvider.overrideWithValue((strokes, size) async => testPng),

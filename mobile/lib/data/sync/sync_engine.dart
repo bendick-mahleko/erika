@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../api/auth_api.dart';
+import '../telemetry/telemetry.dart';
 import 'sync_api.dart';
 import 'sync_store.dart';
 
@@ -23,15 +24,35 @@ typedef Authorized = Future<T> Function<T>(Future<T> Function(String accessToken
 /// A run that dies half-way (no network, app killed) leaves the outbox and the cursor as they
 /// were, so the next run resends and the server answers resends from its idempotency log.
 class SyncEngine {
-  SyncEngine({required this.store, required this.transport, required this.authorized});
+  SyncEngine({
+    required this.store,
+    required this.transport,
+    required this.authorized,
+    this.telemetry,
+  });
 
   final SyncStore store;
   final SyncTransport transport;
   final Authorized authorized;
 
+  /// Content-free counters of how runs end (MARA Stage 9); null in most tests.
+  final Telemetry? telemetry;
+
   Future<SyncOutcome>? _running;
 
-  Future<SyncOutcome> sync() => _running ??= _run().whenComplete(() => _running = null);
+  Future<SyncOutcome> sync() => _running ??= _counted().whenComplete(() => _running = null);
+
+  Future<SyncOutcome> _counted() async {
+    final t = telemetry;
+    if (t != null) await t.max(TelemetryCounter.outboxMax, await store.pendingCount());
+    final outcome = await _run();
+    await t?.count(switch (outcome) {
+      SyncOutcome.done => TelemetryCounter.syncDone,
+      SyncOutcome.offline => TelemetryCounter.syncOffline,
+      SyncOutcome.failed => TelemetryCounter.syncFailed,
+    });
+    return outcome;
+  }
 
   Future<SyncOutcome> _run() async {
     try {
@@ -40,6 +61,7 @@ class SyncEngine {
         if (batch.isEmpty) break;
         final results = await authorized((token) => transport.push(token, batch));
         await store.applyPushResults(results);
+        await _countResults(results);
       }
       while (true) {
         final cursor = await store.cursor();
@@ -51,6 +73,19 @@ class SyncEngine {
       return SyncOutcome.done;
     } on ApiProblem catch (problem) {
       return problem.isNetwork ? SyncOutcome.offline : SyncOutcome.failed;
+    }
+  }
+
+  Future<void> _countResults(List<MutationResultDto> results) async {
+    final t = telemetry;
+    if (t == null) return;
+    for (final (status, counter) in const [
+      ('APPLIED', TelemetryCounter.pushApplied),
+      ('CONFLICT', TelemetryCounter.pushConflict),
+      ('REJECTED', TelemetryCounter.pushRejected),
+    ]) {
+      final n = results.where((r) => r.status == status).length;
+      if (n > 0) await t.count(counter, n);
     }
   }
 }

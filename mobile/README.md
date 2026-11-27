@@ -44,6 +44,16 @@ flutter run --dart-define=MARA_API_BASE_URL=http://10.0.2.2:8080   # Android emu
 
 iOS simulator: `--dart-define=MARA_API_BASE_URL=http://localhost:8080`. A real phone needs your machine's LAN address and the API listening on it.
 
+Other build settings (`--dart-define`):
+
+| Name | Default | What |
+|---|---|---|
+| `MARA_API_BASE_URL` | `http://10.0.2.2:8080` | The ERIKA server |
+| `MARA_SENTRY_DSN` | empty (off) | GlitchTip project for crash reports, without content (ADR 0042) |
+| `MARA_ENVIRONMENT` | `development` | Shown in GlitchTip: `development`, `field-test`, `production` |
+
+Release builds for the stores come from `.github/workflows/mobile-release.yml` ([docs/mara/field-test/distribution.md](../docs/mara/field-test/distribution.md)). `tool/check_size.sh <apk|aab|ipa>` fails above 60 MB (M-NF-04); CI runs it on the arm64 release APK.
+
 ### Without a local Flutter installation
 
 CI uses the same pinned image, so this gives the same results:

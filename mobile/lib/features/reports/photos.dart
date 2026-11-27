@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/media/media_providers.dart';
+import '../../data/media/photo_uploader.dart';
 import '../../data/sync/sync_providers.dart';
 import '../../data/sync/sync_store.dart';
 import '../../l10n/gen/app_localizations.dart';
@@ -81,15 +82,24 @@ Future<String?> takePhoto(
   );
   if (details == null) return null;
   final (caption, category) = details;
-  return ref
-      .read(reportWriterProvider)
-      .addPhoto(
-        workOrderId,
-        bytes,
-        caption: caption,
-        category: category,
-        checklistItemKey: checklistItemKey,
-      );
+  try {
+    return await ref
+        .read(reportWriterProvider)
+        .addPhoto(
+          workOrderId,
+          bytes,
+          caption: caption,
+          category: category,
+          checklistItemKey: checklistItemKey,
+        );
+  } on PhotoNotSaved {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(key: const Key('photo-not-saved'), content: Text(t.photoNotSaved)));
+    }
+    return null;
+  }
 }
 
 const _hintKey = 'media.hintShown';
