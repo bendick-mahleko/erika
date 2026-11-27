@@ -46,6 +46,7 @@ internal class Billing(
     private val jobs: JobQueue,
     private val invoices: BillingInvoiceRepository,
     private val events: ApplicationEventPublisher,
+    private val maraAddons: MaraAddons,
 ) {
     @Transactional(propagation = Propagation.MANDATORY)
     fun state(workspaceId: UUID): BillingState = Entitlements.state(accounts.find(workspaceId), props)
@@ -85,6 +86,8 @@ internal class Billing(
         actorId: UUID,
         plan: BillingPlan,
         idempotencyKey: String,
+        withMara: Boolean = false,
+        maraNoticeAccepted: Boolean = false,
     ): String {
         requireEnabled()
         val priceId = priceOf(plan) ?: throw ErikaException("PLAN_NOT_AVAILABLE", HttpStatus.CONFLICT, "This plan is not offered.")
@@ -102,6 +105,8 @@ internal class Billing(
         // German VAT unless it is a reverse-charge customer (EU business outside Germany with a VAT ID).
         val reverseCharge = profile.countryCode != "DE" && !profile.vatId.isNullOrBlank()
         val trialEnd = account.trialEndsAt.toInstant().takeIf { it.isAfter(Instant.now().plus(MIN_TRIAL_END)) }
+        // MARA booked with the plan (Stage 10): its items in the same interval.
+        val maraItems = if (withMara) maraAddons.checkoutItems(workspaceId, actorId, plan, maraNoticeAccepted) else emptyList()
         val params =
             linkedMapOf(
                 "mode" to "subscription",
@@ -118,6 +123,10 @@ internal class Billing(
                 "subscription_data[trial_end]" to trialEnd?.epochSecond?.toString(),
                 "subscription_data[default_tax_rates][0]" to props.taxRateId.takeIf { it.isNotBlank() && !reverseCharge },
             )
+        maraItems.forEachIndexed { i, (price, quantity) ->
+            params["line_items[${i + 1}][price]"] = price
+            params["line_items[${i + 1}][quantity]"] = quantity.toString()
+        }
         val session = stripe.createCheckoutSession(params, "checkout-$workspaceId-$idempotencyKey")
         events.publishEvent(CheckoutStarted(workspaceId, actorId, plan.name))
         return session.path("url").asString().ifEmpty { throw StripeException(502, null, "Checkout session without URL") }

@@ -253,7 +253,13 @@
     "INVOICE_NOT_OVERDUE": "Nur überfällige Rechnungen bekommen eine Zahlungserinnerung.",
     "REMINDERS_EXHAUSTED": "Für diese Rechnung wurden schon drei Erinnerungen versandt.",
     "RECIPIENT_REQUIRED": "Die Rechnung hat keine E-Mail-Adresse. Bitte geben Sie eine an.",
-    "RANGE_INVALID": "Bitte wählen Sie einen Zeitraum von höchstens einem Jahr."
+    "RANGE_INVALID": "Bitte wählen Sie einen Zeitraum von höchstens einem Jahr.",
+    "MARA_NOT_BOOKED": "MARA ist nicht gebucht. Die Inhaberin oder der Inhaber kann die kostenlose Probezeit in den Abrechnungseinstellungen starten.",
+    "MARA_READ_ONLY": "MARA ist nur lesbar: Die Probezeit ist abgelaufen oder das Zusatzmodul wurde gekündigt. Daten bleiben lesbar und exportierbar.",
+    "MARA_TRIAL_USED": "Die Probezeit für MARA wurde schon genutzt. Buchen Sie das Zusatzmodul, um weiterzuarbeiten.",
+    "MARA_ALREADY_BOOKED": "MARA ist bereits gebucht.",
+    "MARA_NOT_OFFERED": "Das Zusatzmodul MARA wird hier nicht angeboten.",
+    "WORKS_COUNCIL_NOTICE_REQUIRED": "Bitte bestätigen Sie zuerst den Hinweis zum Betriebsrat und zur Information der Beschäftigten."
   },
   "Inbox": {
     "title": "Eingang",
@@ -1410,5 +1416,44 @@
     "promptReminder": "Zahlungserinnerung zu Rechnung {number} senden an:",
     "promptDunning": "Mahnung zu Rechnung {number} senden an:",
     "sent": "Für Rechnung {number} wurde Stufe {level} versandt."
+  },
+  "MaraAddon": {
+    "title": "Zusatzmodul MARA (Arbeitsberichte)",
+    "state": {
+      "DISABLED": "MARA ist hier ohne Buchung freigeschaltet.",
+      "NONE": "MARA ist nicht gebucht. Starten Sie die kostenlose Probezeit (30 Tage).",
+      "TRIAL": "Probezeit bis {date}.",
+      "ACTIVE": "MARA ist gebucht.",
+      "EXEMPT": "MARA ist für Ihr Unternehmen kostenlos freigeschaltet (Beta).",
+      "READ_ONLY": "MARA ist nur lesbar: Daten bleiben lesbar und exportierbar, neue Berichte werden erst nach der Buchung wieder gespeichert."
+    },
+    "pending": {
+      "BOOKING": "Die Buchung wird gerade bei Stripe eingetragen.",
+      "CANCELLING": "Die Kündigung wird gerade bei Stripe eingetragen."
+    },
+    "price": "{amount} netto {interval} einschließlich {included} Nutzern, jeder weitere Nutzer {seat} netto {interval}. Steuerberater zählen nicht.",
+    "priceUnknown": "Der Preis wird geladen, sobald Stripe erreichbar ist.",
+    "interval": {
+      "MONTHLY": "im Monat",
+      "ANNUAL": "im Jahr"
+    },
+    "seats": "{counted, plural, one {# Nutzer} other {# Nutzer}} (Inhaber, Büro, Beschäftigte mit App); {included} enthalten, {extra} zusätzlich.",
+    "noticeIntro": "MARA erfasst Arbeitszeiten und Berichte Ihrer Beschäftigten. Bitte lesen Sie vor dem Start den Hinweis zum Betriebsrat und geben Sie Ihren Beschäftigten das Informationsblatt.",
+    "noticeLink": "Hinweis zum Betriebsrat",
+    "sheetLink": "Informationsblatt für Beschäftigte",
+    "noticeConfirm": "Ich habe den Hinweis zum Betriebsrat gelesen und informiere meine Beschäftigten mit dem Informationsblatt, bevor sie die App nutzen.",
+    "startTrial": "Probezeit starten",
+    "book": "MARA buchen",
+    "bookWithPlan": "ERIKA und MARA {plan} abonnieren",
+    "cancel": "MARA kündigen",
+    "cancelConfirm": "MARA kündigen? Der nicht genutzte Teil des Zeitraums wird gutgeschrieben; Daten bleiben lesbar und exportierbar.",
+    "trialStarted": "Die Probezeit läuft.",
+    "bookingRequested": "Die Buchung ist beauftragt.",
+    "cancelRequested": "Die Kündigung ist beauftragt.",
+    "banner": {
+      "NONE": "MARA ist nicht gebucht: Sie können alles ansehen, aber nichts Neues anlegen.",
+      "READ_ONLY": "MARA ist nur lesbar: Die Probezeit ist abgelaufen oder MARA wurde gekündigt."
+    },
+    "bannerLink": "Zur Abrechnung"
   }
 }

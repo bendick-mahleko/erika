@@ -38,6 +38,16 @@ data class BillingProperties(
     /** Stripe price IDs (`price_…`); empty = plan not offered. */
     val priceMonthly: String = "",
     val priceAnnual: String = "",
+    /**
+     * MARA add-on (Stage 10, ADR 0043): the add-on with [maraIncludedSeats] users and each further
+     * seat, per plan interval. All empty = the add-on isn't offered and MARA is free.
+     */
+    val priceMaraMonthly: String = "",
+    val priceMaraAnnual: String = "",
+    val priceMaraSeatMonthly: String = "",
+    val priceMaraSeatAnnual: String = "",
+    val maraTrialDays: Long = 30,
+    val maraIncludedSeats: Int = 3,
     /** Stripe tax rate (19 % exclusive) for customers that pay German VAT; empty = none. */
     val taxRateId: String = "",
     /** The workspace that issues ERIKA's own invoices (ERIKA's company data and number pattern). */
@@ -91,6 +101,39 @@ class StripeClient(
         params: Map<String, String?>,
         idempotencyKey: String,
     ): JsonNode = post("/v1/billing_portal/sessions", params, idempotencyKey)
+
+    /** Adds an item (e.g. the MARA add-on) to a subscription. */
+    fun createSubscriptionItem(
+        params: Map<String, String?>,
+        idempotencyKey: String,
+    ): JsonNode = post("/v1/subscription_items", params, idempotencyKey)
+
+    /** Changes an item's quantity (seats). */
+    fun updateSubscriptionItem(
+        itemId: String,
+        params: Map<String, String?>,
+        idempotencyKey: String,
+    ): JsonNode = post("/v1/subscription_items/$itemId", params, idempotencyKey)
+
+    /** Removes an item; one Stripe no longer knows counts as removed. */
+    fun deleteSubscriptionItem(
+        itemId: String,
+        prorationBehavior: String,
+    ) {
+        try {
+            call {
+                http
+                    .delete()
+                    .uri("/v1/subscription_items/{id}?proration_behavior={p}", itemId, prorationBehavior)
+                    .headers(::auth)
+                    .retrieve()
+                    .body(String::class.java)
+            }
+        } catch (e: StripeException) {
+            if (e.status == 404 || e.stripeCode == "resource_missing") return
+            throw e
+        }
+    }
 
     /** Cancels at once. A subscription Stripe no longer knows (or already cancelled) counts as done. */
     fun cancelSubscription(subscriptionId: String) {

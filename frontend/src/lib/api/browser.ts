@@ -106,3 +106,5 @@ export type ReportInvoicePreview = components["schemas"]["ReportInvoicePreview"]
 export type ReportInvoicingSettings = components["schemas"]["ReportInvoicingSettings"];
 export type TravelMode = components["schemas"]["TravelMode"];
 export type OverdueInvoice = components["schemas"]["OverdueInvoice"];
+// MARA Stage 10: the add-on.
+export type MaraAddon = components["schemas"]["MaraAddon"];

@@ -295,6 +295,13 @@ export async function fetchReportInvoicingSettings(): Promise<ReportInvoicingSet
   return (await authed((init) => api.GET("/report-invoicing/settings", init))) ?? null;
 }
 
+// MARA Stage 10: the add-on (trial, booking, seats).
+export type MaraAddon = components["schemas"]["MaraAddon"];
+
+export async function fetchMaraAddon(): Promise<MaraAddon | null> {
+  return (await authed((init) => api.GET("/billing/addons/mara", init))) ?? null;
+}
+
 export async function fetchOverdueInvoices(): Promise<OverdueInvoice[]> {
   return (await authed((init) => api.GET("/invoices/overdue", init)))?.items ?? [];
 }

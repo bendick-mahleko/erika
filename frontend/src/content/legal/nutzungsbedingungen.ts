@@ -2,7 +2,7 @@ import type { LegalDocument } from "./types";
 
 export const nutzungsbedingungen: LegalDocument = {
   title: "Nutzungsbedingungen für die Beta von ERIKA",
-  updated: "2026-11-23",
+  updated: "2026-11-27",
   draft: true,
   body: `
 Version beta-2026-12
@@ -50,6 +50,15 @@ Wir haften unbeschränkt bei Vorsatz und grober Fahrlässigkeit, bei Verletzung 
 ## 10. Laufzeit und Ende der Beta
 
 Sie können die Nutzung jederzeit beenden. Wir können die Beta mit einer Frist von vier Wochen beenden oder Ihren Zugang aus wichtigem Grund sofort sperren. Vor dem Ende erhalten Sie die Möglichkeit, Ihre Originale und Daten vollständig herunterzuladen. Ein Wechsel in einen kostenpflichtigen Tarif erfolgt nur, wenn Sie ihm ausdrücklich zustimmen.
+
+## 10a. Zusatzmodul MARA (Arbeitsberichte)
+
+- MARA ergänzt ERIKA um Aufträge, Arbeitsberichte mit Unterschrift, Fotos, Arbeitszeiten und Rechnungen aus Berichten, mit einer App für Beschäftigte.
+- **Probezeit:** 30 Tage kostenlos, einmal je Arbeitsbereich. Vor dem Start bestätigt der Inhaber, den Hinweis zur Beteiligung des Betriebsrats gelesen zu haben, und stellt den Beschäftigten das Informationsblatt zur Verfügung.
+- **Preis:** 39 € netto im Monat einschließlich drei Nutzern (Inhaber, Büro und Beschäftigte mit der App); jeder weitere Nutzer kostet [Preis] € netto im Monat. Steuerberater zählen nicht. Kommt im Laufe eines Abrechnungszeitraums ein Nutzer hinzu oder fällt einer weg, wird anteilig abgerechnet.
+- **Kündigung:** jederzeit in den Abrechnungseinstellungen; der nicht genutzte Teil des Zeitraums wird gutgeschrieben.
+- **Nach Probezeit oder Kündigung** bleiben alle Daten lesbar und exportierbar; neue Berichte können erst nach der Buchung wieder gespeichert und synchronisiert werden. Was in der App noch nicht übertragen ist, bleibt auf dem Gerät.
+- Unterschriebene Berichte werden unveränderbar archiviert; ob ein Bericht als Abnahme gilt, richtet sich nach dem Vertrag zwischen dem Kunden und seinem Auftraggeber.
 
 ## 11. Änderungen
 

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { fetchBilling, fetchBillingInvoices, fetchSession } from "@/lib/api/client";
+import { fetchBilling, fetchBillingInvoices, fetchMaraAddon, fetchSession } from "@/lib/api/client";
 import { SettingsNav } from "@/components/SettingsNav";
 import { BillingPanel } from "./BillingPanel";
+import { MaraAddonSection } from "./MaraAddonSection";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Billing");
@@ -19,7 +20,11 @@ export default async function BillingPage({
 }) {
   const session = await fetchSession();
   if (session.state !== "AUTHENTICATED") redirect("/login");
-  const [status, invoices] = await Promise.all([fetchBilling(), fetchBillingInvoices()]);
+  const [status, invoices, mara] = await Promise.all([
+    fetchBilling(),
+    fetchBillingInvoices(),
+    session.features?.mara ? fetchMaraAddon() : Promise.resolve(null),
+  ]);
   if (!status) redirect("/login");
   const raw = (await searchParams).checkout;
   const checkout = Array.isArray(raw) ? raw[0] : raw;
@@ -41,6 +46,7 @@ export default async function BillingPage({
       )}
       {checkout === "cancelled" && <p role="status">{t("cancelled")}</p>}
       <BillingPanel status={status} isOwner={session.role === "OWNER"} />
+      {mara && <MaraAddonSection initial={mara} billing={status} isOwner={session.role === "OWNER"} />}
       {status.enabled && status.state !== "EXEMPT" && (
         <section aria-labelledby="invoices-title" className="space-y-3">
           <h2 id="invoices-title" className="text-xl font-semibold">

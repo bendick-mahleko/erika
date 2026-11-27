@@ -30,6 +30,10 @@ erika:
     stripe-webhook-secret: whsec_test_erika
     price-monthly: price_monthly
     price-annual: price_annual
+    price-mara-monthly: price_mara_monthly
+    price-mara-annual: price_mara_annual
+    price-mara-seat-monthly: price_mara_seat_monthly
+    price-mara-seat-annual: price_mara_seat_annual
     tax-rate-id: txr_test_19
     issuer-workspace-id: 00000000-0000-4000-8000-0000000e41ca
 

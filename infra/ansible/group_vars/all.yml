@@ -18,6 +18,11 @@ erika_terms_version: beta-2026-12
 erika_billing_enabled: false
 erika_stripe_price_monthly: ""
 erika_stripe_price_annual: ""
+# MARA add-on (Stage 10, ADR 0043); empty = not offered.
+erika_stripe_price_mara_monthly: ""
+erika_stripe_price_mara_annual: ""
+erika_stripe_price_mara_seat_monthly: ""
+erika_stripe_price_mara_seat_annual: ""
 erika_stripe_tax_rate: ""
 erika_billing_issuer_workspace: ""
 

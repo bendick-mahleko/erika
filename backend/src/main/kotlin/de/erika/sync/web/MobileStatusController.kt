@@ -52,6 +52,7 @@ internal class MobileStatusController(
                         "syncDone" to c.syncDone,
                         "syncOffline" to c.syncOffline,
                         "syncFailed" to c.syncFailed,
+                        "syncReadOnly" to c.syncReadOnly,
                         "pushApplied" to c.pushApplied,
                         "pushConflict" to c.pushConflict,
                         "pushRejected" to c.pushRejected,

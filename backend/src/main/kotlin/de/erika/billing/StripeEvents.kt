@@ -84,6 +84,9 @@ internal class ProcessStripeEventJobHandler(
     private val props: BillingProperties,
     private val json: JsonMapper,
     private val events: ApplicationEventPublisher,
+    private val addons: MaraAddons,
+    private val addonRepo: AddonRepository,
+    private val jobs: JobQueue,
 ) : JobHandler<ProcessStripeEventJobHandler.Payload> {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -150,7 +153,18 @@ internal class ProcessStripeEventJobHandler(
         tenant.enterWorkspace(workspaceId)
         val account = accounts.find(workspaceId) ?: return
         if (account.lastEventAt != null && event.created.isBefore(account.lastEventAt.toInstant())) return
-        val item = sub.path("items").path("data").path(0)
+        val items =
+            sub
+                .path("items")
+                .path("data")
+                .values()
+                .toList()
+        val priceOf = { i: JsonNode -> i.path("price").path("id").asString() }
+        // The plan's item (not an add-on's); older subscriptions have only that one.
+        val item =
+            items.firstOrNull { priceOf(it) in setOf(props.priceMonthly, props.priceAnnual) }
+                ?: items.firstOrNull { !addons.isMaraPrice(priceOf(it)) && !addons.isSeatPrice(priceOf(it)) }
+                ?: sub.path("items").path("data").path(0)
         val status = if (event.type == "customer.subscription.deleted") "canceled" else sub.path("status").asString()
         val snapshot =
             SubscriptionSnapshot(
@@ -176,9 +190,55 @@ internal class ProcessStripeEventJobHandler(
                 eventCreated = event.created,
             )
         accounts.applySubscription(workspaceId, snapshot)
+        maraItems(
+            workspaceId,
+            event,
+            status,
+            items.firstOrNull {
+                addons.isMaraPrice(priceOf(it))
+            },
+            items.firstOrNull { addons.isSeatPrice(priceOf(it)) },
+        )
         if (account.subscriptionStatus != status || account.subscriptionId != snapshot.subscriptionId) {
             events.publishEvent(SubscriptionChanged(workspaceId, snapshot.subscriptionId, account.subscriptionStatus, status, event.id))
         }
+    }
+
+    /** The MARA add-on as the subscription now carries it (ADR 0043). */
+    private fun maraItems(
+        workspaceId: UUID,
+        event: StoredStripeEvent,
+        status: String,
+        mara: JsonNode?,
+        seats: JsonNode?,
+    ) {
+        val row = addonRepo.find(workspaceId)
+        if (row == null && mara == null) return
+        val active = mara != null && status != "canceled"
+        val seatsBilled = if (active) seats?.path("quantity")?.asInt() ?: 0 else 0
+        val pending = row?.pending?.takeUnless { (it == "BOOKING" && active) || (it == "CANCELLING" && !active) }
+        addonRepo.setItems(
+            workspaceId,
+            mara
+                ?.path("id")
+                ?.asString()
+                ?.ifEmpty { null }
+                .takeIf { active },
+            seats
+                ?.path("id")
+                ?.asString()
+                ?.ifEmpty { null }
+                .takeIf { active },
+            seatsBilled,
+            active,
+            pending,
+        )
+        if (row?.active == true && !active) addonRepo.endTrial(workspaceId)
+        if (row?.active != active || row.seatsBilled != seatsBilled) {
+            events.publishEvent(MaraAddonChanged(workspaceId, active, seatsBilled, event.id))
+        }
+        // Booked in the checkout: the seats above the included ones follow from the worker.
+        if (active && row?.itemId == null) jobs.enqueue(MaraSeatsJobHandler.TYPE, MaraSeatsJobHandler.Payload(), workspaceId)
     }
 
     private fun failed(inv: JsonNode) {

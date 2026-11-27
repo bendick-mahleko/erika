@@ -40,6 +40,7 @@ import java.net.URI
 import java.time.Instant
 import de.erika.contract.model.BillingPlan as ApiPlan
 import de.erika.contract.model.BillingState as ApiState
+import de.erika.contract.model.MaraAddon as ApiMaraAddon
 
 /** Billing page data, Stripe Checkout and portal (EX-03). Sessions are for owners only. */
 @RestController
@@ -48,7 +49,83 @@ internal class BillingController(
     private val billing: Billing,
     private val invoices: BillingInvoiceRepository,
     private val props: BillingProperties,
+    private val mara: de.erika.billing.MaraAddons,
+    private val idempotency: de.erika.platform.web.Idempotency,
 ) : BillingApi {
+    // ---- MARA add-on (Stage 10, ADR 0043)
+
+    override fun getMaraAddon(): ResponseEntity<ApiMaraAddon> = ResponseEntity.ok(maraView())
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun startMaraTrial(maraTrialRequest: de.erika.contract.model.MaraTrialRequest): ResponseEntity<ApiMaraAddon> {
+        val p = ErikaPrincipal.current()
+        mara.startTrial(p.workspaceId, p.userId, maraTrialRequest.worksCouncilNoticeAccepted)
+        return ResponseEntity.ok(maraView())
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun bookMaraAddon(
+        idempotencyKey: String,
+        maraTrialRequest: de.erika.contract.model.MaraTrialRequest,
+    ): ResponseEntity<ApiMaraAddon> {
+        val p = ErikaPrincipal.current()
+        idempotency.once(p.workspaceId, idempotencyKey, "bookMaraAddon") {
+            mara.book(p.workspaceId, p.userId, maraTrialRequest.worksCouncilNoticeAccepted)
+        }
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(maraView())
+    }
+
+    @PreAuthorize("hasRole('OWNER')")
+    override fun cancelMaraAddon(): ResponseEntity<ApiMaraAddon> {
+        val p = ErikaPrincipal.current()
+        mara.cancel(p.workspaceId, p.userId)
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(maraView())
+    }
+
+    private fun maraView(): ApiMaraAddon {
+        val v = mara.view(ErikaPrincipal.current().workspaceId)
+        val row = v.row
+        val (base, seat, currency) = if (v.offered) mara.prices(v.plan) else Triple(null, null, null)
+        val cents = { c: Long? ->
+            c?.let {
+                java.math.BigDecimal
+                    .valueOf(it, 2)
+                    .toPlainString()
+            }
+        }
+        return ApiMaraAddon(
+            offered = v.offered,
+            state =
+                de.erika.contract.model.MaraAddonState
+                    .forValue(v.state.name),
+            trialUsed = row?.trialEndsAt != null,
+            worksCouncilNoticeAccepted = row?.noticeAcceptedAt != null,
+            seats =
+                de.erika.contract.model.MaraSeats(
+                    counted = v.seatsCounted,
+                    included = v.seatsIncluded,
+                    extra =
+                        de.erika.billing.AddonRules
+                            .extraSeats(v.seatsCounted, v.seatsIncluded),
+                    billed = row?.seatsBilled,
+                ),
+            trialEndsAt = row?.trialEndsAt,
+            booked = row?.active == true || row?.pending == "BOOKING",
+            pending = row?.pending?.let { ApiMaraAddon.Pending.forValue(it) },
+            price =
+                if (v.offered) {
+                    de.erika.contract.model.MaraPrice(
+                        plan = ApiPlan.forValue(v.plan.name),
+                        netAmount = cents(base),
+                        seatNetAmount = cents(seat),
+                        currency = currency,
+                    )
+                } else {
+                    null
+                },
+        )
+    }
+
     override fun getBilling(): ResponseEntity<BillingStatus> {
         val p = ErikaPrincipal.current()
         val account = billing.account(p.workspaceId)
@@ -86,7 +163,18 @@ internal class BillingController(
         checkoutRequest: CheckoutRequest,
     ): ResponseEntity<RedirectUrl> {
         val p = ErikaPrincipal.current()
-        val url = stripe { billing.checkout(p.workspaceId, p.userId, BillingPlan.valueOf(checkoutRequest.plan.value), idempotencyKey) }
+        val withMara = checkoutRequest.addons?.any { it.value == "MARA" } == true
+        val url =
+            stripe {
+                billing.checkout(
+                    p.workspaceId,
+                    p.userId,
+                    BillingPlan.valueOf(checkoutRequest.plan.value),
+                    idempotencyKey,
+                    withMara,
+                    checkoutRequest.worksCouncilNoticeAccepted == true,
+                )
+            }
         return ResponseEntity.ok(RedirectUrl(URI.create(url)))
     }
 

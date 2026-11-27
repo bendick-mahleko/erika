@@ -264,5 +264,7 @@
   "reportSigned": "Version {version} signed by {name}. The report no longer changes.",
   "reportSentUnsigned": "Version {version} finished without signature. The report no longer changes.",
   "rejectedHashMismatch": "The signature was not accepted: the report had changed meanwhile. Please sync and have it signed again.",
-  "photoNotSaved": "The photo couldn't be saved. Is the phone's storage full? Free some space and take it again."
+  "photoNotSaved": "The photo couldn't be saved. Is the phone's storage full? Free some space and take it again.",
+  "syncReadOnly": "MARA isn't booked for your company: changes stay on this phone until the office books MARA.",
+  "employeeInfo": "Information for employees"
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/config.dart';
 import '../../app/theme.dart';
 import '../../data/media/media_providers.dart';
 import '../../data/session/session.dart';
@@ -59,6 +60,11 @@ class WorkOrderListScreen extends ConsumerWidget {
                 Navigator.of(
                   context,
                 ).push(MaterialPageRoute<void>(builder: (_) => const StatusScreen()));
+              } else if (value == 'employees') {
+                // M-BR-09: the information sheet for employees, in the web app.
+                ref.read(externalLauncherProvider)(
+                  Uri.parse('${AppConfig.webBaseUrl}/mara/mitarbeiterinformation'),
+                );
               } else if (value == 'lock') {
                 ref.read(sessionProvider.notifier).lock();
               } else if (value == 'contrast') {
@@ -79,6 +85,7 @@ class WorkOrderListScreen extends ConsumerWidget {
                 checked: ref.read(highContrastProvider),
                 child: Text(t.highContrast),
               ),
+              PopupMenuItem(value: 'employees', child: Text(t.employeeInfo)),
               PopupMenuItem(value: 'lock', child: Text(t.lockNow)),
             ],
           ),
@@ -215,6 +222,7 @@ class _SyncBanner extends StatelessWidget {
     final last = status.lastSuccess;
     final lines = [
       if (status.offline) t.syncOffline,
+      if (status.readOnly) t.syncReadOnly,
       if (pending > 0) t.syncPending(pending),
       if (last != null) t.syncLast(DateFormat.Hm(t.localeName).format(last)),
     ];
@@ -222,7 +230,11 @@ class _SyncBanner extends StatelessWidget {
     return Container(
       key: const Key('sync-banner'),
       width: double.infinity,
-      color: status.offline ? Theme.of(context).colorScheme.secondaryContainer : null,
+      color: status.readOnly
+          ? Theme.of(context).colorScheme.errorContainer
+          : status.offline
+          ? Theme.of(context).colorScheme.secondaryContainer
+          : null,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Text(lines.join(' · '), style: Theme.of(context).textTheme.bodySmall),
     );

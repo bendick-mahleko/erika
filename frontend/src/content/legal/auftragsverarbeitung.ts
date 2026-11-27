@@ -2,7 +2,7 @@ import type { LegalDocument } from "./types";
 
 export const auftragsverarbeitung: LegalDocument = {
   title: "Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO)",
-  updated: "2026-11-23",
+  updated: "2026-11-27",
   draft: true,
   body: `
 zwischen dem Kunden (Verantwortlicher, „Kunde“) und [Firmenname] (Auftragsverarbeiter, „wir“). Der Vertrag wird mit der Annahme der [Nutzungsbedingungen](/nutzungsbedingungen) bei der Registrierung geschlossen.
@@ -14,7 +14,9 @@ Wir verarbeiten personenbezogene Daten, die in den Rechnungen und Dokumenten des
 ## 2. Art der Daten und Betroffene
 
 - **Daten:** Namen, Anschriften, Kontaktdaten, Steuernummern und Umsatzsteuer-Identifikationsnummern, Bankverbindungen, Rechnungsinhalte (Positionen, Beträge, Daten), Inhalte und Absender von E-Mails an die Eingangsadresse des Kunden.
-- **Betroffene:** Geschäftspartner des Kunden (Lieferanten, Kunden) und deren Ansprechpartner; Beschäftigte des Kunden, die ERIKA nutzen.
+- **Zusätzlich mit dem Zusatzmodul MARA (Arbeitsberichte):** Aufträge mit Einsatzort und Terminen; Arbeitsberichte mit Tätigkeitsbeschreibung, Material, Aufmaß und Checklisten; Fotos vom Einsatzort; Unterschriften der Auftraggeber des Kunden mit Name und Zeitpunkt; Arbeits- und Fahrtzeiten der Beschäftigten des Kunden; Geräte der Beschäftigten (Modell, Betriebssystem, App-Version, Push-Kennung).
+- **Betroffene:** Geschäftspartner des Kunden (Lieferanten, Kunden) und deren Ansprechpartner; Beschäftigte des Kunden, die ERIKA oder die MARA-App nutzen; bei MARA auch Personen, die auf Fotos vom Einsatzort zu sehen sind, obwohl die App darauf hinweist, keine Personen zu fotografieren.
+- **Beschäftigtendaten:** Zeiten der Beschäftigten sehen nur die Beschäftigten selbst (für ihre Einsätze), Inhaber und Büro des Kunden, nicht Steuerberater. ERIKA erstellt keine Leistungs- oder Verhaltensbewertungen, Ranglisten oder Standortverläufe. Ob für die Einführung von MARA ein Betriebsrat zu beteiligen ist, klärt der Kunde (§ 87 Abs. 1 Nr. 6 BetrVG); ERIKA stellt dafür einen Hinweis und ein Informationsblatt für Beschäftigte bereit.
 
 ## 3. Weisungen
 

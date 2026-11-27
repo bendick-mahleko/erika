@@ -17,6 +17,11 @@ class ApiProblem implements Exception {
   /// The device was revoked or its user left the firm: delete local data (ADR 0037).
   bool get deviceRevoked => code == 'DEVICE_REVOKED';
 
+  /// MARA (or ERIKA) is read-only for the firm: changes stay on the phone (MARA Stage 10).
+  bool get readOnly =>
+      status == 403 &&
+      const {'MARA_READ_ONLY', 'MARA_NOT_BOOKED', 'SUBSCRIPTION_REQUIRED'}.contains(code);
+
   @override
   String toString() => 'ApiProblem($status $code)';
 }

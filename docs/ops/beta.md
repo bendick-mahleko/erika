@@ -25,6 +25,25 @@ Background: [ADR 0030](../adr/0030-closed-beta.md). Target: **20 beta users** (b
 >
 > Wenn etwas hakt oder fehlt: oben rechts auf „Feedback“ klicken oder an beta@erika-app.de schreiben. Wir melden uns innerhalb eines Werktags.
 
+## MARA beta: 10 firms, free (MARA Stage 10)
+
+Target: **10 firms** use MARA for free during the beta (M-AC-02 billing is in place, but beta firms aren't charged).
+
+1. Invite the owner as above (`./invite.py`), or use an existing ERIKA beta workspace. Production needs `ERIKA_FEATURE_MARA=true`; MARA prices may be set or empty.
+2. If the MARA prices are set, mark the firm's add-on as free (as the schema owner, on the app server):
+   ```sql
+   INSERT INTO erika.billing_addon (workspace_id, addon, exempt) VALUES ('<workspace id>', 'MARA', true)
+   ON CONFLICT (workspace_id, addon) DO UPDATE SET exempt = true, updated_at = now();
+   ```
+   `GET /api/v1/billing/addons/mara` then answers EXEMPT. Without prices, MARA is free for everyone (DISABLED) and nothing needs doing.
+3. Owner: read the works-council notice (`/mara/betriebsrat`), hand the employee information sheet (`/mara/mitarbeiterinformation`) to the technicians, invite them as TECHNICIAN; technicians install the app (store links or TestFlight / internal testing, [docs/mara/field-test/distribution.md](../mara/field-test/distribution.md)).
+4. Note the firm in the beta list with trade, number of technicians and start date.
+5. At the end of the beta: set `exempt = false` with four weeks' notice; the firm can then book or let MARA become read-only.
+
+| # | Firm | Trade | Technicians | Started | Active (report in the last 14 days) |
+|---|---|---|---|---|---|
+| 1 | | | | | |
+
 ## Feedback
 
 Channels:

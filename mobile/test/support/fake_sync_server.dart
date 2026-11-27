@@ -41,6 +41,9 @@ class FakeSyncServer implements SyncTransport {
   /// No connection at all (flight mode) until set back to false.
   var offline = false;
 
+  /// Answers every push with this problem (e.g. 403 MARA_READ_ONLY), applying nothing.
+  ApiProblem? pushProblem;
+
   static const _lww = FieldPolicy.lastWriterWins;
 
   static const policies = {
@@ -159,6 +162,7 @@ class FakeSyncServer implements SyncTransport {
   @override
   Future<List<MutationResultDto>> push(String accessToken, List<MutationDto> mutations) async {
     if (offline) throw const ApiProblem(0, 'NETWORK');
+    if (pushProblem != null) throw pushProblem!;
     if (failBeforeNextPush) {
       failBeforeNextPush = false;
       throw const ApiProblem(0, 'NETWORK');

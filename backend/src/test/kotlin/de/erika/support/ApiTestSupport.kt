@@ -200,10 +200,15 @@ class Accounts(
     private val totp = Totp()
     private val lastStep = mutableMapOf<String, Long>()
 
-    /** Signs up and verifies; returns the user without 2FA. */
+    /**
+     * Signs up and verifies; returns the user without 2FA. The workspace gets the MARA add-on's
+     * trial (MARA Stage 10), as an owner would start it, so MARA tests can work; [maraTrial] false
+     * leaves the add-on untouched (the add-on's own tests).
+     */
     fun registered(
         prefix: String = "user",
         workspaceName: String = "Workspace $prefix",
+        maraTrial: Boolean = true,
     ): TestUser {
         val email = "$prefix-${UUID.randomUUID().toString().take(8)}@example.test"
         val password = "Passphrase for $prefix ${UUID.randomUUID()}"
@@ -233,6 +238,14 @@ class Accounts(
                         getObject(1, UUID::class.java) to getObject(2, UUID::class.java)
                     }
             }
+        if (maraTrial) {
+            TestDatabase.update(
+                "INSERT INTO billing_addon (workspace_id, addon, trial_ends_at, notice_accepted_at, notice_accepted_by) " +
+                    "VALUES (?, 'MARA', now() + interval '30 days', now(), ?) ON CONFLICT DO NOTHING",
+                workspaceId,
+                userId,
+            )
+        }
         return TestUser(email, password, userId, workspaceId, null)
     }
 
@@ -241,7 +254,8 @@ class Accounts(
         prefix: String = "user",
         client: TestClient = test.client(),
         workspaceName: String = "Workspace $prefix",
-    ): TestUser = enrol(registered(prefix, workspaceName), client)
+        maraTrial: Boolean = true,
+    ): TestUser = enrol(registered(prefix, workspaceName, maraTrial), client)
 
     /**
      * A new user who joins the owner's workspace through the real invitation flow (EX-02):

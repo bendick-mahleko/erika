@@ -355,6 +355,11 @@ class TenancyDatabaseIT : ApiIntegrationTest() {
             "INSERT INTO mobile_telemetry_day (workspace_id, device_id, day, counters) VALUES (?, gen_random_uuid(), current_date, '{}')",
             user.workspaceId,
         )
+        // MARA Stage 10: the add-on's billing row.
+        TestDatabase.update(
+            "INSERT INTO billing_addon (workspace_id, addon, exempt) VALUES (?, 'MARA', true) ON CONFLICT DO NOTHING",
+            user.workspaceId,
+        )
         TestDatabase.asApp { c ->
             val tenantTables = tables(c) - systemTables.keys + "workspace"
             for (table in tenantTables) {

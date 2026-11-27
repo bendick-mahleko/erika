@@ -48,3 +48,4 @@ ADRs 0001–0008 come from *ERIKA – Software Design v1.1*; later ADRs were mad
 | [0040](0040-mara-storage-and-retention.md) | MARA storage: device database, photos, signed reports and retention | Accepted (MARA Stages 1, 6 and 7; retention to be confirmed) |
 | [0041](0041-mara-invoicing-from-reports.md) | MARA: invoicing from reports through ERIKA's invoice creator | Accepted (MARA Stage 8; § 35a wording to be confirmed) |
 | [0042](0042-mara-telemetry-and-crash-reports.md) | MARA: telemetry and crash reports without content | Accepted (MARA Stage 9; privacy text to be reviewed) |
+| [0043](0043-mara-addon-billing-and-employee-data.md) | MARA: add-on billing, entitlement and employee data | Accepted (MARA Stage 10; seat price and legal texts open) |

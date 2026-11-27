@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA API
-  version: 0.13.0
+  version: 0.14.0
   summary: E-Rechnung Inbox & Creator
   description: |
     Contract for the ERIKA back end. This file is the source of truth:
@@ -2467,6 +2467,87 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RedirectUrl" }
         default: { $ref: "#/components/responses/Problem" }
+  /billing/addons/mara:
+    get:
+      tags: [billing]
+      operationId: getMaraAddon
+      summary: The MARA add-on of the workspace (trial, booking, seats; MARA Stage 10)
+      description: |
+        `state`: DISABLED (billing off here, or the add-on not offered yet: MARA is free), NONE
+        (never started: MARA can be read but not used), TRIAL (30 days, free), ACTIVE (booked on
+        the subscription), EXEMPT (free, e.g. beta firms), READ_ONLY (trial over, or cancelled:
+        office and app data stay readable and exportable, but nothing new can be saved or
+        synced, 403 `MARA_READ_ONLY`).
+      responses:
+        "200":
+          description: The add-on.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaraAddon" }
+        default: { $ref: "#/components/responses/Problem" }
+  /billing/addons/mara/trial:
+    post:
+      tags: [billing]
+      operationId: startMaraTrial
+      summary: Start the free 30-day trial of the add-on (owner only, once)
+      description: |
+        The owner confirms the notice on the works council and the information for employees
+        (M-BR-09). 409 `MARA_TRIAL_USED` if the trial ran before; 400
+        `WORKS_COUNCIL_NOTICE_REQUIRED` without the confirmation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaraTrialRequest" }
+            example: { worksCouncilNoticeAccepted: true }
+      responses:
+        "200":
+          description: The trial runs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaraAddon" }
+        default: { $ref: "#/components/responses/Problem" }
+  /billing/addons/mara/subscription:
+    post:
+      tags: [billing]
+      operationId: bookMaraAddon
+      summary: Add MARA to the running subscription (owner only)
+      description: |
+        Adds the add-on (€39 a month with 3 users included; more users as seats) to the running
+        subscription; Stripe charges the rest of the period pro rata. The change is made by the
+        worker; the state becomes ACTIVE once Stripe confirms. Without a subscription, book MARA
+        with the plan in `POST /billing/checkout` (`addons`): 409 `SUBSCRIPTION_REQUIRED`.
+        Booking ends a running trial. The owner must have confirmed the works-council notice
+        (400 `WORKS_COUNCIL_NOTICE_REQUIRED`).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaraTrialRequest" }
+            example: { worksCouncilNoticeAccepted: true }
+      responses:
+        "202":
+          description: Requested.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaraAddon" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [billing]
+      operationId: cancelMaraAddon
+      summary: Remove MARA from the subscription (owner only)
+      description: |
+        Removes the add-on and its seats at once; Stripe credits the unused rest of the period.
+        Afterwards MARA is READ_ONLY: everything stays readable and exportable.
+      responses:
+        "202":
+          description: Requested.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaraAddon" }
+        default: { $ref: "#/components/responses/Problem" }
   /billing/invoices:
     get:
       tags: [billing]
@@ -3286,7 +3367,7 @@ components:
       properties:
         mara:
           type: boolean
-          description: MARA job reports (work orders, calendar, staff); the add-on entitlement follows in MARA Stage 10.
+          description: MARA job reports (work orders, calendar, staff) are available here; whether this workspace has booked them is `GET /billing/addons/mara`.
     CustomerType:
       type: string
       description: BUSINESS or PRIVATE (MARA M-OF-01; private customers get the § 35a labour share on invoices, Stage 8).
@@ -4367,11 +4448,66 @@ components:
         hasCustomer:
           type: boolean
           description: A Stripe customer exists, so the portal can be opened.
+    MaraAddonState:
+      type: string
+      enum: [DISABLED, NONE, TRIAL, ACTIVE, EXEMPT, READ_ONLY]
+    MaraAddon:
+      type: object
+      required: [offered, state, trialUsed, worksCouncilNoticeAccepted, seats]
+      properties:
+        offered:
+          type: boolean
+          description: The add-on is sold here (prices configured); false means MARA is free.
+        state: { $ref: "#/components/schemas/MaraAddonState" }
+        trialEndsAt: { type: string, format: date-time }
+        trialUsed: { type: boolean }
+        booked:
+          type: boolean
+          description: The add-on is on the subscription (or being added).
+        pending:
+          type: string
+          enum: [BOOKING, CANCELLING]
+          description: A change requested and not yet confirmed by Stripe.
+        worksCouncilNoticeAccepted: { type: boolean }
+        seats: { $ref: "#/components/schemas/MaraSeats" }
+        price: { $ref: "#/components/schemas/MaraPrice" }
+    MaraSeats:
+      type: object
+      required: [counted, included, extra]
+      description: Owners, members and technicians count; tax advisors are free.
+      properties:
+        counted: { type: integer, format: int32 }
+        included: { type: integer, format: int32 }
+        extra: { type: integer, format: int32, description: "Seats charged on top (counted − included, at least 0)" }
+        billed: { type: integer, format: int32, description: "Extra seats Stripe currently charges" }
+    MaraPrice:
+      type: object
+      required: [plan]
+      properties:
+        plan: { $ref: "#/components/schemas/BillingPlan" }
+        netAmount: { $ref: "#/components/schemas/Money" }
+        seatNetAmount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+    MaraTrialRequest:
+      type: object
+      required: [worksCouncilNoticeAccepted]
+      properties:
+        worksCouncilNoticeAccepted:
+          type: boolean
+          description: The owner read the notice on the works council (§ 87 BetrVG) and will hand out the information for employees.
     CheckoutRequest:
       type: object
       required: [plan]
       properties:
         plan: { $ref: "#/components/schemas/BillingPlan" }
+        addons:
+          type: array
+          maxItems: 1
+          items: { type: string, enum: [MARA] }
+          description: Book MARA with the plan.
+        worksCouncilNoticeAccepted:
+          type: boolean
+          description: With `addons` MARA, the owner's confirmation of the works-council notice (unless given at the trial).
     RedirectUrl:
       type: object
       required: [url]

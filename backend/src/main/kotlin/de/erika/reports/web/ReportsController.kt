@@ -24,6 +24,7 @@ import de.erika.creator.SourceInvoices
 import de.erika.identity.WorkspaceContacts
 import de.erika.platform.runtime.RuntimeInstance
 import de.erika.platform.security.ErikaPrincipal
+import de.erika.platform.security.WorkspaceRole
 import de.erika.platform.web.ErikaException
 import de.erika.reports.ReportMedia
 import de.erika.reports.ReportsRepository
@@ -151,7 +152,9 @@ internal class ReportsController(
                 ),
             )
         }
-        val times = repo.timeEntriesOf(report.id)
+        // M-NF-09: employees' raw time records are for owners and the office, not for tax advisors
+        // (the signed report PDF, a document the customer gets, still shows the job's times).
+        val times = if (ErikaPrincipal.current().role == WorkspaceRole.ADVISOR) emptyList() else repo.timeEntriesOf(report.id)
         val materials = repo.materialsOf(report.id)
         val answers = repo.answersOf(report.id).associateBy { it.itemKey }
         val photos = media.orderedStream().toList().flatMap { it.photos(report.id) }

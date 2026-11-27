@@ -75,6 +75,8 @@ class SyncStatus {
   final DateTime? lastSuccess;
 
   bool get offline => outcome == SyncOutcome.offline;
+
+  bool get readOnly => outcome == SyncOutcome.readOnly;
 }
 
 final syncCoordinatorProvider = NotifierProvider<SyncCoordinator, SyncStatus>(SyncCoordinator.new);

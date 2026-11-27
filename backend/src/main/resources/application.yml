@@ -168,6 +168,11 @@ erika:
     stripe-webhook-secret: ${ERIKA_STRIPE_WEBHOOK_SECRET:}
     price-monthly: ${ERIKA_STRIPE_PRICE_MONTHLY:}
     price-annual: ${ERIKA_STRIPE_PRICE_ANNUAL:}
+    # MARA add-on (Stage 10, ADR 0043): empty = not offered (MARA is free where it is switched on).
+    price-mara-monthly: ${ERIKA_STRIPE_PRICE_MARA_MONTHLY:}
+    price-mara-annual: ${ERIKA_STRIPE_PRICE_MARA_ANNUAL:}
+    price-mara-seat-monthly: ${ERIKA_STRIPE_PRICE_MARA_SEAT_MONTHLY:}
+    price-mara-seat-annual: ${ERIKA_STRIPE_PRICE_MARA_SEAT_ANNUAL:}
     tax-rate-id: ${ERIKA_STRIPE_TAX_RATE:}
     # The workspace that issues ERIKA's own invoices (ERIKA's company data); empty = not set up.
     issuer-workspace-id: ${ERIKA_BILLING_ISSUER_WORKSPACE:}

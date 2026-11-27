@@ -253,7 +253,13 @@
     "INVOICE_NOT_OVERDUE": "Only overdue invoices get a payment reminder.",
     "REMINDERS_EXHAUSTED": "Three reminders have already been sent for this invoice.",
     "RECIPIENT_REQUIRED": "The invoice has no email address. Please enter one.",
-    "RANGE_INVALID": "Please choose a range of at most one year."
+    "RANGE_INVALID": "Please choose a range of at most one year.",
+    "MARA_NOT_BOOKED": "MARA isn't booked. The owner can start the free trial in the billing settings.",
+    "MARA_READ_ONLY": "MARA is read-only: the trial has ended or the add-on was cancelled. Data stays readable and exportable.",
+    "MARA_TRIAL_USED": "The MARA trial was used already. Book the add-on to continue.",
+    "MARA_ALREADY_BOOKED": "MARA is already booked.",
+    "MARA_NOT_OFFERED": "The MARA add-on isn't offered here.",
+    "WORKS_COUNCIL_NOTICE_REQUIRED": "Please confirm the notice on the works council and on informing employees first."
   },
   "Inbox": {
     "title": "Inbox",
@@ -1410,5 +1416,44 @@
     "promptReminder": "Send the payment reminder for invoice {number} to:",
     "promptDunning": "Send the dunning letter for invoice {number} to:",
     "sent": "Level {level} was sent for invoice {number}."
+  },
+  "MaraAddon": {
+    "title": "MARA add-on (job reports)",
+    "state": {
+      "DISABLED": "MARA is available here without booking.",
+      "NONE": "MARA isn't booked. Start the free trial (30 days).",
+      "TRIAL": "Trial until {date}.",
+      "ACTIVE": "MARA is booked.",
+      "EXEMPT": "MARA is free for your company (beta).",
+      "READ_ONLY": "MARA is read-only: data stays readable and exportable; new reports are saved again once you book."
+    },
+    "pending": {
+      "BOOKING": "The booking is being entered at Stripe.",
+      "CANCELLING": "The cancellation is being entered at Stripe."
+    },
+    "price": "{amount} net {interval} including {included} users, each further user {seat} net {interval}. Tax advisors are free.",
+    "priceUnknown": "The price is shown once Stripe can be reached.",
+    "interval": {
+      "MONTHLY": "per month",
+      "ANNUAL": "per year"
+    },
+    "seats": "{counted, plural, one {# user} other {# users}} (owner, office, employees with the app); {included} included, {extra} extra.",
+    "noticeIntro": "MARA records your employees' working times and reports. Before you start, please read the notice on the works council and give your employees the information sheet.",
+    "noticeLink": "Notice on the works council",
+    "sheetLink": "Information sheet for employees",
+    "noticeConfirm": "I have read the notice on the works council and will inform my employees with the information sheet before they use the app.",
+    "startTrial": "Start trial",
+    "book": "Book MARA",
+    "bookWithPlan": "Subscribe to ERIKA and MARA {plan}",
+    "cancel": "Cancel MARA",
+    "cancelConfirm": "Cancel MARA? The unused rest of the period is credited; data stays readable and exportable.",
+    "trialStarted": "The trial is running.",
+    "bookingRequested": "The booking has been requested.",
+    "cancelRequested": "The cancellation has been requested.",
+    "banner": {
+      "NONE": "MARA isn't booked: you can view everything but not create anything new.",
+      "READ_ONLY": "MARA is read-only: the trial has ended or MARA was cancelled."
+    },
+    "bannerLink": "Go to billing"
   }
 }

@@ -14,7 +14,7 @@ ERIKA has three roles: OWNER, MEMBER and ADVISOR (read-only, ADR 0032). MARA add
 - **Visibility.**
   - Technicians see work orders they are assigned to or created, with their customers and sites, through the sync scope (ADR 0038).
   - They see prices and rates only with `can_see_prices`.
-  - They see their own time entries, never other people's (M-NF-09).
+  - They see their own time entries, never other people's (M-NF-09). *Amended by ADR 0043:* on a job they work on, they also see colleagues' times, which the signed report contains; never times of other jobs.
   - Owners and members see everything in the workspace.
 - **Tax advisors** stay read-only, and `AdvisorReadOnlyIT` is unchanged. Advisors don't use the app.
 - **Seats.** Billing counts active OWNER, MEMBER and TECHNICIAN memberships for the add-on (Stage 10).

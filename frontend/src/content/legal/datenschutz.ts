@@ -17,6 +17,7 @@ Für Fragen zum Datenschutz: [datenschutz@erika-app.de]
 
 - **Ihr Konto** (Name, E-Mail-Adresse, Anmeldung): Hierfür sind wir Verantwortlicher im Sinne der DSGVO.
 - **Ihre Rechnungen und Dokumente** in Ihrem Arbeitsbereich: Diese verarbeiten wir in Ihrem Auftrag als Auftragsverarbeiter. Verantwortlich sind Sie; es gilt der [Vertrag zur Auftragsverarbeitung](/auftragsverarbeitung).
+- **Aufträge, Arbeitsberichte, Fotos, Unterschriften und Arbeitszeiten** aus dem Zusatzmodul MARA: ebenfalls im Auftrag des Unternehmens, das MARA nutzt. Beschäftigte finden die Informationen dazu im [Informationsblatt für Beschäftigte](/mara/mitarbeiterinformation).
 
 ## 3. Welche Daten wir verarbeiten
 
@@ -41,7 +42,7 @@ ERIKA setzt nur technisch notwendige Cookies (§ 25 Abs. 2 Nr. 2 TDDDG): die Sit
 
 ## 6. Empfänger
 
-Wir setzen Dienstleister ein, die Daten in unserem Auftrag verarbeiten; sie sind in der [Liste der Unterauftragsverarbeiter](/unterauftragsverarbeiter) genannt. Alle Daten und Sicherungen liegen in Rechenzentren in Deutschland. Eine Übermittlung in Länder außerhalb der EU findet nicht statt. Fehlerberichte und Überwachung betreiben wir selbst auf unseren Servern.
+Wir setzen Dienstleister ein, die Daten in unserem Auftrag verarbeiten; sie sind in der [Liste der Unterauftragsverarbeiter](/unterauftragsverarbeiter) genannt. Alle Daten und Sicherungen liegen in Rechenzentren in Deutschland. Eine Übermittlung in Länder außerhalb der EU findet nicht statt, mit einer Ausnahme: Für Push-Nachrichten an die MARA-App übermitteln wir die Push-Kennung des Geräts an Google (Firebase Cloud Messaging) und Apple (Apple Push Notification service); dabei kann eine Übermittlung in die USA stattfinden (EU-U.S. Data Privacy Framework, Standardvertragsklauseln). Die Nachrichten selbst enthalten keine personenbezogenen Daten. Fehlerberichte und Überwachung betreiben wir selbst auf unseren Servern.
 
 ## 7. Speicherdauer
 
@@ -49,6 +50,7 @@ Wir setzen Dienstleister ein, die Daten in unserem Auftrag verarbeiten; sie sind
 - Server-Protokolle: vollständige IP-Adressen 7 Tage, danach gekürzt; Löschung nach 14 Tagen.
 - Fehlerberichte (auch Absturzberichte der MARA-App): 30 Tage.
 - Zähler der MARA-App zu Synchronisierung und Uploads: 180 Tage.
+- Push-Kennungen der MARA-App: bis das Gerät abgemeldet oder gesperrt wird.
 - Datensicherungen: 35 Tage.
 - Audit-Protokoll: für die Dauer der Aufbewahrungsfrist der zugehörigen Unterlagen, weil es deren Unveränderbarkeit belegt.
 - Feedback: bis zum Ende der Beta; danach löschen oder anonymisieren wir es, soweit wir es nicht für eine laufende Rückfrage brauchen.

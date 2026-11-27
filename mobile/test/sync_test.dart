@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mara/data/api/auth_api.dart';
 import 'package:mara/data/local/database.dart';
 import 'package:mara/data/local/database_key.dart';
 import 'package:mara/data/sync/sync_api.dart';
@@ -369,6 +370,24 @@ void main() {
       }
     },
     timeout: const Timeout(Duration(hours: 2)),
+  );
+
+  test(
+    'MARA read-only (Stage 10): changes stay in the outbox, office changes still arrive',
+    () async {
+      await store.create('time_entry', {'reportId': 'r1', 'kind': 'WORK'}, id: 't1');
+      server.officeWrite('customer', 'c9', {'name': 'Neu aus dem Büro'});
+      server.pushProblem = const ApiProblem(403, 'MARA_READ_ONLY');
+      expect(await engine.sync(), SyncOutcome.readOnly);
+      expect(await store.pendingCount(), 1, reason: 'nothing is lost or dropped');
+      expect((await store.record('customer', 'c9'))!.text('name'), 'Neu aus dem Büro');
+      expect(server.data('time_entry', 't1'), isNull);
+
+      server.pushProblem = null;
+      expect(await engine.sync(), SyncOutcome.done, reason: 'booked again: the outbox goes out');
+      expect(server.data('time_entry', 't1'), isNotNull);
+      expect(await store.pendingCount(), 0);
+    },
   );
 
   test('the outbox is sent in batches of at most 200', () async {

@@ -70,6 +70,28 @@ object FakeStripe {
                             200 to """{"id":"price_annual","unit_amount":29000,"currency":"eur","recurring":{"interval":"year"}}"""
                         }
 
+                        path.startsWith("/v1/prices/price_mara") -> {
+                            val seat = path.contains("seat")
+                            val annual = path.endsWith("annual")
+                            val amount = if (seat) (if (annual) 9000 else 900) else (if (annual) 39000 else 3900)
+                            200 to
+                                """{"id":"${path.substringAfterLast('/')}","unit_amount":$amount,"currency":"eur",""" +
+                                """"recurring":{"interval":"${if (annual) "year" else "month"}"}}"""
+                        }
+
+                        path == "/v1/subscription_items" && exchange.requestMethod == "POST" -> {
+                            200 to """{"id":"si_test$n","object":"subscription_item","quantity":${params["quantity"] ?: 1}}"""
+                        }
+
+                        path.startsWith("/v1/subscription_items/") && exchange.requestMethod == "POST" -> {
+                            200 to
+                                """{"id":"${path.substringAfterLast('/')}","object":"subscription_item","quantity":${params["quantity"]}}"""
+                        }
+
+                        path.startsWith("/v1/subscription_items/") && exchange.requestMethod == "DELETE" -> {
+                            200 to """{"id":"${path.substringAfterLast('/')}","deleted":true}"""
+                        }
+
                         path.startsWith("/v1/subscriptions/") && exchange.requestMethod == "DELETE" -> {
                             200 to """{"id":"${path.substringAfterLast('/')}","status":"canceled"}"""
                         }

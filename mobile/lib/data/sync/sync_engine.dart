@@ -14,6 +14,10 @@ enum SyncOutcome {
 
   /// Something else went wrong (e.g. sign-in needed); the session handles it.
   failed,
+
+  /// The firm's MARA add-on is read-only (trial over, cancelled): changes stay in the outbox,
+  /// everything was pulled (MARA Stage 10).
+  readOnly,
 }
 
 /// Runs a sync with a valid access token (renews it once when needed; reacts to revocation).
@@ -50,16 +54,26 @@ class SyncEngine {
       SyncOutcome.done => TelemetryCounter.syncDone,
       SyncOutcome.offline => TelemetryCounter.syncOffline,
       SyncOutcome.failed => TelemetryCounter.syncFailed,
+      SyncOutcome.readOnly => TelemetryCounter.syncReadOnly,
     });
     return outcome;
   }
 
   Future<SyncOutcome> _run() async {
+    var readOnly = false;
     try {
       while (true) {
         final batch = await store.pending();
         if (batch.isEmpty) break;
-        final results = await authorized((token) => transport.push(token, batch));
+        final List<MutationResultDto> results;
+        try {
+          results = await authorized((token) => transport.push(token, batch));
+        } on ApiProblem catch (problem) {
+          if (!problem.readOnly) rethrow;
+          // Nothing was applied: keep the outbox, still fetch what the office changed.
+          readOnly = true;
+          break;
+        }
         await store.applyPushResults(results);
         await _countResults(results);
       }
@@ -69,6 +83,7 @@ class SyncEngine {
         await store.applyPull(page);
         if (!page.hasMore) break;
       }
+      if (readOnly) return SyncOutcome.readOnly;
       await store.db.putSetting(SyncStore.lastSyncKey, DateTime.now().toUtc().toIso8601String());
       return SyncOutcome.done;
     } on ApiProblem catch (problem) {

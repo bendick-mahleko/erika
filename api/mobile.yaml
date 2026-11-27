@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ERIKA mobile API (MARA job reports)
-  version: 0.6.0
+  version: 0.7.0
   summary: Endpoints for the MARA technician app (ADR 0036–0038)
   description: |
     Contract for the MARA mobile app. This file is the source of truth: the Kotlin server
@@ -238,6 +238,11 @@ paths:
         winner `SERVER`, with the record). An edit of a record deleted after the phone last
         saw it brings it back (`CONFLICT`, field `deleted`, winner `DEVICE`). Deleting a
         record that is already gone is `APPLIED`.
+
+        A workspace whose MARA add-on is read-only (trial over or cancelled, MARA Stage 10)
+        gets 403 `MARA_READ_ONLY` (`MARA_NOT_BOOKED` if it was never started) for the whole push
+        and nothing is applied; pulling still works. The phone keeps its outbox until the add-on
+        is booked again.
 
         A `CREATE` of a record that already exists (e.g. a report or checklist answer whose
         ID two phones derived alike, `mara-rules/vectors/ids/`) is merged like an update made
@@ -531,6 +536,7 @@ components:
       properties:
         syncDone: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs that ended with everything sent and pulled" }
         syncOffline: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs stopped by a missing connection (nothing lost)" }
+        syncReadOnly: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs whose changes the server refused because MARA or ERIKA is read-only (kept on the phone)" }
         syncFailed: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Sync runs that failed otherwise (e.g. a server error)" }
         pushApplied: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Mutations the server applied" }
         pushConflict: { type: integer, format: int32, minimum: 0, maximum: 10000000, description: "Mutations decided by a conflict rule" }

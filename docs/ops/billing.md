@@ -9,6 +9,7 @@ Monthly and annual net prices, trial length (default 14 days, `ERIKA_BILLING_TRI
 ## 2. Stripe account (test mode first, then live)
 
 1. **Products and prices:** one product "ERIKA", two recurring prices, monthly and annual, tax behaviour *exclusive*. Note the `price_…` IDs → `erika_stripe_price_monthly` / `_annual` (group_vars) or `ERIKA_STRIPE_PRICE_*`.
+   - **MARA add-on (Stage 10, ADR 0043):** a product "MARA" with two prices (monthly €39, annual), and a product "MARA Nutzer" with two per-unit prices for each further user (price still to decide). All in the same intervals as the ERIKA prices. → `ERIKA_STRIPE_PRICE_MARA_MONTHLY`, `_MARA_ANNUAL`, `_MARA_SEAT_MONTHLY`, `_MARA_SEAT_ANNUAL` (group_vars `erika_stripe_price_mara_*`). Empty = the add-on isn't sold and MARA is free where `ERIKA_FEATURE_MARA` is on.
 2. **Tax rate:** "Umsatzsteuer 19 %", exclusive, country DE → `txr_…` into `ERIKA_STRIPE_TAX_RATE`.
 3. **Payment methods:** cards and SEPA Direct Debit on.
 4. **Dunning (Billing → Subscriptions and emails):**
@@ -20,7 +21,8 @@ Monthly and annual net prices, trial length (default 14 days, `ERIKA_BILLING_TRI
    - API version: the one in `erika.billing.stripe-api-version` (default `2025-09-30.clover`).
    - Events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`.
    - The signing secret → `erika_stripe_webhook_secret` (SOPS).
-8. **API key:** a restricted key is enough. It needs write access to Customers, Checkout Sessions and Customer portal sessions, write access to Subscriptions (cancel on closure), and read access to Prices. → `erika_stripe_secret_key` (SOPS).
+8. **API key:** a restricted key is enough. It needs write access to Customers, Checkout Sessions and Customer portal sessions, write access to Subscriptions and Subscription items (cancel on closure; the MARA add-on and its seats), and read access to Prices.
+   - In the customer portal, don't allow changing the MARA quantities: ERIKA sets the seats itself. → `erika_stripe_secret_key` (SOPS).
 
 ## 3. ERIKA's issuer workspace
 
@@ -59,6 +61,14 @@ Needs the Stripe CLI and a staging workspace whose Stripe customer is attached t
 1. Second workspace, subscribe with the SEPA test IBAN that fails (`DE62370400440532013001`).
 2. Advance the clock through the trial end and the retries. Expected: `invoice.payment_failed` (owner email, banner "Zahlung offen", PAST_DUE), then the subscription becomes `unpaid` and the workspace READ_ONLY. Changes now answer `SUBSCRIPTION_REQUIRED`; reading, export and paying still work.
 3. Check the audit log: `billing.payment.failed`, `billing.subscription.changed` (active → past_due → unpaid).
+
+**C. MARA add-on: trial, seats added and removed mid-month (MARA Stage 10 exit criterion)**
+1. Third workspace (ERIKA_FEATURE_MARA on, MARA prices set): Abrechnung → MARA → confirm the works-council notice → "Probezeit starten". Check `GET /billing/addons/mara` → TRIAL, ends in 30 days; creating a work order works.
+2. Subscribe to ERIKA monthly with the test card; then "MARA buchen". Expected: a `subscription_item` for the MARA price (proration on), `customer.subscription.updated` with the item → state ACTIVE, audit `billing.mara.book`, `billing.mara.changed`.
+3. Invite 3 technicians (4 users): a seat item with quantity 1 appears (proration line on the upcoming invoice). Advance the clock by 10 days, invite one more (quantity 2), advance 5 days, remove a technician (quantity 1).
+4. Advance past the period end. Check the Stripe invoice: MARA €39, seats prorated per day for 1 and 2 seats as above; ERIKA's own e-invoice shows the same lines.
+5. "MARA kündigen": both items removed with a credit for the rest of the period; state READ_ONLY; the app shows "nicht gebucht" and keeps its outbox; reading and export work.
+6. A fourth workspace: let the MARA trial run out (set `trial_ends_at` to the past on staging) → READ_ONLY without Stripe.
 
 Record the dates and results in the release checklist.
 

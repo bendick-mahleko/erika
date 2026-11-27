@@ -10,6 +10,11 @@ Everything in this folder and in `frontend/src/content/legal/` is a **draft writ
 | Outgoing mail provider (EU, still to choose) | System emails | EU | From the provider's dashboard or terms | ☐ provider not chosen |
 | Stripe Payments Europe Ltd. | Payments: subscriptions, card and SEPA data (implemented in Stage 10, off during the beta) | EU (Ireland); Stripe may transfer data to the US (SCCs) | Stripe's data-processing agreement (accepted in the Stripe account); before billing goes live, add Stripe to `/datenschutz`, `/unterauftragsverarbeiter` and the record of processing activities | ☐ before go-live of billing |
 
+| Google Ireland Ltd. (Firebase Cloud Messaging), MARA only | Push messages to the MARA app ("please sync"), also to iPhones through APNs | EU; transfer to the US possible (EU-U.S. Data Privacy Framework, SCCs) | Firebase data-processing terms (accepted in the Firebase console) | ☐ before MARA push goes live |
+| Apple Distribution International Ltd. (APNs), MARA only | Delivery of push messages to iPhones | EU; transfer to the US possible (DPF, SCCs) | Apple Developer Program License Agreement, data-processing terms | ☐ before MARA push goes live |
+
+Push messages carry no personal data (`{"type": "sync"}`), only the device's push token is personal data. The privacy notice and the sub-processor list name both (MARA Stage 10, drafts).
+
 Choosing the mail provider: EU company, servers in the EU, data-processing agreement available, SPF/DKIM support, a reasonable price for transactional mail. Then fill in the provider in `/unterauftragsverarbeiter` and `docs/ops/production.md#dns`.
 
 Not sub-processors (no personal data): the external heartbeat service for the dead man's switch and the push service for alerts (Pushover); they receive only alert and host names. GlitchTip, Grafana, Loki and Uptime Kuma run on our own servers.
@@ -28,6 +33,9 @@ Not sub-processors (no personal data): the external heartbeat service for the de
 | Tax-advisor review and DATEV import | [tax-advisor-review.md](tax-advisor-review.md) | Ready (Stage 11) |
 | Record of processing activities (Art. 30 GDPR) | [verarbeitungsverzeichnis.md](verarbeitungsverzeichnis.md) | Draft (Stage 9); lawyer's review in Stage 11 |
 | Data-subject requests and deletion of closed accounts | [docs/ops/gdpr.md](../ops/gdpr.md) | Runbook (Stage 9) |
+| MARA: works-council notice (shown to the owner before the trial or booking, M-BR-09) | `/mara/betriebsrat`; `…/maraBetriebsrat.ts` | Draft (MARA Stage 10) |
+| MARA: information sheet for employees (Art. 13 GDPR, employer fills in its details) | `/mara/mitarbeiterinformation`; `…/maraMitarbeiterinformation.ts` | Draft with placeholders (MARA Stage 10) |
+| MARA additions to the AVV, privacy notice, sub-processors and terms (section 10a) | as above | Drafts (MARA Stage 10); brief in [lawyer-review.md](lawyer-review.md#mara-add-on-stage-10) |
 
 Changing the terms or the data-processing agreement: raise `ERIKA_TERMS_VERSION`, update the date in the content module, and inform users four weeks ahead (terms § 11).
 

@@ -11,6 +11,7 @@ abstract final class TelemetryCounter {
   static const syncDone = 'syncDone';
   static const syncOffline = 'syncOffline';
   static const syncFailed = 'syncFailed';
+  static const syncReadOnly = 'syncReadOnly';
   static const pushApplied = 'pushApplied';
   static const pushConflict = 'pushConflict';
   static const pushRejected = 'pushRejected';

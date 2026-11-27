@@ -11,6 +11,10 @@ class AppConfig {
 
   static const sentryDsn = String.fromEnvironment('MARA_SENTRY_DSN');
 
+  /// The ERIKA web app (legal texts such as the employee information sheet); the API's address by
+  /// default, as in production where both share a domain. `MARA_WEB_BASE_URL` overrides it.
+  static const webBaseUrl = String.fromEnvironment('MARA_WEB_BASE_URL', defaultValue: apiBaseUrl);
+
   static const environment = String.fromEnvironment(
     'MARA_ENVIRONMENT',
     defaultValue: 'development',
